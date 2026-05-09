@@ -1,3 +1,5 @@
+import { Tag } from "./Tag";
+
 export type LeadStatus = 'Nuevo' | 'Contactado' | 'Interesado' | 'Propuesta' | 'Ganado' | 'Perdido';
 
 export interface Lead {
@@ -10,6 +12,9 @@ export interface Lead {
   source?: string;
   notes?: string;
   userId: string;
+  pipelineId?: string;
+  stageId?: string;
+  tags?: Tag[];
   createdAt: string;
   updatedAt: string;
 }
@@ -22,6 +27,8 @@ export interface CreateLeadDTO {
   status?: LeadStatus;
   source?: string;
   notes?: string;
+  pipelineId?: string;
+  stageId?: string;
 }
 
 export interface UpdateLeadDTO extends Partial<CreateLeadDTO> {

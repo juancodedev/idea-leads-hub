@@ -8,22 +8,22 @@ export class SupabaseLeadRepository implements LeadRepository {
   async getAll(): Promise<Lead[]> {
     const { data, error } = await this.supabase
       .from('leads')
-      .select('*')
+      .select('*, entity_tags(tags(*))')
       .order('created_at', { ascending: false });
 
     if (error) throw new Error(error.message);
-    return data.map(this.mapToDomain);
+    return data.map(row => this.mapToDomain(row, row.entity_tags));
   }
 
   async getById(id: string): Promise<Lead | null> {
     const { data, error } = await this.supabase
       .from('leads')
-      .select('*')
+      .select('*, entity_tags(tags(*))')
       .eq('id', id)
       .maybeSingle();
 
     if (error) throw new Error(error.message);
-    return data ? this.mapToDomain(data) : null;
+    return data ? this.mapToDomain(data, data.entity_tags) : null;
   }
 
   async create(lead: CreateLeadDTO): Promise<Lead> {
@@ -40,6 +40,8 @@ export class SupabaseLeadRepository implements LeadRepository {
         status: lead.status || 'Nuevo',
         source: lead.source,
         notes: lead.notes,
+        pipeline_id: lead.pipelineId,
+        stage_id: lead.stageId,
         user_id: userData.user.id 
       }])
       .select()
@@ -61,6 +63,8 @@ export class SupabaseLeadRepository implements LeadRepository {
     if (updates.status) dbUpdates.status = updates.status;
     if (updates.source !== undefined) dbUpdates.source = updates.source;
     if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+    if (updates.pipelineId !== undefined) dbUpdates.pipeline_id = updates.pipelineId;
+    if (updates.stageId !== undefined) dbUpdates.stage_id = updates.stageId;
     
     dbUpdates.updated_at = new Date().toISOString();
 
@@ -105,7 +109,7 @@ export class SupabaseLeadRepository implements LeadRepository {
     if (error) throw new Error(error.message);
   }
 
-  private mapToDomain(row: any): Lead {
+  private mapToDomain(row: any, entityTags?: any[]): Lead {
     return {
       id: row.id,
       name: row.name,
@@ -116,6 +120,15 @@ export class SupabaseLeadRepository implements LeadRepository {
       source: row.source,
       notes: row.notes,
       userId: row.user_id,
+      pipelineId: row.pipeline_id,
+      stageId: row.stage_id,
+      tags: entityTags ? entityTags.map((et: any) => ({
+        id: et.tags.id,
+        name: et.tags.name,
+        color: et.tags.color,
+        userId: et.tags.user_id,
+        createdAt: et.tags.created_at
+      })) : [],
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };

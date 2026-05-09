@@ -16,10 +16,14 @@ import { Input } from '@/ui/components/input';
 import { Textarea } from '@/ui/components/textarea';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/infrastructure/database/client';
-import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLeadRepository';
+import { Lead } from '@/core/domain/Lead';
 import { toast } from 'sonner';
 
-export function LeadForm() {
+interface LeadFormProps {
+  initialData?: Lead;
+}
+
+export function LeadForm({ initialData }: LeadFormProps) {
   const router = useRouter();
   const supabase = createClient();
   const repository = new SupabaseLeadRepository(supabase);
@@ -27,24 +31,31 @@ export function LeadForm() {
   const form = useForm<LeadFormValues>({
     resolver: zodResolver(LeadSchema),
     defaultValues: {
-      name: '',
-      company: '',
-      email: '',
-      phone: '',
-      status: 'Nuevo',
-      source: '',
-      notes: '',
+      name: initialData?.name || '',
+      company: initialData?.company || '',
+      email: initialData?.email || '',
+      phone: initialData?.phone || '',
+      status: initialData?.status || 'Nuevo',
+      source: initialData?.source || '',
+      notes: initialData?.notes || '',
+      pipelineId: initialData?.pipelineId,
+      stageId: initialData?.stageId,
     },
   });
 
   async function onSubmit(values: LeadFormValues) {
     try {
-      await repository.create(values);
-      toast.success('Lead creado correctamente');
+      if (initialData) {
+        await repository.update({ id: initialData.id, ...values });
+        toast.success('Lead actualizado correctamente');
+      } else {
+        await repository.create(values);
+        toast.success('Lead creado correctamente');
+      }
       router.push('/leads');
       router.refresh();
     } catch (error: any) {
-      toast.error('Error al crear el lead', {
+      toast.error(initialData ? 'Error al actualizar el lead' : 'Error al crear el lead', {
         description: error.message,
       });
     }
@@ -160,7 +171,9 @@ export function LeadForm() {
           <Button type="button" variant="outline" onClick={() => router.back()}>
             Cancelar
           </Button>
-          <Button type="submit">Guardar Lead</Button>
+          <Button type="submit" disabled={form.formState.isSubmitting}>
+            {form.formState.isSubmitting ? 'Guardando...' : initialData ? 'Actualizar Lead' : 'Guardar Lead'}
+          </Button>
         </div>
       </form>
     </Form>

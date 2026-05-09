@@ -5,7 +5,7 @@ interface LeadsState {
   leads: Lead[];
   isLoading: boolean;
   setLeads: (leads: Lead[]) => void;
-  updateLeadStatus: (leadId: string, status: Lead['status']) => void;
+  updateLeadStage: (leadId: string, stageId: string) => void;
   setLoading: (loading: boolean) => void;
 }
 
@@ -13,10 +13,10 @@ export const useLeadsStore = create<LeadsState>((set) => ({
   leads: [],
   isLoading: false,
   setLeads: (leads) => set({ leads }),
-  updateLeadStatus: (leadId, status) =>
+  updateLeadStage: (leadId, stageId) =>
     set((state) => ({
       leads: state.leads.map((lead) =>
-        lead.id === leadId ? { ...lead, status } : lead
+        lead.id === leadId ? { ...lead, stageId } : lead
       ),
     })),
   setLoading: (loading) => set({ isLoading: loading }),
