@@ -6,11 +6,11 @@ export class SupabaseNoteRepository implements NoteRepository {
   constructor(private readonly supabase: SupabaseClient) {}
 
   async getForEntity(entityId: string, entityType: 'lead' | 'idea'): Promise<Note[]> {
+    const column = entityType === 'lead' ? 'lead_id' : 'idea_id';
     const { data, error } = await this.supabase
       .from('notes')
       .select('*')
-      .eq('entity_id', entityId)
-      .eq('entity_type', entityType)
+      .eq(column, entityId)
       .order('created_at', { ascending: false });
 
     if (error) throw new Error(error.message);
@@ -21,11 +21,12 @@ export class SupabaseNoteRepository implements NoteRepository {
     const { data: userData } = await this.supabase.auth.getUser();
     if (!userData.user) throw new Error('Usuario no autenticado');
 
+    const column = note.entityType === 'lead' ? 'lead_id' : 'idea_id';
+
     const { data, error } = await this.supabase
       .from('notes')
       .insert([{
-        entity_id: note.entityId,
-        entity_type: note.entityType,
+        [column]: note.entityId,
         content: note.content,
         user_id: userData.user.id
       }])
@@ -61,8 +62,8 @@ export class SupabaseNoteRepository implements NoteRepository {
     return {
       id: row.id,
       userId: row.user_id,
-      entityId: row.entity_id,
-      entityType: row.entity_type,
+      entityId: row.lead_id || row.idea_id,
+      entityType: row.lead_id ? 'lead' : 'idea',
       content: row.content,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
