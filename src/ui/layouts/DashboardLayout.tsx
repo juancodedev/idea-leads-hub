@@ -1,0 +1,100 @@
+"use client";
+
+import React from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { 
+  LayoutDashboard, 
+  Users, 
+  Lightbulb, 
+  CheckSquare, 
+  LogOut,
+  Menu,
+  X
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/ui/components/button";
+
+const navigation = [
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Leads", href: "/leads", icon: Users },
+  { name: "Pipeline", href: "/pipeline", icon: LayoutDashboard }, // Kanban
+  { name: "Ideas", href: "/ideas", icon: Lightbulb },
+  { name: "Actividades", href: "/activities", icon: CheckSquare },
+];
+
+export function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Mobile sidebar overlay */}
+      <div 
+        className={cn(
+          "fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden",
+          isSidebarOpen ? "block" : "hidden"
+        )} 
+        onClick={() => setIsSidebarOpen(false)}
+      />
+
+      {/* Sidebar */}
+      <aside className={cn(
+        "fixed inset-y-0 left-0 z-50 w-64 bg-card border-r transition-transform duration-300 lg:translate-x-0",
+        isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        <div className="flex flex-col h-full">
+          <div className="flex items-center justify-between h-16 px-6 border-b">
+            <span className="text-lg font-bold">IdeaLeadsHub</span>
+            <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setIsSidebarOpen(false)}>
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
+
+          <nav className="flex-1 px-4 py-6 space-y-1">
+            {navigation.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors",
+                    isActive 
+                      ? "bg-primary text-primary-foreground" 
+                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  )}
+                >
+                  <item.icon className="mr-3 h-5 w-5" />
+                  {item.name}
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="p-4 border-t">
+            <Button variant="ghost" className="w-full justify-start text-muted-foreground hover:text-destructive">
+              <LogOut className="mr-3 h-5 w-5" />
+              Cerrar sesión
+            </Button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <div className="lg:pl-64 flex flex-col min-h-screen">
+        <header className="sticky top-0 z-30 flex items-center h-16 px-4 bg-background/80 backdrop-blur border-b lg:px-8">
+          <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setIsSidebarOpen(true)}>
+            <Menu className="h-5 w-5" />
+          </Button>
+          <div className="flex-1" />
+          {/* Profile/User Menu could go here */}
+        </header>
+
+        <main className="flex-1 p-4 lg:p-8">
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+}
