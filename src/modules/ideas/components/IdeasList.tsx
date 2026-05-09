@@ -9,12 +9,12 @@ interface IdeasListProps {
   ideas: Idea[];
 }
 
-const statusColors: Record<Idea['status'], string> = {
+const statusColors: Record<string, string> = {
   'Borrador': 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400',
   'Investigando': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  'Validando': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-  'Ejecutando': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  'Archivado': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  'En Progreso': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  'Validada': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  'Descartada': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
 };
 
 export function IdeasList({ ideas }: IdeasListProps) {
@@ -35,7 +35,7 @@ export function IdeasList({ ideas }: IdeasListProps) {
             <div className="flex items-start justify-between">
               <div className={cn(
                 "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
-                statusColors[idea.status]
+                statusColors[idea.status] || statusColors['Borrador']
               )}>
                 {idea.status}
               </div>

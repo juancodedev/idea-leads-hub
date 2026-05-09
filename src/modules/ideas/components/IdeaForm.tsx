@@ -95,9 +95,9 @@ export function IdeaForm() {
                   >
                     <option value="Borrador">Borrador</option>
                     <option value="Investigando">Investigando</option>
-                    <option value="Validando">Validando</option>
-                    <option value="Ejecutando">Ejecutando</option>
-                    <option value="Archivado">Archivado</option>
+                    <option value="En Progreso">En Progreso</option>
+                    <option value="Validada">Validada</option>
+                    <option value="Descartada">Descartada</option>
                   </select>
                 </FormControl>
                 <FormMessage />
