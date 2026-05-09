@@ -18,13 +18,13 @@ export function createClient() {
         getAll() {
           return cookieStore.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: Array<{ name: string; value: string; options?: any }>) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options as CookieOptions)
             );
-          } catch {
-            // The `setAll` method was called from a Server Component.
+          } catch (_error) {
+            // silently fail
           }
         },
       },
