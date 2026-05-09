@@ -16,6 +16,7 @@ import { Input } from '@/ui/components/input';
 import { Textarea } from '@/ui/components/textarea';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/infrastructure/database/client';
+import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLeadRepository';
 import { Lead } from '@/core/domain/Lead';
 import { toast } from 'sonner';
 

@@ -4,6 +4,7 @@ import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { PipelineStage } from '@/core/domain/Pipeline';
 import { PipelineCard } from './PipelineCard';
+import { Lead } from '@/core/domain/Lead';
 
 interface PipelineColumnProps {
   stage: PipelineStage;
