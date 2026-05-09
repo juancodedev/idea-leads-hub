@@ -46,12 +46,14 @@ export class SupabaseTagRepository implements TagRepository {
     const { data: userData } = await this.supabase.auth.getUser();
     if (!userData.user) throw new Error('Usuario no autenticado');
 
+    const table = entityType === 'lead' ? 'lead_tags' : 'idea_tags';
+    const column = entityType === 'lead' ? 'lead_id' : 'idea_id';
+
     const { error } = await this.supabase
-      .from('entity_tags')
+      .from(table)
       .insert([{
         tag_id: tagId,
-        entity_id: entityId,
-        entity_type: entityType,
+        [column]: entityId,
         user_id: userData.user.id
       }]);
 
@@ -61,22 +63,26 @@ export class SupabaseTagRepository implements TagRepository {
   }
 
   async removeFromEntity(tagId: string, entityId: string, entityType: 'lead' | 'idea'): Promise<void> {
+    const table = entityType === 'lead' ? 'lead_tags' : 'idea_tags';
+    const column = entityType === 'lead' ? 'lead_id' : 'idea_id';
+
     const { error } = await this.supabase
-      .from('entity_tags')
+      .from(table)
       .delete()
       .eq('tag_id', tagId)
-      .eq('entity_id', entityId)
-      .eq('entity_type', entityType);
+      .eq(column, entityId);
 
     if (error) throw new Error(error.message);
   }
 
   async getForEntity(entityId: string, entityType: 'lead' | 'idea'): Promise<Tag[]> {
+    const table = entityType === 'lead' ? 'lead_tags' : 'idea_tags';
+    const column = entityType === 'lead' ? 'lead_id' : 'idea_id';
+
     const { data, error } = await this.supabase
-      .from('entity_tags')
+      .from(table)
       .select('tags (*)')
-      .eq('entity_id', entityId)
-      .eq('entity_type', entityType);
+      .eq(column, entityId);
 
     if (error) throw new Error(error.message);
     return data.map((row: any) => this.mapToDomain(row.tags));

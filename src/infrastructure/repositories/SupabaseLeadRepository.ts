@@ -8,22 +8,22 @@ export class SupabaseLeadRepository implements LeadRepository {
   async getAll(): Promise<Lead[]> {
     const { data, error } = await this.supabase
       .from('leads')
-      .select('*, entity_tags(tags(*))')
+      .select('*, lead_tags(tags(*))')
       .order('created_at', { ascending: false });
 
     if (error) throw new Error(error.message);
-    return data.map(row => this.mapToDomain(row, row.entity_tags));
+    return data.map(row => this.mapToDomain(row, row.lead_tags));
   }
 
   async getById(id: string): Promise<Lead | null> {
     const { data, error } = await this.supabase
       .from('leads')
-      .select('*, entity_tags(tags(*))')
+      .select('*, lead_tags(tags(*))')
       .eq('id', id)
       .maybeSingle();
 
     if (error) throw new Error(error.message);
-    return data ? this.mapToDomain(data, data.entity_tags) : null;
+    return data ? this.mapToDomain(data, data.lead_tags) : null;
   }
 
   async create(lead: CreateLeadDTO): Promise<Lead> {
