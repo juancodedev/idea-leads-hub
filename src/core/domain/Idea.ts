@@ -1,4 +1,4 @@
-export type IdeaStatus = 'Borrador' | 'Investigando' | 'Validando' | 'Ejecutando' | 'Archivado';
+export type IdeaStatus = 'Borrador' | 'Investigando' | 'En Progreso' | 'Validada' | 'Descartada';
 
 export interface Idea {
   id: string;

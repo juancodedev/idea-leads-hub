@@ -1,5 +1,5 @@
 import { IdeaForm } from '@/modules/ideas/components/IdeaForm';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/components/card';
 
 export default function NewIdeaPage() {
   return (

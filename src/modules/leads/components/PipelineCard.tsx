@@ -3,7 +3,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Lead } from '@/core/domain/Lead';
-import { Card, CardContent } from '@/ui/components/ui/card';
+import { Card, CardContent } from '@/ui/components/card';
 import { cn } from '@/lib/utils';
 
 interface PipelineCardProps {

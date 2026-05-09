@@ -1,7 +1,7 @@
 import { createClient } from '@/infrastructure/database/server';
 import { SupabaseIdeaRepository } from '@/infrastructure/repositories/SupabaseIdeaRepository';
 import { IdeasList } from '@/modules/ideas/components/IdeasList';
-import { Button } from '@/ui/components/ui/button';
+import { Button } from '@/ui/components/button';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
 

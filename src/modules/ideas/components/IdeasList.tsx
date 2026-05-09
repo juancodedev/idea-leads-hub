@@ -1,7 +1,7 @@
 'use client';
 
 import { Idea } from '@/core/domain/Idea';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/components/card';
 import { Lightbulb, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 

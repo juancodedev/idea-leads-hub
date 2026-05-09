@@ -3,7 +3,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { IdeaSchema, IdeaFormValues } from '@/core/domain/schemas/IdeaSchema';
-import { Button } from '@/ui/components/ui/button';
+import { Button } from '@/ui/components/button';
 import {
   Form,
   FormControl,
@@ -11,9 +11,9 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/ui/components/ui/form';
-import { Input } from '@/ui/components/ui/input';
-import { Textarea } from '@/ui/components/ui/textarea';
+} from '@/ui/components/form';
+import { Input } from '@/ui/components/input';
+import { Textarea } from '@/ui/components/textarea';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/infrastructure/database/client';
 import { SupabaseIdeaRepository } from '@/infrastructure/repositories/SupabaseIdeaRepository';
