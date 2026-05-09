@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { supabase } from "@/infrastructure/database/supabase";
+import { createClient } from "@/infrastructure/database/client";
 import { Button } from "@/ui/components/button";
 import { Input } from "@/ui/components/input";
 import { Label } from "@/ui/components/label";
@@ -23,6 +23,7 @@ type AuthFormValues = z.infer<typeof authSchema>;
 export default function LoginPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = React.useState(false);
+  const supabase = createClient();
 
   const { register, handleSubmit, formState: { errors } } = useForm<AuthFormValues>({
     resolver: zodResolver(authSchema),
@@ -39,8 +40,13 @@ export default function LoginPage() {
       if (error) throw error;
 
       toast.success("¡Bienvenido de nuevo!");
-      router.push("/dashboard");
-      router.refresh();
+      
+      // Pequeño delay para asegurar que las cookies se asienten antes de la redirección
+      setTimeout(() => {
+        router.push("/dashboard");
+        router.refresh();
+      }, 100);
+      
     } catch (error: any) {
       toast.error(error.message || "Error al iniciar sesión");
     } finally {
