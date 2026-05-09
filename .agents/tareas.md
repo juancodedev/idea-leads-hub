@@ -8,7 +8,7 @@
 - [x] Configurar ESLint, Prettier, Husky, lint-staged
 - [x] Instalar componentes shadcn/ui
 - [x] Configurar clientes Supabase (Browser/Server/Middleware)
-- [ ] Configurar compatibilidad con Cloudflare Pages
+- [x] Configurar compatibilidad con Cloudflare Pages
 
 ## Fase 1: Diseño de Dominio
 - [x] Crear entidades de dominio (Lead, Idea, Activity)
@@ -33,5 +33,13 @@
 - [x] Módulo de Leads (CRUD, Tabla)
 - [x] Pipeline (Kanban con dnd-kit)
 - [x] Módulo de Ideas
-- [ ] Módulo de Actividades
-- [ ] Dashboard
+- [x] Módulo de Actividades
+- [x] Dashboard
+
+## Fase 9: Optimización y Despliegue
+- [ ] Refactorizar tipos compartidos (shared/)
+- [ ] Crear directorio de servicios (services/)
+- [ ] Limpiar hooks y componentes
+- [ ] Configurar SEO básico (metadata, sitemap)
+- [ ] Configurar Cloudflare Pages (build + deploy)
+- [ ] Verificar部署 y testing en producción
