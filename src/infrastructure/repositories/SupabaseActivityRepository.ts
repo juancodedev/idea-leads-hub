@@ -28,9 +28,13 @@ export class SupabaseActivityRepository implements ActivityRepository {
   }
 
   async create(activity: CreateActivityDTO): Promise<Activity> {
+    const { data: userData, error: userError } = await this.supabase.auth.getUser();
+    if (userError || !userData.user) throw new Error('Usuario no autenticado');
+
     const { data, error } = await this.supabase
       .from('activities')
       .insert([{
+        user_id: userData.user.id,
         lead_id: activity.leadId,
         type: activity.type,
         description: activity.description,

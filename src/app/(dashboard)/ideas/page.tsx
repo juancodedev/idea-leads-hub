@@ -5,6 +5,7 @@ import { Button } from '@/ui/components/button';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
 import { Idea } from '@/core/domain/Idea';
+import { DashboardLayout } from '@/ui/layouts/DashboardLayout';
 
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
@@ -21,21 +22,23 @@ export default async function IdeasPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Ideas</h1>
-          <p className="text-slate-500">Gestiona y valida tus próximos proyectos.</p>
+    <DashboardLayout>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Ideas</h1>
+            <p className="text-slate-500">Gestiona y valida tus próximos proyectos.</p>
+          </div>
+          <Button asChild>
+            <Link href="/ideas/new">
+              <Plus className="mr-2 h-4 w-4" />
+              Nueva Idea
+            </Link>
+          </Button>
         </div>
-        <Button asChild>
-          <Link href="/ideas/new">
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva Idea
-          </Link>
-        </Button>
-      </div>
 
-      <IdeasList ideas={ideas} />
-    </div>
+        <IdeasList ideas={ideas} />
+      </div>
+    </DashboardLayout>
   );
 }
