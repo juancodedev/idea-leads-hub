@@ -8,22 +8,22 @@ export class SupabaseLeadRepository implements LeadRepository {
   async getAll(): Promise<Lead[]> {
     const { data, error } = await this.supabase
       .from('leads')
-      .select('*, lead_tags(tags(*))')
+      .select('*, lead_tags(tags(*)), notes_data:notes(*)')
       .order('created_at', { ascending: false });
 
     if (error) throw new Error(error.message);
-    return data.map(row => this.mapToDomain(row, row.lead_tags));
+    return data.map(row => this.mapToDomain(row, row.lead_tags, row.notes_data));
   }
 
   async getById(id: string): Promise<Lead | null> {
     const { data, error } = await this.supabase
       .from('leads')
-      .select('*, lead_tags(tags(*))')
+      .select('*, lead_tags(tags(*)), notes_data:notes(*)')
       .eq('id', id)
       .maybeSingle();
 
     if (error) throw new Error(error.message);
-    return data ? this.mapToDomain(data, data.lead_tags) : null;
+    return data ? this.mapToDomain(data, data.lead_tags, data.notes_data) : null;
   }
 
   async create(lead: CreateLeadDTO): Promise<Lead> {
@@ -109,7 +109,7 @@ export class SupabaseLeadRepository implements LeadRepository {
     if (error) throw new Error(error.message);
   }
 
-  private mapToDomain(row: any, entityTags?: any[]): Lead {
+  private mapToDomain(row: any, entityTags?: any[], notesData?: any[]): Lead {
     return {
       id: row.id,
       name: row.name,
@@ -128,6 +128,15 @@ export class SupabaseLeadRepository implements LeadRepository {
         color: et.tags.color,
         userId: et.tags.user_id,
         createdAt: et.tags.created_at
+      })) : [],
+      notes_data: notesData ? notesData.map((n: any) => ({
+        id: n.id,
+        userId: n.user_id,
+        entityId: n.entity_id,
+        entityType: n.entity_type,
+        content: n.content,
+        createdAt: n.created_at,
+        updatedAt: n.updated_at
       })) : [],
       createdAt: row.created_at,
       updatedAt: row.updated_at,

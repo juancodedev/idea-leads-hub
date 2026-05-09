@@ -1,4 +1,5 @@
 import { Tag } from "./Tag";
+import { Note } from "./Note";
 
 export type LeadStatus = 'Nuevo' | 'Contactado' | 'Interesado' | 'Propuesta' | 'Ganado' | 'Perdido';
 
@@ -15,6 +16,7 @@ export interface Lead {
   pipelineId?: string;
   stageId?: string;
   tags?: Tag[];
+  notes_data?: Note[];
   createdAt: string;
   updatedAt: string;
 }

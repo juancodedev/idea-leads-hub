@@ -4,23 +4,24 @@ import * as React from 'react';
 import { Lead } from '@/core/domain/Lead';
 import { PipelineStage } from '@/core/domain/Pipeline';
 import { Tag } from '@/core/domain/Tag';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from '@/ui/components/table';
 import { Input } from '@/ui/components/input';
 import { Button } from '@/ui/components/button';
 import { Badge } from '@/ui/components/badge';
-import { 
-  Search, 
-  Filter, 
-  MoreHorizontal, 
-  Eye, 
-  Edit, 
+import {
+  Search,
+  Filter,
+  MoreHorizontal,
+  Eye,
+  Edit,
+  ExternalLink,
   Trash2,
   Tag as TagIcon
 } from 'lucide-react';
@@ -30,7 +31,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/ui/components/dropdown-menu';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/ui/components/sheet';
 import Link from 'next/link';
+import { LeadQuickView } from './LeadQuickView';
 
 interface LeadsTableProps {
   leads: Lead[];
@@ -42,16 +50,23 @@ export function LeadsTable({ leads, stages, allTags }: LeadsTableProps) {
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedStage, setSelectedStage] = React.useState<string>('all');
   const [selectedTag, setSelectedTag] = React.useState<string>('all');
+  const [selectedLead, setSelectedLead] = React.useState<Lead | null>(null);
+  const [isSheetOpen, setIsSheetOpen] = React.useState(false);
+
+  const handleOpenQuickView = (lead: Lead) => {
+    setSelectedLead(lead);
+    setIsSheetOpen(true);
+  };
 
   const filteredLeads = React.useMemo(() => {
     return leads.filter((lead) => {
-      const matchesSearch = 
+      const matchesSearch =
         lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         lead.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
         lead.email.toLowerCase().includes(searchTerm.toLowerCase());
-      
+
       const matchesStage = selectedStage === 'all' || lead.stageId === selectedStage;
-      
+
       const matchesTag = selectedTag === 'all' || lead.tags?.some(t => t.id === selectedTag);
 
       return matchesSearch && matchesStage && matchesTag;
@@ -120,7 +135,11 @@ export function LeadsTable({ leads, stages, allTags }: LeadsTableProps) {
             {filteredLeads.map((lead) => {
               const stage = stages.find(s => s.id === lead.stageId);
               return (
-                <TableRow key={lead.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
+                <TableRow
+                  key={lead.id}
+                  className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
+                  onClick={() => handleOpenQuickView(lead)}
+                >
                   <TableCell>
                     <div className="flex flex-col">
                       <span className="font-semibold">{lead.name}</span>
@@ -141,9 +160,9 @@ export function LeadsTable({ leads, stages, allTags }: LeadsTableProps) {
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
                       {lead.tags?.map(tag => (
-                        <div 
-                          key={tag.id} 
-                          className="h-2 w-2 rounded-full" 
+                        <div
+                          key={tag.id}
+                          className="h-2 w-2 rounded-full"
                           style={{ backgroundColor: tag.color }}
                           title={tag.name}
                         />
@@ -161,9 +180,12 @@ export function LeadsTable({ leads, stages, allTags }: LeadsTableProps) {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem onSelect={() => handleOpenQuickView(lead)}>
+                          <Eye className="mr-2 h-4 w-4" /> Vista Rápida
+                        </DropdownMenuItem>
                         <DropdownMenuItem asChild>
                           <Link href={`/leads/${lead.id}`} className="flex items-center">
-                            <Eye className="mr-2 h-4 w-4" /> Ver Detalles
+                            <ExternalLink className="mr-2 h-4 w-4" /> Ver Perfil
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
@@ -188,6 +210,24 @@ export function LeadsTable({ leads, stages, allTags }: LeadsTableProps) {
           </div>
         )}
       </div>
+
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent side="right" className="sm:max-w-2xl">
+          <SheetHeader className="mb-6">
+            <SheetTitle>Información del Lead</SheetTitle>
+          </SheetHeader>
+          {selectedLead && (
+            <LeadQuickView
+              lead={selectedLead}
+              stages={stages}
+              onUpdate={() => {
+                // Aquí podrías recargar los datos si fuera necesario
+                // Por ahora el estado local se mantiene
+              }}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
