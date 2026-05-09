@@ -4,12 +4,15 @@ import { IdeasList } from '@/modules/ideas/components/IdeasList';
 import { Button } from '@/ui/components/button';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
+import { Idea } from '@/core/domain/Idea';
+
+export const dynamic = 'force-dynamic';
 
 export default async function IdeasPage() {
   const supabase = createClient();
   const repository = new SupabaseIdeaRepository(supabase);
   
-  let ideas = [];
+  let ideas: Idea[] = [];
   try {
     ideas = await repository.getAll();
   } catch (error) {
