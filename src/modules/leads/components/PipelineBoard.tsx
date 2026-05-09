@@ -76,11 +76,21 @@ export function PipelineBoard({ initialLeads }: { initialLeads: Lead[] }) {
 
     const isActiveALead = active.data.current?.type === 'Lead';
     const isOverAColumn = over.data.current?.type === 'Column';
+    const isOverALead = over.data.current?.type === 'Lead';
 
-    if (isActiveALead && isOverAColumn) {
-      const activeLead = leads.find((l) => l.id === activeId);
-      if (activeLead && activeLead.status !== overId) {
-        updateLeadStatus(activeId as string, overId as Lead['status']);
+    if (isActiveALead) {
+      if (isOverAColumn) {
+        const newStatus = overId as Lead['status'];
+        const activeLead = leads.find((l) => l.id === activeId);
+        if (activeLead && activeLead.status !== newStatus) {
+          updateLeadStatus(activeId as string, newStatus);
+        }
+      } else if (isOverALead) {
+        const overLead = leads.find((l) => l.id === overId);
+        const activeLead = leads.find((l) => l.id === activeId);
+        if (activeLead && overLead && activeLead.status !== overLead.status) {
+          updateLeadStatus(activeId as string, overLead.status);
+        }
       }
     }
   };
@@ -91,16 +101,27 @@ export function PipelineBoard({ initialLeads }: { initialLeads: Lead[] }) {
 
     if (!over) return;
 
-    const leadId = active.id as string;
-    const newStatus = over.id as Lead['status'];
-    const lead = leads.find(l => l.id === leadId);
+    const activeId = active.id as string;
+    const overId = over.id;
 
-    if (lead && lead.status !== newStatus) {
+    let newStatus: Lead['status'] | null = null;
+
+    if (over.data.current?.type === 'Column') {
+      newStatus = overId as Lead['status'];
+    } else if (over.data.current?.type === 'Lead') {
+      const overLead = leads.find(l => l.id === overId);
+      if (overLead) newStatus = overLead.status;
+    }
+
+    const lead = leads.find(l => l.id === activeId);
+
+    if (lead && newStatus && lead.status !== newStatus) {
       try {
-        await repository.updateStatus(leadId, newStatus);
+        await repository.updateStatus(activeId, newStatus);
       } catch (error) {
         toast.error('Error al actualizar el estado');
-        // Rollback opcional: recargar datos o revertir estado en store
+        // Rollback a la base de datos o recargar
+        console.error('Error actualizando estado en Supabase:', error);
       }
     }
   };

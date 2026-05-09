@@ -20,19 +20,26 @@ export class SupabaseIdeaRepository implements IdeaRepository {
       .from('ideas')
       .select('*')
       .eq('id', id)
-      .single();
+      .maybeSingle();
 
-    if (error) {
-      if (error.code === 'PGRST116') return null;
-      throw new Error(error.message);
-    }
-    return this.mapToDomain(data);
+    if (error) throw new Error(error.message);
+    return data ? this.mapToDomain(data) : null;
   }
 
   async create(idea: CreateIdeaDTO): Promise<Idea> {
+    const { data: userData, error: userError } = await this.supabase.auth.getUser();
+    if (userError || !userData.user) throw new Error('Usuario no autenticado');
+
     const { data, error } = await this.supabase
       .from('ideas')
-      .insert([idea])
+      .insert([{ 
+        title: idea.title,
+        description: idea.description,
+        status: idea.status,
+        priority: idea.priority,
+        potential_revenue: idea.potentialRevenue,
+        user_id: userData.user.id 
+      }])
       .select()
       .single();
 
@@ -42,9 +49,19 @@ export class SupabaseIdeaRepository implements IdeaRepository {
 
   async update(idea: UpdateIdeaDTO): Promise<Idea> {
     const { id, ...updates } = idea;
+    
+    const dbUpdates: any = {};
+    if (updates.title) dbUpdates.title = updates.title;
+    if (updates.description) dbUpdates.description = updates.description;
+    if (updates.status) dbUpdates.status = updates.status;
+    if (updates.priority) dbUpdates.priority = updates.priority;
+    if (updates.potentialRevenue !== undefined) dbUpdates.potential_revenue = updates.potentialRevenue;
+    
+    dbUpdates.updated_at = new Date().toISOString();
+
     const { data, error } = await this.supabase
       .from('ideas')
-      .update(updates)
+      .update(dbUpdates)
       .eq('id', id)
       .select()
       .single();

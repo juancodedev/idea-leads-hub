@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS public.ideas (
   title TEXT NOT NULL,
   description TEXT,
   status TEXT DEFAULT 'Borrador' CHECK (status IN ('Borrador', 'Investigando', 'En Progreso', 'Validada', 'Descartada')),
+  priority INT DEFAULT 3,
+  potential_revenue NUMERIC DEFAULT 0,
   related_lead_id UUID REFERENCES public.leads ON DELETE SET NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
