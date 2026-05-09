@@ -1,6 +1,8 @@
 import { IdeaForm } from '@/modules/ideas/components/IdeaForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/components/card';
 
+export const runtime = 'edge';
+
 export default function NewIdeaPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">

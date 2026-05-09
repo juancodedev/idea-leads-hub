@@ -6,6 +6,7 @@ import { SupabaseActivityRepository } from "@/infrastructure/repositories/Supaba
 import { DashboardStats } from "@/modules/dashboard/components/DashboardStats";
 import { DashboardLayout } from "@/ui/layouts/DashboardLayout";
 
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {

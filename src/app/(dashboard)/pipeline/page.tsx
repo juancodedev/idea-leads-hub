@@ -4,6 +4,7 @@ import { SupabaseLeadRepository } from "@/infrastructure/repositories/SupabaseLe
 import { DashboardLayout } from "@/ui/layouts/DashboardLayout";
 import { PipelineBoard } from "@/modules/leads/components/PipelineBoard";
 
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export default async function PipelinePage() {
