@@ -33,7 +33,6 @@ CREATE TABLE IF NOT EXISTS public.ideas (
   user_id UUID REFERENCES auth.users ON DELETE CASCADE NOT NULL,
   title TEXT NOT NULL,
   description TEXT,
-  priority TEXT DEFAULT 'Media' CHECK (priority IN ('Baja', 'Media', 'Alta', 'Crítica')),
   status TEXT DEFAULT 'Borrador' CHECK (status IN ('Borrador', 'Investigando', 'En Progreso', 'Validada', 'Descartada')),
   related_lead_id UUID REFERENCES public.leads ON DELETE SET NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
