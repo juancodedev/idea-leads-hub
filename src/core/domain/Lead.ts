@@ -10,8 +10,8 @@ export interface Lead {
   source?: string;
   notes?: string;
   userId: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CreateLeadDTO {
