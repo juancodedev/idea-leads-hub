@@ -57,6 +57,21 @@ export function PipelineCard({ lead, isOverlay }: PipelineCardProps) {
         <CardContent className="p-4">
           <h4 className="font-semibold text-slate-900 dark:text-slate-100">{lead.name}</h4>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{lead.company}</p>
+          
+          {lead.tags && lead.tags.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {lead.tags.slice(0, 3).map(tag => (
+                <div 
+                  key={tag.id} 
+                  className="h-1.5 w-6 rounded-full" 
+                  style={{ backgroundColor: tag.color }}
+                  title={tag.name}
+                />
+              ))}
+              {lead.tags.length > 3 && <span className="text-[8px] text-muted-foreground">+{lead.tags.length - 3}</span>}
+            </div>
+          )}
+
           <div className="mt-3 flex items-center justify-between text-[10px] text-slate-400">
              <span>{new Intl.DateTimeFormat('es-ES', { month: 'short', day: 'numeric' }).format(new Date(lead.createdAt))}</span>
              {lead.source && <span className="rounded bg-slate-100 px-1 dark:bg-slate-800">{lead.source}</span>}

@@ -15,6 +15,9 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/ui/components/button";
 
+import { CommandMenu } from "@/ui/components/CommandMenu";
+import { Search } from "lucide-react";
+
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Leads", href: "/leads", icon: Users },
@@ -29,6 +32,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background">
+      <CommandMenu />
       {/* Mobile sidebar overlay */}
       <div 
         className={cn(
@@ -87,7 +91,19 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setIsSidebarOpen(true)}>
             <Menu className="h-5 w-5" />
           </Button>
-          <div className="flex-1" />
+          <div className="flex-1">
+            <Button 
+              variant="outline" 
+              className="hidden md:flex relative h-9 w-64 justify-start text-sm text-muted-foreground"
+              onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
+            >
+              <Search className="mr-2 h-4 w-4" />
+              Buscar...
+              <kbd className="pointer-events-none absolute right-2 top-2 h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 flex">
+                <span className="text-xs">⌘</span>K
+              </kbd>
+            </Button>
+          </div>
           {/* Profile/User Menu could go here */}
         </header>
 

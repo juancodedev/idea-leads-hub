@@ -8,6 +8,8 @@ export const LeadSchema = z.object({
   status: z.enum(['Nuevo', 'Contactado', 'Interesado', 'Propuesta', 'Ganado', 'Perdido']),
   source: z.string().optional(),
   notes: z.string().optional(),
+  pipelineId: z.preprocess((val) => val === '' ? undefined : val, z.string().uuid().optional()),
+  stageId: z.preprocess((val) => val === '' ? undefined : val, z.string().uuid().optional()),
 });
 
 export type LeadFormValues = z.infer<typeof LeadSchema>;

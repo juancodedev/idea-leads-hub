@@ -1,6 +1,8 @@
 import React from "react";
 import { createClient } from "@/infrastructure/database/server";
 import { SupabaseLeadRepository } from "@/infrastructure/repositories/SupabaseLeadRepository";
+import { SupabasePipelineRepository } from "@/infrastructure/repositories/SupabasePipelineRepository";
+import { SupabaseTagRepository } from "@/infrastructure/repositories/SupabaseTagRepository";
 import { DashboardLayout } from "@/ui/layouts/DashboardLayout";
 import { LeadsTable } from "@/modules/leads/components/LeadsTable";
 import { Button } from "@/ui/components/button";
@@ -13,8 +15,16 @@ export const dynamic = "force-dynamic";
 export default async function LeadsPage() {
   const supabase = createClient();
   const leadRepo = new SupabaseLeadRepository(supabase);
+  const pipelineRepo = new SupabasePipelineRepository(supabase);
+  const tagRepo = new SupabaseTagRepository(supabase);
   
-  const leads = await leadRepo.getAll();
+  const [leads, pipelines, tags] = await Promise.all([
+    leadRepo.getAll(),
+    pipelineRepo.getAll(),
+    tagRepo.getAll()
+  ]);
+
+  const allStages = pipelines.flatMap(p => p.stages || []);
 
   return (
     <DashboardLayout>
@@ -33,7 +43,7 @@ export default async function LeadsPage() {
           </Link>
         </div>
 
-        <LeadsTable leads={leads} />
+        <LeadsTable leads={leads} stages={allStages} allTags={tags} />
       </div>
     </DashboardLayout>
   );
