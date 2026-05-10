@@ -30,7 +30,7 @@ import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLe
 import { toast } from 'sonner';
 
 export function PipelineBoard({ initialLeads, stages }: { initialLeads: Lead[], stages: PipelineStage[] }) {
-  const { leads, setLeads, updateLeadStage } = useLeadsStore();
+  const { leads, setLeads, updateLead, updateLeadStage } = useLeadsStore();
   const [activeLead, setActiveLead] = React.useState<Lead | null>(null);
   
   const supabase = createClient();
@@ -57,7 +57,7 @@ export function PipelineBoard({ initialLeads, stages }: { initialLeads: Lead[], 
     if (lead) setActiveLead(lead);
   };
 
-  const handleDragOver = (event: DragOverEvent) => {
+  const handleDragOver = async (event: DragOverEvent) => {
     const { active, over } = event;
     if (!over) return;
 
@@ -67,22 +67,25 @@ export function PipelineBoard({ initialLeads, stages }: { initialLeads: Lead[], 
     if (activeId === overId) return;
 
     const isActiveALead = active.data.current?.type === 'Lead';
+    if (!isActiveALead) return;
+
     const isOverAColumn = over.data.current?.type === 'Column';
     const isOverALead = over.data.current?.type === 'Lead';
 
-    if (isActiveALead) {
-      if (isOverAColumn) {
-        const newStageId = overId as string;
-        const activeLead = leads.find((l) => l.id === activeId);
-        if (activeLead && activeLead.stageId !== newStageId) {
-          updateLeadStage(activeId as string, newStageId);
-        }
-      } else if (isOverALead) {
-        const overLead = leads.find((l) => l.id === overId);
-        const activeLead = leads.find((l) => l.id === activeId);
-        if (activeLead && overLead && activeLead.stageId !== overLead.stageId) {
-          updateLeadStage(activeId as string, overLead.stageId!);
-        }
+    let newStageId: string | null = null;
+
+    if (isOverAColumn) {
+      newStageId = overId as string;
+    } else if (isOverALead) {
+      const overLead = leads.find((l) => l.id === overId);
+      if (overLead) newStageId = overLead.stageId || null;
+    }
+
+    if (newStageId) {
+      const activeLead = leads.find((l) => l.id === activeId);
+      if (activeLead && activeLead.stageId !== newStageId) {
+        const destinationStage = stages.find((s) => s.id === newStageId);
+        updateLeadStage(activeId as string, newStageId, destinationStage?.name);
       }
     }
   };
@@ -105,14 +108,27 @@ export function PipelineBoard({ initialLeads, stages }: { initialLeads: Lead[], 
       if (overLead) newStageId = overLead.stageId || null;
     }
 
-    const lead = leads.find(l => l.id === activeId);
+    // Usamos activeLead que capturamos al iniciar el arrastre para tener la referencia original
+    if (activeLead && newStageId && activeLead.stageId !== newStageId) {
+      const destinationStage = stages.find(s => s.id === newStageId);
+      
+      // Actualización optimista inmediata del status y stage
+      updateLeadStage(activeId, newStageId, destinationStage?.name);
 
-    if (lead && newStageId && lead.stageId !== newStageId) {
       try {
-        await repository.update({ id: activeId, stageId: newStageId });
+        const updatedLead = await repository.update({ 
+          id: activeId, 
+          stageId: newStageId 
+        });
+        
+        // Confirmamos con los datos reales del servidor (que ya pasaron por el trigger)
+        if (updatedLead) {
+          updateLead(updatedLead);
+        }
       } catch (error) {
         toast.error('Error al actualizar la etapa');
         console.error('Error actualizando etapa en Supabase:', error);
+        // Aquí podrías revertir el estado si fuera crítico
       }
     }
   };

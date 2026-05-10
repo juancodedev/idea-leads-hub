@@ -21,12 +21,15 @@ import { Lead } from '@/core/domain/Lead';
 import { toast } from 'sonner';
 import React from 'react';
 
+import { useLeadsStore } from '../store/useLeadsStore';
+
 interface LeadFormProps {
   initialData?: Lead;
 }
 
 export function LeadForm({ initialData }: LeadFormProps) {
   const router = useRouter();
+  const { leads, setLeads } = useLeadsStore();
   const supabase = createClient();
   const repository = new SupabaseLeadRepository(supabase);
 
@@ -55,10 +58,16 @@ export function LeadForm({ initialData }: LeadFormProps) {
   async function onSubmit(values: LeadFormValues) {
     try {
       if (initialData) {
-        await repository.update({ id: initialData.id, ...values });
+        const updatedLead = await repository.update({ id: initialData.id, ...values });
+        if (updatedLead) {
+          setLeads(leads.map(l => l.id === initialData.id ? updatedLead : l));
+        }
         toast.success('Lead actualizado correctamente');
       } else {
-        await repository.create(values);
+        const newLead = await repository.create(values);
+        if (newLead) {
+          setLeads([newLead, ...leads]);
+        }
         toast.success('Lead creado correctamente');
       }
       router.push('/leads');

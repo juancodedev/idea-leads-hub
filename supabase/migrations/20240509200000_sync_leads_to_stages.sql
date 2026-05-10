@@ -7,7 +7,7 @@ DECLARE
 BEGIN
     -- Buscamos todas las etapas del pipeline de ventas
     FOR stage_record IN 
-        SELECT id, name FROM public.pipeline_stages
+        SELECT id, name, pipeline_id FROM public.pipeline_stages
     LOOP
         -- Actualizamos los leads cuyo status coincida con el nombre de la etapa
         -- y que aún no tengan un stage_id asignado

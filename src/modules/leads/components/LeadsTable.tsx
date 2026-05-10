@@ -42,6 +42,7 @@ import { useRouter } from 'next/navigation';
 import { LeadQuickView } from './LeadQuickView';
 import { createClient } from '@/infrastructure/database/client';
 import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLeadRepository';
+import { useLeadsStore } from '../store/useLeadsStore';
 
 interface LeadsTableProps {
   leads: Lead[];
@@ -50,7 +51,7 @@ interface LeadsTableProps {
 }
 
 export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableProps) {
-  const [currentLeads, setCurrentLeads] = React.useState(initialLeads);
+  const { leads, setLeads, updateLead } = useLeadsStore();
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedStage, setSelectedStage] = React.useState<string>('all');
   const [selectedTag, setSelectedTag] = React.useState<string>('all');
@@ -59,14 +60,16 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
 
   const router = useRouter();
 
-  // Sincronizar si las props cambian (ej. al navegar)
+  // Sincronizar leads iniciales con el store si es necesario
   React.useEffect(() => {
-    setCurrentLeads(initialLeads);
-  }, [initialLeads]);
+    if (initialLeads && initialLeads.length > 0) {
+      setLeads(initialLeads);
+    }
+  }, [initialLeads, setLeads]);
 
   const selectedLead = React.useMemo(() =>
-    currentLeads.find(l => l.id === selectedLeadId) || null,
-    [currentLeads, selectedLeadId]
+    leads.find(l => l.id === selectedLeadId) || null,
+    [leads, selectedLeadId]
   );
 
   const handleOpenQuickView = (lead: Lead) => {
@@ -80,7 +83,7 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
     try {
       const updatedLead = await repository.getById(leadId);
       if (updatedLead) {
-        setCurrentLeads(prev => prev.map(l => l.id === leadId ? updatedLead : l));
+        updateLead(updatedLead);
       }
     } catch (error) {
       console.error('Error refreshing lead:', error);
@@ -88,7 +91,7 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
   };
 
   const filteredLeads = React.useMemo(() => {
-    return currentLeads.filter((lead) => {
+    return leads.filter((lead) => {
       const matchesSearch =
         lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         lead.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -100,7 +103,7 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
 
       return matchesSearch && matchesStage && matchesTag;
     });
-  }, [currentLeads, searchTerm, selectedStage, selectedTag]);
+  }, [leads, searchTerm, selectedStage, selectedTag]);
 
   if (initialLeads.length === 0) {
     return (
@@ -177,14 +180,13 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
                   </TableCell>
                   <TableCell>{lead.company}</TableCell>
                   <TableCell>
-                    {stage ? (
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full" style={{ backgroundColor: stage.color }} />
-                        <span className="text-sm font-medium">{stage.name}</span>
-                      </div>
-                    ) : (
-                      <Badge variant="outline">{lead.status}</Badge>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="h-2 w-2 rounded-full" 
+                        style={{ backgroundColor: stage?.color || '#cbd5e1' }} 
+                      />
+                      <span className="text-sm font-medium">{lead.status}</span>
+                    </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
