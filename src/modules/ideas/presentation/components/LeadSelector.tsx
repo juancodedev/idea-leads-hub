@@ -19,10 +19,9 @@ export function LeadSelector({ selectedLeadId, onChange }: LeadSelectorProps) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [open, setOpen] = useState(false);
 
-  const supabase = createClient();
-  const repository = new SupabaseLeadRepository(supabase);
-
   useEffect(() => {
+    const supabase = createClient();
+    const repository = new SupabaseLeadRepository(supabase);
     repository.getAll().then(setLeads);
   }, []);
 
@@ -53,6 +52,7 @@ export function LeadSelector({ selectedLeadId, onChange }: LeadSelectorProps) {
             <CommandEmpty>No se encontraron leads.</CommandEmpty>
             <CommandGroup>
               <CommandItem
+                value="none"
                 onSelect={() => {
                   onChange(null);
                   setOpen(false);
@@ -69,6 +69,7 @@ export function LeadSelector({ selectedLeadId, onChange }: LeadSelectorProps) {
               {leads.map((lead) => (
                 <CommandItem
                   key={lead.id}
+                  value={`${lead.name} ${lead.company} ${lead.id}`.toLowerCase()}
                   onSelect={() => {
                     onChange(lead.id);
                     setOpen(false);

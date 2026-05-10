@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Idea } from "../../domain/entities/Idea";
 import { IdeasBoard } from "../components/IdeasBoard";
 import { IdeasList } from "../components/IdeasList";
@@ -15,15 +15,19 @@ export function IdeasView({ initialIdeas }: IdeasViewProps) {
   const [viewMode, setViewMode] = useState<"board" | "list">("board");
   const [searchTerm, setSearchTerm] = useState("");
   const { ideas, setIdeas } = useIdeasStore();
+  const isInitialized = useRef(false);
 
   useEffect(() => {
-    setIdeas(initialIdeas);
+    if (!isInitialized.current) {
+      setIdeas(initialIdeas);
+      isInitialized.current = true;
+    }
   }, [initialIdeas, setIdeas]);
 
   // Filter ideas based on search term and exclude archived unless specified
   const filteredIdeas = (ideas.length > 0 ? ideas : initialIdeas).filter(idea => {
     const matchesSearch = idea.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         idea.description.toLowerCase().includes(searchTerm.toLowerCase());
+      (idea.description?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
     const isNotArchived = idea.status !== "ARCHIVED";
     return matchesSearch && isNotArchived;
   });
@@ -37,10 +41,10 @@ export function IdeasView({ initialIdeas }: IdeasViewProps) {
         </p>
       </div>
 
-      <IdeaFilters 
-        viewMode={viewMode} 
-        setViewMode={setViewMode} 
-        onSearch={setSearchTerm} 
+      <IdeaFilters
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        onSearch={setSearchTerm}
       />
 
       <div className="flex-1 overflow-hidden">

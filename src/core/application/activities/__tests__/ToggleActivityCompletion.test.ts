@@ -11,7 +11,7 @@ describe('ToggleActivityCompletion', () => {
       create: jest.fn(),
       getById: jest.fn(),
       getAllPending: jest.fn(),
-      toggleCompletion: jest.fn(),
+      toggleCompleted: jest.fn(),
       delete: jest.fn(),
     } as any;
 
@@ -32,11 +32,11 @@ describe('ToggleActivityCompletion', () => {
       updatedAt: new Date().toISOString(),
     };
 
-    mockRepository.toggleCompletion.mockResolvedValue(mockActivity);
+    mockRepository.toggleCompleted.mockResolvedValue(mockActivity);
 
     const result = await useCase.execute(activityId, completed);
 
-    expect(mockRepository.toggleCompletion).toHaveBeenCalledWith(activityId, completed);
+    expect(mockRepository.toggleCompleted).toHaveBeenCalledWith(activityId, completed);
     expect(result.completed).toBe(true);
   });
 });

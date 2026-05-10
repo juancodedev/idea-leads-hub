@@ -41,10 +41,6 @@ export function IdeasBoard({ initialIdeas }: IdeasBoardProps) {
   const module = ideaModule();
   const router = useRouter();
 
-  React.useEffect(() => {
-    setIdeas(initialIdeas);
-  }, [initialIdeas, setIdeas]);
-
   const handleIdeaClick = (id: string) => {
     router.push(`/ideas/${id}/edit`);
   };
