@@ -34,3 +34,6 @@ next-env.d.ts
 .idea/
 .DS_Store
 .agents/rules/agents.md
+
+# Supabase temp files
+supabase/.temp/*
