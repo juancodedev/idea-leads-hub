@@ -1,0 +1,13 @@
+import { z } from "zod";
+import { IdeaPriority, IdeaStatus } from "../../domain/enums/IdeaEnums";
+
+export const ideaSchema = z.object({
+  title: z.string().min(3, "El título debe tener al menos 3 caracteres").max(255),
+  description: z.string().max(2000).optional(),
+  priority: z.nativeEnum(IdeaPriority).default(IdeaPriority.MEDIUM),
+  status: z.nativeEnum(IdeaStatus).default(IdeaStatus.BACKLOG),
+  leadId: z.string().uuid().optional().nullable(),
+  tagIds: z.array(z.string().uuid()).default([]),
+});
+
+export type IdeaSchemaType = z.infer<typeof ideaSchema>;
