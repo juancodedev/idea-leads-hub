@@ -5,7 +5,7 @@ import { Lead } from "@/core/domain/Lead";
 import { createClient } from "@/infrastructure/database/client";
 import { SupabaseLeadRepository } from "@/infrastructure/repositories/SupabaseLeadRepository";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/components/popover";
-import { Button } from "@/ui/components/button";
+import { Button, buttonVariants } from "@/ui/components/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/ui/components/command";
 import { Check, User, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -30,11 +30,14 @@ export function LeadSelector({ selectedLeadId, onChange }: LeadSelectorProps) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
-          variant="outline"
+        <button
+          type="button"
+          className={cn(
+            buttonVariants({ variant: "outline" }),
+            "w-full justify-between font-normal flex items-center px-3 h-10"
+          )}
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between font-normal"
         >
           <div className="flex items-center gap-2 overflow-hidden">
             <User className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -43,12 +46,12 @@ export function LeadSelector({ selectedLeadId, onChange }: LeadSelectorProps) {
             </span>
           </div>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
+        </button>
       </PopoverTrigger>
       <PopoverContent className="w-[400px] p-0" align="start">
         <Command>
           <CommandInput placeholder="Buscar lead..." />
-          <CommandList>
+          <CommandList className="max-h-[300px]">
             <CommandEmpty>No se encontraron leads.</CommandEmpty>
             <CommandGroup>
               <CommandItem
@@ -57,6 +60,7 @@ export function LeadSelector({ selectedLeadId, onChange }: LeadSelectorProps) {
                   onChange(null);
                   setOpen(false);
                 }}
+                className="cursor-pointer"
               >
                 <div className="flex items-center gap-2">
                   <div className="h-4 w-4" />
@@ -66,25 +70,29 @@ export function LeadSelector({ selectedLeadId, onChange }: LeadSelectorProps) {
                   <Check className="ml-auto h-4 w-4" />
                 )}
               </CommandItem>
-              {leads.map((lead) => (
-                <CommandItem
-                  key={lead.id}
-                  value={`${lead.name} ${lead.company} ${lead.id}`.toLowerCase()}
-                  onSelect={() => {
-                    onChange(lead.id);
-                    setOpen(false);
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    <span>{lead.name}</span>
-                    <span className="text-xs text-muted-foreground">({lead.company})</span>
-                  </div>
-                  {selectedLeadId === lead.id && (
-                    <Check className="ml-auto h-4 w-4" />
-                  )}
-                </CommandItem>
-              ))}
+              {leads.map((lead) => {
+                const leadId = String(lead.id).trim();
+                return (
+                  <CommandItem
+                    key={leadId}
+                    onSelect={() => {
+                      onChange(leadId);
+                      setOpen(false);
+                    }}
+                    className="cursor-pointer opacity-100! pointer-events-auto!"
+                    style={{ opacity: 1, pointerEvents: 'auto' }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <span>{lead.name}</span>
+                      <span className="text-xs text-muted-foreground">({lead.company})</span>
+                    </div>
+                    {selectedLeadId === leadId && (
+                      <Check className="ml-auto h-4 w-4" />
+                    )}
+                  </CommandItem>
+                );
+              })}
             </CommandGroup>
           </CommandList>
         </Command>
