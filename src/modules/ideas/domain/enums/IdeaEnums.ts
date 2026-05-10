@@ -1,0 +1,15 @@
+export enum IdeaStatus {
+  BACKLOG = 'BACKLOG',
+  RESEARCHING = 'RESEARCHING',
+  PLANNED = 'PLANNED',
+  IN_PROGRESS = 'IN_PROGRESS',
+  COMPLETED = 'COMPLETED',
+  ARCHIVED = 'ARCHIVED'
+}
+
+export enum IdeaPriority {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL'
+}
