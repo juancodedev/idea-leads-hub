@@ -1,25 +1,24 @@
 import { createClient } from "@/infrastructure/database/server";
 import { SupabaseIdeaRepository } from "@/modules/ideas/infrastructure/repositories/SupabaseIdeaRepository";
-import { IdeasView } from "@/modules/ideas/presentation/views/IdeasView";
+import { EditIdeaView } from "@/modules/ideas/presentation/views/EditIdeaView";
 import { DashboardLayout } from "@/ui/layouts/DashboardLayout";
+import { notFound } from "next/navigation";
 
 export const runtime = "edge";
-export const dynamic = "force-dynamic";
 
-export default async function IdeasPage() {
+export default async function EditIdeaPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
   const repository = new SupabaseIdeaRepository(supabase);
   
-  let ideas: any[] = [];
-  try {
-    ideas = await repository.getAll();
-  } catch (error) {
-    console.error("Error fetching ideas:", error);
+  const idea = await repository.getById(params.id);
+
+  if (!idea) {
+    notFound();
   }
 
   return (
     <DashboardLayout>
-      <IdeasView initialIdeas={JSON.parse(JSON.stringify(ideas))} />
+      <EditIdeaView idea={JSON.parse(JSON.stringify(idea))} />
     </DashboardLayout>
   );
 }
