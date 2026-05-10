@@ -18,10 +18,15 @@ src/
 │   ├── database/         # Configuración de clientes (Supabase client/server)
 │   ├── repositories/     # Implementación concreta de los ports (vía Supabase)
 │   └── auth/             # Configuración de autenticación
-├── modules/              # Funcionalidades de UI (Lógica de Presentación)
-│   ├── leads/            # Componentes, hooks y stores específicos de Leads
-│   ├── ideas/            # Componentes, hooks y stores específicos de Ideas
-│   └── auth/             # Componentes de login/signup
+├── modules/              # Módulos Funcionales Autocontenidos (Hexagonal Modular)
+│   ├── [feature]/        # Carpeta del módulo (ej: leads, ideas, activities)
+│   │   ├── domain/       # Entidades y Enums del módulo
+│   │   ├── application/  # Casos de Uso específicos
+│   │   ├── infrastructure/ # Repositorios, Mappers y esquemas Zod
+│   │   ├── presentation/ # Componentes UI, Formularios y Vistas
+│   │   ├── store/        # Estado global reactivo (Zustand)
+│   │   └── index.ts      # Punto de entrada y factoría del módulo
+│   └── auth/             # Módulo de autenticación compartido
 ├── ui/                   # Sistema de Diseño (UI Kit)
 │   ├── components/       # Componentes shadcn/ui y base reutilizables
 │   └── layouts/          # Estructuras de página compartidas

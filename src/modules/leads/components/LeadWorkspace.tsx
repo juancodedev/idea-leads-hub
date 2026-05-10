@@ -12,6 +12,8 @@ import { SupabaseTagRepository } from '@/infrastructure/repositories/SupabaseTag
 import { SupabaseNoteRepository } from '@/infrastructure/repositories/SupabaseNoteRepository';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/components/tabs';
 import { MessageSquare, History, Lightbulb } from 'lucide-react';
+import { LeadActivitiesSection } from '@/modules/activities/presentation/components/LeadActivitiesSection';
+import { RelatedIdeasSection } from '@/modules/ideas/presentation/components/RelatedIdeasSection';
 
 interface LeadWorkspaceProps {
   lead: Lead;
@@ -106,17 +108,15 @@ export function LeadWorkspace({ lead }: LeadWorkspaceProps) {
             </div>
           </TabsContent>
 
-          <TabsContent value="activity">
-            <div className="rounded-xl border bg-card p-12 shadow-sm text-center text-muted-foreground">
-              <History className="mx-auto h-12 w-12 mb-4 opacity-20" />
-              <p>El historial de cambios de etapa se implementará en la Fase 4.</p>
+          <TabsContent value="activity" className="space-y-6">
+            <div className="rounded-xl border bg-card p-6 shadow-sm">
+              <LeadActivitiesSection leadId={lead.id} />
             </div>
           </TabsContent>
 
-          <TabsContent value="ideas">
-            <div className="rounded-xl border bg-card p-12 shadow-sm text-center text-muted-foreground">
-              <Lightbulb className="mx-auto h-12 w-12 mb-4 opacity-20" />
-              <p>Las ideas relacionadas se implementarán en una fase posterior.</p>
+          <TabsContent value="ideas" className="space-y-6">
+            <div className="rounded-xl border bg-card p-6 shadow-sm">
+              <RelatedIdeasSection leadId={lead.id} />
             </div>
           </TabsContent>
         </Tabs>
