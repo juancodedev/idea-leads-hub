@@ -24,15 +24,17 @@ describe('ToggleActivityCompletion', () => {
     
     const mockActivity: Activity = {
       id: activityId,
+      leadId: 'lead1',
       description: 'Test',
       type: 'Tarea',
       completed: true,
+      dueDate: null,
       userId: 'user1',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
 
-    mockRepository.toggleCompleted.mockResolvedValue(mockActivity);
+    (mockRepository.toggleCompleted as jest.Mock).mockResolvedValue(mockActivity);
 
     const result = await useCase.execute(activityId, completed);
 
