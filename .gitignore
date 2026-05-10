@@ -33,7 +33,8 @@ next-env.d.ts
 .vscode/
 .idea/
 .DS_Store
-.agents/rules/agents.md
+.agents/rules/*
 
 # Supabase temp files
 supabase/.temp/*
+
