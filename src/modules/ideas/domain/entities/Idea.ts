@@ -4,10 +4,10 @@ import { Tag } from "@/core/domain/Tag";
 export interface Idea {
   id: string;
   title: string;
-  description: string;
+  description?: string;
   priority: IdeaPriority;
   status: IdeaStatus;
-  leadId?: string;
+  leadId?: string | null;
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
