@@ -6,8 +6,8 @@ export interface Activity {
   userId: string;
   type: ActivityType;
   title: string;
-  description: string;
-  dueDate?: Date;
+  description?: string;
+  dueDate?: Date | null;
   completed: boolean;
   completedAt?: Date;
   createdAt: Date;
