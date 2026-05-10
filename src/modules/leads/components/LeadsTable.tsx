@@ -51,7 +51,7 @@ interface LeadsTableProps {
 }
 
 export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableProps) {
-  const { leads, setLeads, updateLead } = useLeadsStore();
+  const { leads, setLeads, updateLead, isLoading, setLoading } = useLeadsStore();
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedStage, setSelectedStage] = React.useState<string>('all');
   const [selectedTag, setSelectedTag] = React.useState<string>('all');
@@ -64,8 +64,9 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
   React.useEffect(() => {
     if (initialLeads && initialLeads.length > 0) {
       setLeads(initialLeads);
+      setLoading(false);
     }
-  }, [initialLeads, setLeads]);
+  }, [initialLeads, setLeads, setLoading]);
 
   const selectedLead = React.useMemo(() =>
     leads.find(l => l.id === selectedLeadId) || null,
@@ -105,7 +106,31 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
     });
   }, [leads, searchTerm, selectedStage, selectedTag]);
 
-  if (initialLeads.length === 0) {
+  // Skeleton de carga para la tabla
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="h-10 w-64 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
+          <div className="h-10 w-32 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
+        </div>
+        <div className="rounded-md border border-slate-200 dark:border-slate-800">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="flex items-center space-x-4 border-b border-slate-100 p-4 dark:border-slate-800 last:border-0">
+              <div className="h-10 w-10 animate-pulse rounded-full bg-slate-200 dark:bg-slate-800" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 w-1/4 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
+                <div className="h-3 w-1/3 animate-pulse rounded bg-slate-100 dark:bg-slate-900" />
+              </div>
+              <div className="h-8 w-24 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (leads.length === 0) {
     return (
       <div className="flex h-64 flex-col items-center justify-center rounded-lg border border-dashed text-center">
         <p className="text-sm text-slate-500 dark:text-slate-400">No hay leads registrados aún.</p>
