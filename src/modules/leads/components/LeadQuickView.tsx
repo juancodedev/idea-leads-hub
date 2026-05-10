@@ -45,8 +45,9 @@ export function LeadQuickView({ lead, stages, onUpdate }: LeadQuickViewProps) {
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="space-y-6 flex-1 overflow-y-auto pr-2">
+    <div className="flex flex-col h-[calc(100vh-120px)]">
+      {/* Área con Scroll */}
+      <div className="flex-1 overflow-y-auto pr-4 space-y-6">
         {/* Cabecera */}
         <div>
           <div className="flex items-center gap-2 mb-2">
@@ -101,7 +102,7 @@ export function LeadQuickView({ lead, stages, onUpdate }: LeadQuickViewProps) {
             entityType="lead" 
             onNoteCreated={onUpdate} 
           />
-          <div className="max-h-[400px] overflow-y-auto">
+          <div className="space-y-2">
             <NoteTimeline 
               notes={lead.notes_data || []} 
               onNoteDeleted={onUpdate}
@@ -110,8 +111,8 @@ export function LeadQuickView({ lead, stages, onUpdate }: LeadQuickViewProps) {
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="pt-6 mt-6 border-t">
+      {/* Footer Fijo */}
+      <div className="pt-4 mt-4 border-t bg-white dark:bg-slate-950">
         <Link href={`/leads/${lead.id}`} className="w-full">
           <Button className="w-full" variant="outline">
             <ExternalLink className="mr-2 h-4 w-4" /> Abrir Perfil Completo

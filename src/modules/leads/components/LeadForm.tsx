@@ -19,6 +19,7 @@ import { createClient } from '@/infrastructure/database/client';
 import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLeadRepository';
 import { Lead } from '@/core/domain/Lead';
 import { toast } from 'sonner';
+import React from 'react';
 
 interface LeadFormProps {
   initialData?: Lead;
@@ -39,10 +40,17 @@ export function LeadForm({ initialData }: LeadFormProps) {
       status: initialData?.status || 'Nuevo',
       source: initialData?.source || '',
       notes: initialData?.notes || '',
-      pipelineId: initialData?.pipelineId,
-      stageId: initialData?.stageId,
+      pipelineId: initialData?.pipelineId || undefined,
+      stageId: initialData?.stageId || undefined,
     },
   });
+
+  // Diagnóstico de errores
+  React.useEffect(() => {
+    if (Object.keys(form.formState.errors).length > 0) {
+      console.log('Errores de validación:', form.formState.errors);
+    }
+  }, [form.formState.errors]);
 
   async function onSubmit(values: LeadFormValues) {
     try {

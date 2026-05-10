@@ -38,7 +38,10 @@ import {
   SheetTitle,
 } from '@/ui/components/sheet';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { LeadQuickView } from './LeadQuickView';
+import { createClient } from '@/infrastructure/database/client';
+import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLeadRepository';
 
 interface LeadsTableProps {
   leads: Lead[];
@@ -46,20 +49,46 @@ interface LeadsTableProps {
   allTags: Tag[];
 }
 
-export function LeadsTable({ leads, stages, allTags }: LeadsTableProps) {
+export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableProps) {
+  const [currentLeads, setCurrentLeads] = React.useState(initialLeads);
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedStage, setSelectedStage] = React.useState<string>('all');
   const [selectedTag, setSelectedTag] = React.useState<string>('all');
-  const [selectedLead, setSelectedLead] = React.useState<Lead | null>(null);
+  const [selectedLeadId, setSelectedLeadId] = React.useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = React.useState(false);
 
+  const router = useRouter();
+
+  // Sincronizar si las props cambian (ej. al navegar)
+  React.useEffect(() => {
+    setCurrentLeads(initialLeads);
+  }, [initialLeads]);
+
+  const selectedLead = React.useMemo(() =>
+    currentLeads.find(l => l.id === selectedLeadId) || null,
+    [currentLeads, selectedLeadId]
+  );
+
   const handleOpenQuickView = (lead: Lead) => {
-    setSelectedLead(lead);
+    setSelectedLeadId(lead.id);
     setIsSheetOpen(true);
   };
 
+  const refreshLead = async (leadId: string) => {
+    const supabase = createClient();
+    const repository = new SupabaseLeadRepository(supabase);
+    try {
+      const updatedLead = await repository.getById(leadId);
+      if (updatedLead) {
+        setCurrentLeads(prev => prev.map(l => l.id === leadId ? updatedLead : l));
+      }
+    } catch (error) {
+      console.error('Error refreshing lead:', error);
+    }
+  };
+
   const filteredLeads = React.useMemo(() => {
-    return leads.filter((lead) => {
+    return currentLeads.filter((lead) => {
       const matchesSearch =
         lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         lead.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -71,9 +100,9 @@ export function LeadsTable({ leads, stages, allTags }: LeadsTableProps) {
 
       return matchesSearch && matchesStage && matchesTag;
     });
-  }, [leads, searchTerm, selectedStage, selectedTag]);
+  }, [currentLeads, searchTerm, selectedStage, selectedTag]);
 
-  if (leads.length === 0) {
+  if (initialLeads.length === 0) {
     return (
       <div className="flex h-64 flex-col items-center justify-center rounded-lg border border-dashed text-center">
         <p className="text-sm text-slate-500 dark:text-slate-400">No hay leads registrados aún.</p>
@@ -217,13 +246,10 @@ export function LeadsTable({ leads, stages, allTags }: LeadsTableProps) {
             <SheetTitle>Información del Lead</SheetTitle>
           </SheetHeader>
           {selectedLead && (
-            <LeadQuickView
-              lead={selectedLead}
-              stages={stages}
-              onUpdate={() => {
-                // Aquí podrías recargar los datos si fuera necesario
-                // Por ahora el estado local se mantiene
-              }}
+            <LeadQuickView 
+              lead={selectedLead} 
+              stages={stages} 
+              onUpdate={() => refreshLead(selectedLead.id)}
             />
           )}
         </SheetContent>

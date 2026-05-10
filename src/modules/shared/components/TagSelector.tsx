@@ -36,7 +36,7 @@ export function TagSelector({ selectedTags, onAssign, onRemove }: TagSelectorPro
   const [loading, setLoading] = React.useState(false);
 
   const supabase = createClient();
-  const repository = new SupabaseTagRepository(supabase);
+  const repository = React.useMemo(() => new SupabaseTagRepository(supabase), [supabase]);
 
   const fetchTags = React.useCallback(async () => {
     try {
