@@ -17,34 +17,63 @@ import { Textarea } from '@/ui/components/textarea';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/infrastructure/database/client';
 import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLeadRepository';
+import { Lead } from '@/core/domain/Lead';
 import { toast } from 'sonner';
+import React from 'react';
 
-export function LeadForm() {
+import { useLeadsStore } from '../store/useLeadsStore';
+
+interface LeadFormProps {
+  initialData?: Lead;
+}
+
+export function LeadForm({ initialData }: LeadFormProps) {
   const router = useRouter();
+  const { leads, setLeads } = useLeadsStore();
   const supabase = createClient();
   const repository = new SupabaseLeadRepository(supabase);
 
   const form = useForm<LeadFormValues>({
     resolver: zodResolver(LeadSchema),
     defaultValues: {
-      name: '',
-      company: '',
-      email: '',
-      phone: '',
-      status: 'Nuevo',
-      source: '',
-      notes: '',
+      name: initialData?.name || '',
+      company: initialData?.company || '',
+      email: initialData?.email || '',
+      phone: initialData?.phone || '',
+      status: initialData?.status || 'Nuevo',
+      source: initialData?.source || '',
+      notes: initialData?.notes || '',
+      pipelineId: initialData?.pipelineId || undefined,
+      stageId: initialData?.stageId || undefined,
     },
   });
 
+  // Diagnóstico de errores
+  React.useEffect(() => {
+    if (Object.keys(form.formState.errors).length > 0) {
+      console.log('Errores de validación:', form.formState.errors);
+    }
+  }, [form.formState.errors]);
+
   async function onSubmit(values: LeadFormValues) {
     try {
-      await repository.create(values);
-      toast.success('Lead creado correctamente');
+      if (initialData) {
+        const updatedLead = await repository.update({ id: initialData.id, ...values });
+        if (updatedLead) {
+          setLeads(leads.map(l => l.id === initialData.id ? updatedLead : l));
+        }
+        toast.success('Lead actualizado correctamente');
+      } else {
+        const newLead = await repository.create(values);
+        if (newLead) {
+          setLeads([newLead, ...leads]);
+        }
+        toast.success('Lead creado correctamente');
+      }
       router.push('/leads');
       router.refresh();
     } catch (error: any) {
-      toast.error('Error al crear el lead', {
+      toast.error(initialData ? 'Error al actualizar el lead' : 'Error al crear el lead', {
         description: error.message,
       });
     }
@@ -160,7 +189,9 @@ export function LeadForm() {
           <Button type="button" variant="outline" onClick={() => router.back()}>
             Cancelar
           </Button>
-          <Button type="submit">Guardar Lead</Button>
+          <Button type="submit" disabled={form.formState.isSubmitting}>
+            {form.formState.isSubmitting ? 'Guardando...' : initialData ? 'Actualizar Lead' : 'Guardar Lead'}
+          </Button>
         </div>
       </form>
     </Form>

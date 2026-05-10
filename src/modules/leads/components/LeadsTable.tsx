@@ -1,29 +1,135 @@
 'use client';
 
+import * as React from 'react';
 import { Lead } from '@/core/domain/Lead';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import { PipelineStage } from '@/core/domain/Pipeline';
+import { Tag } from '@/core/domain/Tag';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from '@/ui/components/table';
+import { Input } from '@/ui/components/input';
+import { Button } from '@/ui/components/button';
+import { Badge } from '@/ui/components/badge';
+import {
+  Search,
+  Filter,
+  MoreHorizontal,
+  Eye,
+  Edit,
+  ExternalLink,
+  Trash2,
+  Tag as TagIcon
+} from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/ui/components/dropdown-menu';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/ui/components/sheet';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { LeadQuickView } from './LeadQuickView';
+import { createClient } from '@/infrastructure/database/client';
+import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLeadRepository';
+import { useLeadsStore } from '../store/useLeadsStore';
 
 interface LeadsTableProps {
   leads: Lead[];
+  stages: PipelineStage[];
+  allTags: Tag[];
 }
 
-const statusColors: Record<Lead['status'], string> = {
-  'Nuevo': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  'Contactado': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-  'Interesado': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-  'Propuesta': 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
-  'Ganado': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  'Perdido': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-};
+export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableProps) {
+  const { leads, setLeads, updateLead, isLoading, setLoading } = useLeadsStore();
+  const [searchTerm, setSearchTerm] = React.useState('');
+  const [selectedStage, setSelectedStage] = React.useState<string>('all');
+  const [selectedTag, setSelectedTag] = React.useState<string>('all');
+  const [selectedLeadId, setSelectedLeadId] = React.useState<string | null>(null);
+  const [isSheetOpen, setIsSheetOpen] = React.useState(false);
 
-export function LeadsTable({ leads }: LeadsTableProps) {
+  const router = useRouter();
+
+  // Sincronizar leads iniciales con el store si es necesario
+  React.useEffect(() => {
+    if (initialLeads && initialLeads.length > 0) {
+      setLeads(initialLeads);
+      setLoading(false);
+    }
+  }, [initialLeads, setLeads, setLoading]);
+
+  const selectedLead = React.useMemo(() =>
+    leads.find(l => l.id === selectedLeadId) || null,
+    [leads, selectedLeadId]
+  );
+
+  const handleOpenQuickView = (lead: Lead) => {
+    setSelectedLeadId(lead.id);
+    setIsSheetOpen(true);
+  };
+
+  const refreshLead = async (leadId: string) => {
+    const supabase = createClient();
+    const repository = new SupabaseLeadRepository(supabase);
+    try {
+      const updatedLead = await repository.getById(leadId);
+      if (updatedLead) {
+        updateLead(updatedLead);
+      }
+    } catch (error) {
+      console.error('Error refreshing lead:', error);
+    }
+  };
+
+  const filteredLeads = React.useMemo(() => {
+    return leads.filter((lead) => {
+      const matchesSearch =
+        lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lead.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lead.email.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesStage = selectedStage === 'all' || lead.stageId === selectedStage;
+
+      const matchesTag = selectedTag === 'all' || lead.tags?.some(t => t.id === selectedTag);
+
+      return matchesSearch && matchesStage && matchesTag;
+    });
+  }, [leads, searchTerm, selectedStage, selectedTag]);
+
+  // Skeleton de carga para la tabla
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="h-10 w-64 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
+          <div className="h-10 w-32 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
+        </div>
+        <div className="rounded-md border border-slate-200 dark:border-slate-800">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="flex items-center space-x-4 border-b border-slate-100 p-4 dark:border-slate-800 last:border-0">
+              <div className="h-10 w-10 animate-pulse rounded-full bg-slate-200 dark:bg-slate-800" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 w-1/4 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
+                <div className="h-3 w-1/3 animate-pulse rounded bg-slate-100 dark:bg-slate-900" />
+              </div>
+              <div className="h-8 w-24 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   if (leads.length === 0) {
     return (
       <div className="flex h-64 flex-col items-center justify-center rounded-lg border border-dashed text-center">
@@ -33,35 +139,148 @@ export function LeadsTable({ leads }: LeadsTableProps) {
   }
 
   return (
-    <div className="rounded-md border bg-white dark:bg-slate-900">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Nombre</TableHead>
-            <TableHead>Empresa</TableHead>
-            <TableHead>Email</TableHead>
-            <TableHead>Estado</TableHead>
-            <TableHead>Fecha</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {leads.map((lead) => (
-            <TableRow key={lead.id}>
-              <TableCell className="font-medium">{lead.name}</TableCell>
-              <TableCell>{lead.company}</TableCell>
-              <TableCell>{lead.email}</TableCell>
-              <TableCell>
-                <div className={statusColors[lead.status] + " inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"}>
-                  {lead.status}
-                </div>
-              </TableCell>
-              <TableCell className="text-slate-500">
-                {new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(lead.createdAt))}
-              </TableCell>
+    <div className="space-y-4">
+      {/* Filtros */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center justify-between">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nombre, empresa o email..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <select
+            value={selectedStage}
+            onChange={(e) => setSelectedStage(e.target.value)}
+            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          >
+            <option value="all">Todas las etapas</option>
+            {stages.map(stage => (
+              <option key={stage.id} value={stage.id}>{stage.name}</option>
+            ))}
+          </select>
+          <select
+            value={selectedTag}
+            onChange={(e) => setSelectedTag(e.target.value)}
+            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          >
+            <option value="all">Todas las etiquetas</option>
+            {allTags.map(tag => (
+              <option key={tag.id} value={tag.id}>{tag.name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Tabla */}
+      <div className="rounded-md border bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-slate-50/50 dark:bg-slate-800/50">
+              <TableHead className="w-[250px]">Lead</TableHead>
+              <TableHead>Empresa</TableHead>
+              <TableHead>Etapa / Estado</TableHead>
+              <TableHead>Etiquetas</TableHead>
+              <TableHead>Fecha</TableHead>
+              <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {filteredLeads.map((lead) => {
+              const stage = stages.find(s => s.id === lead.stageId);
+              return (
+                <TableRow
+                  key={lead.id}
+                  className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
+                  onClick={() => handleOpenQuickView(lead)}
+                >
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="font-semibold">{lead.name}</span>
+                      <span className="text-xs text-muted-foreground">{lead.email}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>{lead.company}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="h-2 w-2 rounded-full" 
+                        style={{ backgroundColor: stage?.color || '#cbd5e1' }} 
+                      />
+                      <span className="text-sm font-medium">{lead.status}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {lead.tags?.map(tag => (
+                        <div
+                          key={tag.id}
+                          className="h-2 w-2 rounded-full"
+                          style={{ backgroundColor: tag.color }}
+                          title={tag.name}
+                        />
+                      ))}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-xs">
+                    {new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short' }).format(new Date(lead.createdAt))}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onSelect={() => handleOpenQuickView(lead)}>
+                          <Eye className="mr-2 h-4 w-4" /> Vista Rápida
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href={`/leads/${lead.id}`} className="flex items-center">
+                            <ExternalLink className="mr-2 h-4 w-4" /> Ver Perfil
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href={`/leads/${lead.id}/edit`} className="flex items-center">
+                            <Edit className="mr-2 h-4 w-4" /> Editar
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive focus:text-destructive">
+                          <Trash2 className="mr-2 h-4 w-4" /> Eliminar
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+        {filteredLeads.length === 0 && (
+          <div className="py-12 text-center text-muted-foreground">
+            No se encontraron leads que coincidan con los filtros.
+          </div>
+        )}
+      </div>
+
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent side="right" className="sm:max-w-2xl">
+          <SheetHeader className="mb-6">
+            <SheetTitle>Información del Lead</SheetTitle>
+          </SheetHeader>
+          {selectedLead && (
+            <LeadQuickView 
+              lead={selectedLead} 
+              stages={stages} 
+              onUpdate={() => refreshLead(selectedLead.id)}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

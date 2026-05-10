@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   DndContext, 
   DragOverlay, 
@@ -21,6 +21,7 @@ import {
   verticalListSortingStrategy 
 } from '@dnd-kit/sortable';
 import { Lead } from '@/core/domain/Lead';
+import { PipelineStage } from '@/core/domain/Pipeline';
 import { PipelineColumn } from './PipelineColumn';
 import { PipelineCard } from './PipelineCard';
 import { useLeadsStore } from '../store/useLeadsStore';
@@ -28,18 +29,9 @@ import { createClient } from '@/infrastructure/database/client';
 import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLeadRepository';
 import { toast } from 'sonner';
 
-const COLUMNS: Lead['status'][] = [
-  'Nuevo', 
-  'Contactado', 
-  'Interesado', 
-  'Propuesta', 
-  'Ganado', 
-  'Perdido'
-];
-
-export function PipelineBoard({ initialLeads }: { initialLeads: Lead[] }) {
-  const { leads, setLeads, updateLeadStatus } = useLeadsStore();
-  const [activeLead, setActiveLead] = useState<Lead | null>(null);
+export function PipelineBoard({ initialLeads, stages }: { initialLeads: Lead[], stages: PipelineStage[] }) {
+  const { leads, setLeads, updateLead, updateLeadStage } = useLeadsStore();
+  const [activeLead, setActiveLead] = React.useState<Lead | null>(null);
   
   const supabase = createClient();
   const repository = new SupabaseLeadRepository(supabase);
@@ -65,7 +57,7 @@ export function PipelineBoard({ initialLeads }: { initialLeads: Lead[] }) {
     if (lead) setActiveLead(lead);
   };
 
-  const handleDragOver = (event: DragOverEvent) => {
+  const handleDragOver = async (event: DragOverEvent) => {
     const { active, over } = event;
     if (!over) return;
 
@@ -75,22 +67,25 @@ export function PipelineBoard({ initialLeads }: { initialLeads: Lead[] }) {
     if (activeId === overId) return;
 
     const isActiveALead = active.data.current?.type === 'Lead';
+    if (!isActiveALead) return;
+
     const isOverAColumn = over.data.current?.type === 'Column';
     const isOverALead = over.data.current?.type === 'Lead';
 
-    if (isActiveALead) {
-      if (isOverAColumn) {
-        const newStatus = overId as Lead['status'];
-        const activeLead = leads.find((l) => l.id === activeId);
-        if (activeLead && activeLead.status !== newStatus) {
-          updateLeadStatus(activeId as string, newStatus);
-        }
-      } else if (isOverALead) {
-        const overLead = leads.find((l) => l.id === overId);
-        const activeLead = leads.find((l) => l.id === activeId);
-        if (activeLead && overLead && activeLead.status !== overLead.status) {
-          updateLeadStatus(activeId as string, overLead.status);
-        }
+    let newStageId: string | null = null;
+
+    if (isOverAColumn) {
+      newStageId = overId as string;
+    } else if (isOverALead) {
+      const overLead = leads.find((l) => l.id === overId);
+      if (overLead) newStageId = overLead.stageId || null;
+    }
+
+    if (newStageId) {
+      const activeLead = leads.find((l) => l.id === activeId);
+      if (activeLead && activeLead.stageId !== newStageId) {
+        const destinationStage = stages.find((s) => s.id === newStageId);
+        updateLeadStage(activeId as string, newStageId, destinationStage?.name);
       }
     }
   };
@@ -102,26 +97,38 @@ export function PipelineBoard({ initialLeads }: { initialLeads: Lead[] }) {
     if (!over) return;
 
     const activeId = active.id as string;
-    const overId = over.id;
+    const overId = over.id as string;
 
-    let newStatus: Lead['status'] | null = null;
+    let newStageId: string | null = null;
 
     if (over.data.current?.type === 'Column') {
-      newStatus = overId as Lead['status'];
+      newStageId = overId;
     } else if (over.data.current?.type === 'Lead') {
       const overLead = leads.find(l => l.id === overId);
-      if (overLead) newStatus = overLead.status;
+      if (overLead) newStageId = overLead.stageId || null;
     }
 
-    const lead = leads.find(l => l.id === activeId);
+    // Usamos activeLead que capturamos al iniciar el arrastre para tener la referencia original
+    if (activeLead && newStageId && activeLead.stageId !== newStageId) {
+      const destinationStage = stages.find(s => s.id === newStageId);
+      
+      // Actualización optimista inmediata del status y stage
+      updateLeadStage(activeId, newStageId, destinationStage?.name);
 
-    if (lead && newStatus && lead.status !== newStatus) {
       try {
-        await repository.updateStatus(activeId, newStatus);
+        const updatedLead = await repository.update({ 
+          id: activeId, 
+          stageId: newStageId 
+        });
+        
+        // Confirmamos con los datos reales del servidor (que ya pasaron por el trigger)
+        if (updatedLead) {
+          updateLead(updatedLead);
+        }
       } catch (error) {
-        toast.error('Error al actualizar el estado');
-        // Rollback a la base de datos o recargar
-        console.error('Error actualizando estado en Supabase:', error);
+        toast.error('Error al actualizar la etapa');
+        console.error('Error actualizando etapa en Supabase:', error);
+        // Aquí podrías revertir el estado si fuera crítico
       }
     }
   };
@@ -135,13 +142,18 @@ export function PipelineBoard({ initialLeads }: { initialLeads: Lead[] }) {
       onDragEnd={handleDragEnd}
     >
       <div className="flex h-[calc(100vh-12rem)] gap-4 overflow-x-auto pb-4">
-        {COLUMNS.map((status) => (
+        {stages.map((stage) => (
           <PipelineColumn 
-            key={status} 
-            status={status} 
-            leads={leads.filter((l) => l.status === status)} 
+            key={stage.id} 
+            stage={stage} 
+            leads={leads.filter((l) => l.stageId === stage.id)} 
           />
         ))}
+        {stages.length === 0 && (
+          <div className="flex-1 flex items-center justify-center border-2 border-dashed rounded-xl text-muted-foreground">
+            No hay etapas configuradas para este pipeline.
+          </div>
+        )}
       </div>
 
       <DragOverlay dropAnimation={{
