@@ -28,6 +28,17 @@ export class SupabaseActivityRepository implements ActivityRepository {
     return data.map(ActivityMapper.toDomain);
   }
 
+  async getForIdea(ideaId: string): Promise<Activity[]> {
+    const { data, error } = await this.supabase
+      .from('activities')
+      .select('*')
+      .eq('idea_id', ideaId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw new Error(error.message);
+    return data.map(ActivityMapper.toDomain);
+  }
+
   async getPending(userId: string): Promise<Activity[]> {
     const { data, error } = await this.supabase
       .from('activities')

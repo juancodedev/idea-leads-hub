@@ -3,6 +3,7 @@ import { Activity, CreateActivityDTO, UpdateActivityDTO } from "../entities/Acti
 export interface ActivityRepository {
   getById(id: string): Promise<Activity | null>;
   getForLead(leadId: string): Promise<Activity[]>;
+  getForIdea(ideaId: string): Promise<Activity[]>;
   getPending(userId: string): Promise<Activity[]>;
   create(activity: CreateActivityDTO): Promise<Activity>;
   update(activity: UpdateActivityDTO): Promise<Activity>;
