@@ -61,6 +61,7 @@ export function EditIdeaView({ idea }: EditIdeaViewProps) {
             }} 
             onSubmit={handleSubmit} 
             isLoading={isLoading} 
+            mode="edit"
           />
         </CardContent>
       </Card>
