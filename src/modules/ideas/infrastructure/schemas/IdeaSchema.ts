@@ -8,6 +8,13 @@ export const ideaSchema = z.object({
   status: z.nativeEnum(IdeaStatus).default(IdeaStatus.BACKLOG),
   leadId: z.string().uuid().optional().nullable(),
   tagIds: z.array(z.string().uuid()).default([]),
+  attachments: z.array(z.object({
+    name: z.string(),
+    url: z.string().url(),
+    path: z.string(),
+    size: z.number(),
+    type: z.string(),
+  })).default([]),
 });
 
 export type IdeaSchemaType = z.infer<typeof ideaSchema>;
