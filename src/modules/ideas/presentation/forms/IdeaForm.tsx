@@ -12,18 +12,18 @@ import { Loader2 } from "lucide-react";
 import { TagsInput } from "../components/TagsInput";
 import { LeadSelector } from "../components/LeadSelector";
 import { FileUploader } from "../components/FileUploader";
-
-// Verificando si Select existe en ui/components
-// Como vi el listado antes, no vi select.tsx. Shadcn a veces usa popover para select o es un componente aparte.
-// Usaré un Select básico o el de Radix si está disponible.
+import { useRouter } from "next/navigation";
 
 interface IdeaFormProps {
   initialValues?: Partial<IdeaSchemaType>;
   onSubmit: (data: IdeaSchemaType) => Promise<void>;
   isLoading?: boolean;
+  onCancel?: () => void;
+  mode?: "create" | "edit";
 }
 
-export function IdeaForm({ initialValues, onSubmit, isLoading }: IdeaFormProps) {
+export function IdeaForm({ initialValues, onSubmit, isLoading, onCancel, mode = "create" }: IdeaFormProps) {
+  const router = useRouter();
   const form = useForm<IdeaSchemaType>({
     resolver: zodResolver(ideaSchema),
     defaultValues: {
@@ -36,6 +36,14 @@ export function IdeaForm({ initialValues, onSubmit, isLoading }: IdeaFormProps) 
       attachments: initialValues?.attachments || [],
     },
   });
+
+  const handleCancel = () => {
+    if (onCancel) {
+      onCancel();
+    } else {
+      router.back();
+    }
+  };
 
   return (
     <Form {...form}>
@@ -164,10 +172,21 @@ export function IdeaForm({ initialValues, onSubmit, isLoading }: IdeaFormProps) 
           )}
         />
 
-        <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {initialValues ? "Actualizar Idea" : "Crear Idea"}
-        </Button>
+        <div className="flex gap-3 pt-4">
+          <Button 
+            type="button" 
+            variant="outline" 
+            className="flex-1" 
+            onClick={handleCancel}
+            disabled={isLoading}
+          >
+            Cancelar
+          </Button>
+          <Button type="submit" className="flex-[2]" disabled={isLoading}>
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {mode === "edit" ? "Actualizar Idea" : "Crear Idea"}
+          </Button>
+        </div>
       </form>
     </Form>
   );
