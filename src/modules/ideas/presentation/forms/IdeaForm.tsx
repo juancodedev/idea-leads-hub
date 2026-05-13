@@ -11,6 +11,7 @@ import { Button } from "@/ui/components/button";
 import { Loader2 } from "lucide-react";
 import { TagsInput } from "../components/TagsInput";
 import { LeadSelector } from "../components/LeadSelector";
+import { FileUploader } from "../components/FileUploader";
 
 // Verificando si Select existe en ui/components
 // Como vi el listado antes, no vi select.tsx. Shadcn a veces usa popover para select o es un componente aparte.
@@ -32,6 +33,7 @@ export function IdeaForm({ initialValues, onSubmit, isLoading }: IdeaFormProps) 
       status: initialValues?.status || IdeaStatus.BACKLOG,
       leadId: initialValues?.leadId || null,
       tagIds: initialValues?.tagIds || [],
+      attachments: initialValues?.attachments || [],
     },
   });
 
@@ -139,6 +141,23 @@ export function IdeaForm({ initialValues, onSubmit, isLoading }: IdeaFormProps) 
               <FormLabel>Etiquetas</FormLabel>
               <FormControl>
                 <TagsInput value={field.value || []} onChange={field.onChange} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="attachments"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Archivos Adjuntos</FormLabel>
+              <FormControl>
+                <FileUploader 
+                  value={field.value || []} 
+                  onChange={field.onChange} 
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
