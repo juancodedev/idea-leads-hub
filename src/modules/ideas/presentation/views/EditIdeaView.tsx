@@ -57,9 +57,11 @@ export function EditIdeaView({ idea }: EditIdeaViewProps) {
               status: idea.status,
               leadId: idea.leadId,
               tagIds: idea.tags?.map(t => t.id) || [],
+              attachments: idea.attachments || [],
             }} 
             onSubmit={handleSubmit} 
             isLoading={isLoading} 
+            mode="edit"
           />
         </CardContent>
       </Card>
