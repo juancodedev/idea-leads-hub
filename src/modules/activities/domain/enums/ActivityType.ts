@@ -5,5 +5,7 @@ export enum ActivityType {
   EMAIL = 'EMAIL',
   TASK = 'TASK',
   NOTE = 'NOTE',
-  REMINDER = 'REMINDER'
+  REMINDER = 'REMINDER',
+  INVESTIGATION = 'INVESTIGATION',
+  ACTION = 'ACTION'
 }

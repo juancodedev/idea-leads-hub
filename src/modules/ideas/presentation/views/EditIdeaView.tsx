@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/components/card";
 import { Idea } from "../../domain/entities/Idea";
 import { RelatedLeadCard } from "../components/RelatedLeadCard";
+import { IdeaActivityFeed } from "../components/IdeaActivityFeed";
 
 interface EditIdeaViewProps {
   idea: Idea;
@@ -65,6 +66,8 @@ export function EditIdeaView({ idea }: EditIdeaViewProps) {
           />
         </CardContent>
       </Card>
+
+      <IdeaActivityFeed ideaId={idea.id} />
     </div>
   );
 }
