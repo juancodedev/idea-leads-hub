@@ -40,22 +40,38 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     let isMounted = true;
     async function fetchUser() {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user && isMounted) {
-        const { data: profile } = await supabase
+      try {
+        const supabase = createClient();
+        const { data: authData } = await supabase.auth.getUser();
+        const user = authData?.user;
+        
+        if (!user || !isMounted) return;
+
+        // Set initial user info from Auth
+        setUserData({
+          email: user.email,
+          name: user.email?.split('@')[0],
+        });
+
+        // Try to get profile info - TEMPORARILY DISABLED FOR DEBUGGING
+        /*
+        const { data: profiles } = await supabase
           .from('profiles')
           .select('full_name, avatar_url')
-          .eq('id', user.id)
-          .maybeSingle();
+          .eq('id', user.id);
         
-        if (isMounted) {
+        if (isMounted && profiles && profiles.length > 0) {
+          const profile = profiles[0];
           setUserData({
             email: user.email,
-            name: profile?.full_name || user.email?.split('@')[0],
-            avatar_url: profile?.avatar_url
+            name: profile.full_name || user.email?.split('@')[0],
+            avatar_url: profile.avatar_url
           });
         }
+        */
+      } catch (error) {
+        // Silent catch to avoid crashing the overlay
+        console.debug("Layout fetchUser error (handled):", error);
       }
     }
     fetchUser();

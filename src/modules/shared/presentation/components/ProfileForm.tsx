@@ -41,6 +41,13 @@ interface ProfileFormProps {
 
 export function ProfileForm({ initialData }: ProfileFormProps) {
   const [isLoading, setIsLoading] = React.useState(false);
+  const isMounted = React.useRef(true);
+
+  React.useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -59,11 +66,17 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
     setIsLoading(true);
     try {
       await updateProfileAction(data);
-      toast.success("Perfil actualizado correctamente");
+      if (isMounted.current) {
+        toast.success("Perfil actualizado correctamente");
+      }
     } catch (error: any) {
-      toast.error("Error al actualizar el perfil: " + error.message);
+      if (isMounted.current) {
+        toast.error("Error al actualizar el perfil: " + error.message);
+      }
     } finally {
-      setIsLoading(false);
+      if (isMounted.current) {
+        setIsLoading(false);
+      }
     }
   }
 
