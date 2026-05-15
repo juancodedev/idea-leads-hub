@@ -16,3 +16,11 @@ export class UpdateProfile {
     return await this.profileRepository.updateProfile(userId, dto);
   }
 }
+
+export class UploadAvatar {
+  constructor(private readonly profileRepository: ProfileRepository) {}
+
+  async execute(userId: string, file: File): Promise<string> {
+    return await this.profileRepository.uploadAvatar(userId, file);
+  }
+}

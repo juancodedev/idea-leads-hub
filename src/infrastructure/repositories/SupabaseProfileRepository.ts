@@ -39,6 +39,24 @@ export class SupabaseProfileRepository implements ProfileRepository {
     return this.mapToDomain(data);
   }
 
+  async uploadAvatar(userId: string, file: File): Promise<string> {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${userId}-${crypto.randomUUID()}.${fileExt}`;
+    const filePath = fileName;
+
+    const { error: uploadError } = await this.supabase.storage
+      .from('avatars')
+      .upload(filePath, file);
+
+    if (uploadError) throw new Error(uploadError.message);
+
+    const { data: { publicUrl } } = this.supabase.storage
+      .from('avatars')
+      .getPublicUrl(filePath);
+
+    return publicUrl;
+  }
+
   private mapToDomain(row: any): Profile {
     return {
       id: row.id,

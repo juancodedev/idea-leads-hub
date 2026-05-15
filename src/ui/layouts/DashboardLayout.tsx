@@ -53,8 +53,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           name: user.email?.split('@')[0],
         });
 
-        // Try to get profile info - TEMPORARILY DISABLED FOR DEBUGGING
-        /*
+        // Try to get profile info
         const { data: profiles } = await supabase
           .from('profiles')
           .select('full_name, avatar_url')
@@ -68,7 +67,6 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             avatar_url: profile.avatar_url
           });
         }
-        */
       } catch (error) {
         // Silent catch to avoid crashing the overlay
         console.debug("Layout fetchUser error (handled):", error);

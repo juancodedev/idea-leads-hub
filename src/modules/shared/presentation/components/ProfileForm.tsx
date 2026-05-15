@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Profile } from "@/core/domain/Profile";
-import { updateProfileAction } from "@/modules/shared/infrastructure/actions/profileActions";
+import { updateProfileAction, uploadAvatarAction } from "@/modules/shared/infrastructure/actions/profileActions";
 import { Button } from "@/ui/components/button";
 import {
   Form,
@@ -21,7 +21,7 @@ import { Textarea } from "@/ui/components/textarea";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/components/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/ui/components/avatar";
-import { User } from "lucide-react";
+import { User, Camera, Loader2 } from "lucide-react";
 
 const profileSchema = z.object({
   fullName: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
@@ -41,6 +41,8 @@ interface ProfileFormProps {
 
 export function ProfileForm({ initialData }: ProfileFormProps) {
   const [isLoading, setIsLoading] = React.useState(false);
+  const [isUploading, setIsUploading] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const isMounted = React.useRef(true);
 
   React.useEffect(() => {
@@ -61,6 +63,42 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
       avatarUrl: initialData.avatarUrl || "",
     },
   });
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast.error("Por favor, selecciona una imagen");
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("La imagen no debe superar los 2MB");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const publicUrl = await uploadAvatarAction(formData);
+      form.setValue("avatarUrl", publicUrl);
+      if (isMounted.current) {
+        toast.success("Foto de perfil subida correctamente");
+      }
+    } catch (error: any) {
+      if (isMounted.current) {
+        toast.error("Error al subir la foto: " + error.message);
+      }
+    } finally {
+      if (isMounted.current) {
+        setIsUploading(false);
+      }
+    }
+  };
 
   async function onSubmit(data: ProfileFormValues) {
     setIsLoading(true);
@@ -93,28 +131,43 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
               <div className="flex items-center gap-x-6">
-                <Avatar className="h-20 w-20">
-                  <AvatarImage src={form.watch("avatarUrl")} />
-                  <AvatarFallback className="text-lg">
-                    <User className="h-10 w-10" />
-                  </AvatarFallback>
-                </Avatar>
-                <FormField
-                  control={form.control}
-                  name="avatarUrl"
-                  render={({ field }) => (
-                    <FormItem className="flex-1">
-                      <FormLabel>URL del Avatar</FormLabel>
-                      <FormControl>
-                        <Input placeholder="https://ejemplo.com/avatar.jpg" {...field} />
-                      </FormControl>
-                      <FormDescription>
-                        Introduce una URL para tu foto de perfil.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="relative group">
+                  <Avatar className="h-24 w-24 border-2 border-muted transition-all group-hover:border-primary">
+                    <AvatarImage src={form.watch("avatarUrl")} className="object-cover" />
+                    <AvatarFallback className="bg-muted">
+                      <User className="h-12 w-12 text-muted-foreground" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-100 disabled:cursor-not-allowed"
+                  >
+                    {isUploading ? (
+                      <Loader2 className="h-8 w-8 text-white animate-spin" />
+                    ) : (
+                      <>
+                        <Camera className="h-8 w-8 text-white" />
+                        <span className="text-[10px] text-white font-medium mt-1">CAMBIAR</span>
+                      </>
+                    )}
+                  </button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-medium">Foto de perfil</h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Haz clic en el avatar para subir una nueva foto.<br />
+                    JPG, PNG o GIF. Máximo 2MB.
+                  </p>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
