@@ -13,7 +13,7 @@ export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export default async function LeadsPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const leadRepo = new SupabaseLeadRepository(supabase);
   const pipelineRepo = new SupabasePipelineRepository(supabase);
   const tagRepo = new SupabaseTagRepository(supabase);

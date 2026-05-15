@@ -17,11 +17,13 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet: Array<{ name: string; value: string; options?: any }>) {
-          cookiesToSet.forEach(({ name, value, options }) =>
+          cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
           response = NextResponse.next({
-            request,
+            request: {
+              headers: request.headers,
+            },
           });
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options as CookieOptions)
@@ -56,6 +58,14 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - __nextjs_original-stack-frame (internal Next.js debug route)
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico|__nextjs_original-stack-frame|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };

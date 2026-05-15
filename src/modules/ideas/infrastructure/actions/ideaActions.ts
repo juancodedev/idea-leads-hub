@@ -11,7 +11,7 @@ import { redirect } from "next/navigation";
 import { createAuditLog } from "@/modules/shared/infrastructure/actions/auditActions";
 
 export async function createIdeaAction(data: IdeaSchemaType) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const repository = new SupabaseIdeaRepository(supabase);
   const useCase = new CreateIdea(repository);
 
@@ -36,7 +36,7 @@ export async function createIdeaAction(data: IdeaSchemaType) {
 }
 
 export async function updateIdeaAction(id: string, data: IdeaSchemaType) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const repository = new SupabaseIdeaRepository(supabase);
   const useCase = new UpdateIdea(repository);
 

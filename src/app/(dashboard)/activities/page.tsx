@@ -9,7 +9,7 @@ export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export default async function ActivitiesPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const activityRepo = new SupabaseActivityRepository(supabase);
   
   const activities = await activityRepo.getAllPending();
