@@ -10,13 +10,18 @@ import {
   CheckSquare, 
   LogOut,
   Menu,
-  X
+  X,
+  Settings,
+  User
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/ui/components/button";
 
 import { CommandMenu } from "@/ui/components/CommandMenu";
 import { Search } from "lucide-react";
+import { logoutAction } from "@/modules/shared/infrastructure/actions/authActions";
+import { createClient } from "@/infrastructure/database/client";
+import { Avatar, AvatarFallback, AvatarImage } from "@/ui/components/avatar";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -24,11 +29,42 @@ const navigation = [
   { name: "Pipeline", href: "/pipeline", icon: LayoutDashboard }, // Kanban
   { name: "Ideas", href: "/ideas", icon: Lightbulb },
   { name: "Actividades", href: "/activities", icon: CheckSquare },
+  { name: "Ajustes", href: "/settings/profile", icon: Settings },
 ];
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
+  const [userData, setUserData] = React.useState<{ email?: string; name?: string; avatar_url?: string } | null>(null);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    async function fetchUser() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && isMounted) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, avatar_url')
+          .eq('id', user.id)
+          .maybeSingle();
+        
+        if (isMounted) {
+          setUserData({
+            email: user.email,
+            name: profile?.full_name || user.email?.split('@')[0],
+            avatar_url: profile?.avatar_url
+          });
+        }
+      }
+    }
+    fetchUser();
+    return () => { isMounted = false; };
+  }, []);
+
+  const handleLogout = async () => {
+    await logoutAction();
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -57,7 +93,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
           <nav className="flex-1 px-4 py-6 space-y-1">
             {navigation.map((item) => {
-              const isActive = pathname === item.href;
+              const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
               return (
                 <Link
                   key={item.name}
@@ -76,8 +112,26 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             })}
           </nav>
 
-          <div className="p-4 border-t">
-            <Button variant="ghost" className="w-full justify-start text-muted-foreground hover:text-destructive">
+          <div className="p-4 border-t space-y-4">
+            {userData && (
+              <div className="flex items-center px-2 py-2 mb-2">
+                <Avatar className="h-9 w-9 mr-3">
+                  <AvatarImage src={userData.avatar_url} />
+                  <AvatarFallback className="bg-primary/10 text-primary">
+                    <User className="h-5 w-5" />
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col overflow-hidden">
+                  <span className="text-sm font-medium truncate">{userData.name}</span>
+                  <span className="text-xs text-muted-foreground truncate">{userData.email}</span>
+                </div>
+              </div>
+            )}
+            <Button 
+              variant="ghost" 
+              className="w-full justify-start text-muted-foreground hover:text-destructive"
+              onClick={handleLogout}
+            >
               <LogOut className="mr-3 h-5 w-5" />
               Cerrar sesión
             </Button>
