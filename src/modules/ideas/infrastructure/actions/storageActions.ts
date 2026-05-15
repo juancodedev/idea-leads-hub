@@ -3,7 +3,7 @@
 import { createClient } from "@/infrastructure/database/server";
 
 export async function uploadFileAction(formData: FormData) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const file = formData.get("file") as File;
   const bucket = "idea-attachments";
 
@@ -49,7 +49,7 @@ export async function uploadFileAction(formData: FormData) {
 }
 
 export async function deleteFileAction(path: string) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const bucket = "idea-attachments";
 
   const { error } = await supabase.storage.from(bucket).remove([path]);
