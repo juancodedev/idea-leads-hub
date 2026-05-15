@@ -17,7 +17,8 @@ export class SupabaseProfileRepository implements ProfileRepository {
   }
 
   async updateProfile(id: string, profile: UpdateProfileDTO): Promise<Profile> {
-    const updates = {
+    const dataToUpsert = {
+      id,
       full_name: profile.fullName,
       avatar_url: profile.avatarUrl,
       company_name: profile.companyName,
@@ -30,8 +31,7 @@ export class SupabaseProfileRepository implements ProfileRepository {
 
     const { data, error } = await this.supabase
       .from('profiles')
-      .update(updates)
-      .eq('id', id)
+      .upsert(dataToUpsert)
       .select()
       .single();
 

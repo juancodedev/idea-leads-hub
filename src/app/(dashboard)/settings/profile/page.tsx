@@ -20,17 +20,14 @@ export default async function ProfilePage() {
   const repository = new SupabaseProfileRepository(supabase);
   const useCase = new GetProfile(repository);
   
-  const profile = await useCase.execute(user.id);
+  let profile = await useCase.execute(user.id);
 
   if (!profile) {
-    // This shouldn't happen with the trigger, but as fallback:
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-full">
-          <p>No se pudo cargar el perfil.</p>
-        </div>
-      </DashboardLayout>
-    );
+    // If profile doesn't exist yet, provide a default skeleton
+    profile = {
+      id: user.id,
+      updatedAt: new Date().toISOString(),
+    };
   }
 
   return (
