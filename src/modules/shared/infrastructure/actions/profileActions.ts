@@ -20,9 +20,14 @@ export async function updateProfileAction(dto: UpdateProfileDTO) {
   try {
     const profile = await useCase.execute(user.id, dto);
     revalidatePath("/settings/profile");
-    return profile;
+    // Return a plain object to ensure serialization works correctly
+    return {
+      success: true,
+      data: JSON.parse(JSON.stringify(profile))
+    };
   } catch (error: any) {
-    throw new Error(error.message);
+    console.error("Error in updateProfileAction:", error);
+    throw new Error(error.message || "Error desconocido al actualizar el perfil");
   }
 }
 
