@@ -16,7 +16,7 @@ interface LeadDetailsPageProps {
 }
 
 export default async function LeadDetailsPage({ params }: LeadDetailsPageProps) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const repository = new SupabaseLeadRepository(supabase);
   
   const lead = await repository.getById(params.id);

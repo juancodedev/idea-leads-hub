@@ -22,7 +22,7 @@ export interface Lead {
 }
 
 export interface CreateLeadDTO {
-  name: string;
+  name?: string;
   company: string;
   email: string;
   phone?: string;

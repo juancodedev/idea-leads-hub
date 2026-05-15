@@ -7,7 +7,7 @@ export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export default async function IdeasPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const repository = new SupabaseIdeaRepository(supabase);
   
   let ideas: any[] = [];

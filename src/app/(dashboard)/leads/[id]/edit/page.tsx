@@ -13,7 +13,7 @@ interface EditLeadPageProps {
 }
 
 export default async function EditLeadPage({ params }: EditLeadPageProps) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const repository = new SupabaseLeadRepository(supabase);
   
   const lead = await repository.getById(params.id);

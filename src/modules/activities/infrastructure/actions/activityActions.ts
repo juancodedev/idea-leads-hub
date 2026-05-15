@@ -8,7 +8,7 @@ import { revalidatePath } from "next/cache";
 import { createAuditLog } from "@/modules/shared/infrastructure/actions/auditActions";
 
 export async function createActivityAction(data: CreateActivityDTO) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const repository = new SupabaseActivityRepository(supabase);
 
   try {
@@ -34,7 +34,7 @@ export async function createActivityAction(data: CreateActivityDTO) {
 }
 
 export async function updateActivityAction(data: UpdateActivityDTO) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const repository = new SupabaseActivityRepository(supabase);
 
   try {
@@ -73,7 +73,7 @@ export async function updateActivityAction(data: UpdateActivityDTO) {
 }
 
 export async function deleteActivityAction(id: string, path?: string) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const repository = new SupabaseActivityRepository(supabase);
 
   try {
@@ -98,7 +98,7 @@ export async function deleteActivityAction(id: string, path?: string) {
 }
 
 export async function getIdeaActivitiesAction(ideaId: string) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const repository = new SupabaseActivityRepository(supabase);
 
   try {

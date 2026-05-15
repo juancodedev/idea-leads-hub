@@ -4,7 +4,7 @@ import { createClient } from "@/infrastructure/database/server";
 import { AuditLog, AuditAction, AuditEntityType } from "../../domain/entities/AuditLog";
 
 export async function createAuditLog(log: Omit<AuditLog, 'id' | 'createdAt' | 'userId'>) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) return { error: "No authenticated user" };
 
@@ -22,7 +22,7 @@ export async function createAuditLog(log: Omit<AuditLog, 'id' | 'createdAt' | 'u
 }
 
 export async function getAuditLogsForParent(parentId: string) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('audit_logs')
     .select('*')
@@ -46,7 +46,7 @@ export async function getAuditLogsForParent(parentId: string) {
 }
 
 export async function getAuditLogsForEntity(entityId: string) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('audit_logs')
     .select('*')
