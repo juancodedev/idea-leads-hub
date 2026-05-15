@@ -57,6 +57,8 @@ import { ApiCreateLeadSchema } from '@/core/domain/schemas/LeadSchema';
  *         description: Error interno del servidor
  */
 
+export const runtime = 'edge';
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
