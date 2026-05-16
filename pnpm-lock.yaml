@@ -197,7 +197,7 @@ importers:
         specifier: ^5
         version: 5.9.3
       wrangler:
-        specifier: ^4.92.0
+        specifier: ^4.59.2
         version: 4.92.0
 
 packages:
