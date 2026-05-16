@@ -8,8 +8,8 @@ Implementar una arquitectura híbrida Clean + Hexagonal que permita desacoplar l
 
 ```text
 src/
-├── app/                  # Next.js App Router (Rutas, Layouts de página, Proxy/Auth)
-├── proxy.ts              # Lógica de protección de rutas y auth (ex-middleware)
+├── app/                  # Next.js App Router (Rutas y layouts de página)
+├── middleware.ts         # Lógica de protección de rutas y auth en Edge Runtime
 ├── core/                 # Núcleo de la aplicación (Lógica Pura)
 │   ├── domain/           # Entidades, Value Objects y Errores de dominio
 │   ├── application/      # Casos de Uso (Orquestación de la lógica de negocio)
