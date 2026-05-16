@@ -2,6 +2,3 @@ name = "idea-leads-hub"
 compatibility_date = "2024-09-23"
 pages_build_output_dir = ".open-next/assets"
 compatibility_flags = ["nodejs_compat"]
-[assets]
-directory = ".open-next/assets"
-binding = "ASSETS"
