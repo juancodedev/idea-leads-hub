@@ -12,7 +12,7 @@ CRM Personal para la gestión de leads, ideas de negocio y actividades, construi
 - **`src/core/application/`**: Casos de uso que orquestan la lógica de negocio.
 - **`src/infrastructure/`**: Implementaciones técnicas (Supabase, Repositorios concretos, Base de datos).
 - **`src/modules/`**: Módulos funcionales autocontenidos que agrupan UI y lógica específica por feature.
-- **`src/app/`**: Rutas de Next.js, API Handlers y configuración de middleware (ahora `proxy.ts`).
+- **`src/app/`**: Rutas de Next.js, API Handlers y configuración de middleware.
 - **`src/ui/`**: Sistema de diseño, componentes base (shadcn/ui) y layouts compartidos.
 
 ## 📂 Mapa de Archivos Críticos
@@ -37,7 +37,7 @@ CRM Personal para la gestión de leads, ideas de negocio y actividades, construi
 - `src/app/api/leads/route.ts`: Endpoint seguro para carga de leads (Edge runtime).
 - `src/app/api/auth/login/route.ts`: Endpoint de autenticación (JWT).
 - `src/app/api/docs/`: Documentación Swagger/OpenAPI.
-- `src/proxy.ts`: Lógica de protección de rutas y auth (ex-middleware).
+- `src/middleware.ts`: Lógica de protección de rutas y auth en Edge Runtime.
 
 ### UI & Layouts
 - `src/ui/layouts/DashboardLayout.tsx`: Layout principal con sidebar y visibilidad de usuario.
@@ -46,7 +46,7 @@ CRM Personal para la gestión de leads, ideas de negocio y actividades, construi
 ## ⚠️ Reglas Críticas para Agentes
 
 1. **Edge Runtime**: Todos los API routes y páginas dinámicas deben incluir `export const runtime = 'edge'`.
-2. **Next.js 16+**: No usar `middleware.ts`, usar `proxy.ts` con exportación de función `proxy`.
+2. **Next.js 16+ en Cloudflare**: Usar `middleware.ts` para conservar Edge Runtime; evitar `proxy.ts` porque Next.js 16 lo ejecuta en Node.js runtime. No agregar `export const runtime = "edge"` al middleware: Next.js 16.2 lo rechaza durante el build.
 3. **Async Cookies**: El cliente de base de datos de servidor debe ser `async` debido a `cookies()` en Next.js 15+.
 4. **Validación**: Siempre validar entradas externas con Zod usando esquemas estrictos (`.strict()`).
 5. **Arquitectura**: Nunca importar infraestructura (`src/infrastructure`) dentro del core (`src/core`).
