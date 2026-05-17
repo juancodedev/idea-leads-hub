@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Cloudflare Pages specific config if needed
-  // For example, if using images from external domains:
+  output: 'export',
   images: {
+    unoptimized: true, // Requerido con output: 'export'
     remotePatterns: [
       {
         protocol: 'https',
