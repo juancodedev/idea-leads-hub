@@ -4,7 +4,7 @@ compatibility_flags = ["nodejs_compat"]
 main = ".open-next/worker.js"
 
 [build]
-command = "pnpm install --no-frozen-lockfile && npm run build"
+command = "pnpm install --no-frozen-lockfile && pnpm run build"
 cwd = "./"
 
 [assets]
