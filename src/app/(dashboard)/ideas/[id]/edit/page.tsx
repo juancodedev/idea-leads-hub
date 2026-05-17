@@ -6,11 +6,20 @@ import { notFound } from "next/navigation";
 
 export const runtime = "edge";
 
-export default async function EditIdeaPage({ params }: { params: { id: string } }) {
+interface EditIdeaPageProps {
+  params: Promise<{
+    id: string;
+  }>;
+}
+
+export default async function EditIdeaPage({ params }: EditIdeaPageProps) {
+  // Ahora debes await los params
+  const { id } = await params;
+  
   const supabase = await createClient();
   const repository = new SupabaseIdeaRepository(supabase);
-  
-  const idea = await repository.getById(params.id);
+
+  const idea = await repository.getById(id);
 
   if (!idea) {
     notFound();

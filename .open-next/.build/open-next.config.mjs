@@ -1,6 +1,6 @@
 import { createRequire as topLevelCreateRequire } from 'module';const require = topLevelCreateRequire(import.meta.url);import bannerUrl from 'url';const __dirname = bannerUrl.fileURLToPath(new URL('.', import.meta.url));
 
-// node_modules/.pnpm/@opennextjs+cloudflare@1.19.10_next@16.2.6_@babel+core@7.29.0_react-dom@18.3.1_react@18_fef01930d4e68c28ebee89bcd4e48408/node_modules/@opennextjs/cloudflare/dist/api/cloudflare-context.js
+// node_modules/.pnpm/@opennextjs+cloudflare@1.19.10_next@15.5.18_@babel+core@7.29.0_react-dom@19.0.0_react@1_d51aa70477c91c84ece4df4f47199751/node_modules/@opennextjs/cloudflare/dist/api/cloudflare-context.js
 var cloudflareContextSymbol = Symbol.for("__cloudflare-context__");
 function getCloudflareContext(options = { async: false }) {
   return options.async ? getCloudflareContextAsync() : getCloudflareContextSync();
@@ -84,7 +84,7 @@ You should update your Next.js config file as shown below:
 
 `;
 
-// node_modules/.pnpm/@opennextjs+cloudflare@1.19.10_next@16.2.6_@babel+core@7.29.0_react-dom@18.3.1_react@18_fef01930d4e68c28ebee89bcd4e48408/node_modules/@opennextjs/cloudflare/dist/api/overrides/asset-resolver/index.js
+// node_modules/.pnpm/@opennextjs+cloudflare@1.19.10_next@15.5.18_@babel+core@7.29.0_react-dom@19.0.0_react@1_d51aa70477c91c84ece4df4f47199751/node_modules/@opennextjs/cloudflare/dist/api/overrides/asset-resolver/index.js
 var resolver = {
   name: "cloudflare-asset-resolver",
   async maybeGetAssetResult(event) {
@@ -147,7 +147,7 @@ function isUserWorkerFirst(runWorkerFirst, pathname) {
 }
 var asset_resolver_default = resolver;
 
-// node_modules/.pnpm/@opennextjs+cloudflare@1.19.10_next@16.2.6_@babel+core@7.29.0_react-dom@18.3.1_react@18_fef01930d4e68c28ebee89bcd4e48408/node_modules/@opennextjs/cloudflare/dist/api/config.js
+// node_modules/.pnpm/@opennextjs+cloudflare@1.19.10_next@15.5.18_@babel+core@7.29.0_react-dom@19.0.0_react@1_d51aa70477c91c84ece4df4f47199751/node_modules/@opennextjs/cloudflare/dist/api/config.js
 function defineCloudflareConfig(config = {}) {
   const { incrementalCache, tagCache, queue, cachePurge, enableCacheInterception = false, routePreloadingBehavior = "none" } = config;
   return {

@@ -7,16 +7,18 @@ import { DashboardLayout } from '@/ui/layouts/DashboardLayout';
 import { notFound } from 'next/navigation';
 
 interface EditLeadPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default async function EditLeadPage({ params }: EditLeadPageProps) {
+  const { id } = await params;
+  
   const supabase = await createClient();
   const repository = new SupabaseLeadRepository(supabase);
   
-  const lead = await repository.getById(params.id);
+  const lead = await repository.getById(id);
 
   if (!lead) {
     notFound();
