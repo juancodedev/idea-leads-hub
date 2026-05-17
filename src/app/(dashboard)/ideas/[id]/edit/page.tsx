@@ -4,7 +4,7 @@ import { EditIdeaView } from "@/modules/ideas/presentation/views/EditIdeaView";
 import { DashboardLayout } from "@/ui/layouts/DashboardLayout";
 import { notFound } from "next/navigation";
 
-export const runtime = "edge";
+// export const runtime = "edge";
 
 interface EditIdeaPageProps {
   params: Promise<{

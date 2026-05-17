@@ -3,7 +3,7 @@ import { SupabaseIdeaRepository } from "@/modules/ideas/infrastructure/repositor
 import { IdeasView } from "@/modules/ideas/presentation/views/IdeasView";
 import { DashboardLayout } from "@/ui/layouts/DashboardLayout";
 
-export const runtime = "edge";
+// export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export default async function IdeasPage() {

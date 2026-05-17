@@ -6,7 +6,7 @@ import { SupabaseProfileRepository } from "@/infrastructure/repositories/Supabas
 import { GetProfile } from "@/core/application/profile/ProfileUseCases";
 import { redirect } from "next/navigation";
 
-export const runtime = "edge";
+// export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export default async function ProfilePage() {

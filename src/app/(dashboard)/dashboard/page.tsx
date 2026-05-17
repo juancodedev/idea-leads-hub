@@ -10,7 +10,7 @@ import { UpcomingActivities } from "@/modules/dashboard/components/UpcomingActiv
 import { IdeasByStatusChart } from "@/modules/dashboard/components/IdeasByStatusChart";
 import { DashboardLayout } from "@/ui/layouts/DashboardLayout";
 
-export const runtime = "edge";
+// export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {

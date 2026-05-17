@@ -5,7 +5,7 @@ import { DashboardLayout } from "@/ui/layouts/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/ui/components/card";
 import { ActivityItem } from "@/modules/activities/components/ActivityItem";
 
-export const runtime = "edge";
+// export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export default async function ActivitiesPage() {

@@ -1,4 +1,4 @@
-export const runtime = "edge";
+// export const runtime = "edge";
 
 import { createClient } from '@/infrastructure/database/server';
 import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLeadRepository';

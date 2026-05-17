@@ -9,7 +9,7 @@ import { Button } from "@/ui/components/button";
 import { Plus } from "lucide-react";
 import Link from "next/link";
 
-export const runtime = "edge";
+// export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export default async function LeadsPage() {
