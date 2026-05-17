@@ -26,4 +26,4 @@ jobs:
 
       - run: npx opennextjs-cloudflare build
 
-      - run: npx wrangler deploy --verbose
+      - run: npx wrangler deploy
