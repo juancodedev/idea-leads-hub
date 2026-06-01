@@ -19,7 +19,10 @@
       "sharp",
       "unrs-resolver",
       "workerd"
-    ]
+    ],
+    "overrides": {
+      "ws": "8.20.1"
+    }
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
