@@ -68,12 +68,77 @@ Para más detalles, consulta la [Guía de Arquitectura](./docs/architecture.md).
     npm run dev
     ```
 
-## 🔌 API de Leads
+## 🔌 API REST
 
-El sistema incluye una API para cargar leads externamente:
--   **Endpoint**: `POST /api/leads`
--   **Autenticación**: Requiere Token JWT de Supabase en el header `Authorization`.
--   **Documentación**: Visita `/api/docs` en tu navegador con el servidor en ejecución para ver la especificación completa y probar el endpoint.
+La plataforma expone una API REST privada para integración con sistemas externos. La especificación completa sigue el estándar **OpenAPI 3.0** y está disponible en el endpoint `/api/docs/openapi.json`.
+
+### Endpoints
+
+#### `POST /api/auth/login`
+Autenticación de usuario. Devuelve un token JWT necesario para acceder al resto de los endpoints protegidos.
+
+- **Autenticación**: No requiere
+- **Cuerpo** (`application/json`):
+
+| Campo      | Tipo   | Obligatorio | Descripción              |
+|------------|--------|-------------|--------------------------|
+| `email`    | string | ✅          | Email del usuario        |
+| `password` | string | ✅          | Contraseña del usuario   |
+
+- **Respuesta 200**:
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIs...",
+  "expires_in": 3600,
+  "refresh_token": "...",
+  "user": { "id": "uuid", "email": "usuario@ejemplo.com" }
+}
+```
+
+- **Errores**: `400` (validación), `401` (credenciales inválidas), `500` (error interno)
+
+---
+
+#### `POST /api/leads`
+Crear un nuevo lead en el sistema.
+
+- **Autenticación**: Requiere header `Authorization: Bearer <token>` (JWT de Supabase)
+- **Cuerpo** (`application/json`):
+
+| Campo      | Tipo   | Obligatorio | Descripción                                              |
+|------------|--------|-------------|----------------------------------------------------------|
+| `empresa`  | string | ✅          | Nombre de la empresa                                     |
+| `email`    | string | ✅          | Email de contacto                                        |
+| `origen`   | string | ✅          | Fuente del lead (ej: "Campaña Web 2024")                 |
+| `nombre`   | string | ❌          | Nombre del contacto (default: valor de `empresa`)        |
+| `telefono` | string | ❌          | Teléfono de contacto                                     |
+| `notas`    | string | ❌          | Notas adicionales                                        |
+| `status`   | enum   | ❌          | Estado: `Nuevo` \| `Contactado` \| `Interesado` \| `Propuesta` \| `Ganado` \| `Perdido` (default: `Nuevo`) |
+
+- **Ejemplo**:
+```bash
+curl -X POST http://localhost:3000/api/leads \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "empresa": "TechCorp S.A.",
+    "email": "contacto@techcorp.com",
+    "origen": "Landing Page",
+    "nombre": "Carlos López",
+    "telefono": "+54 11 5555-1234",
+    "notas": "Cliente interesado en consultoría",
+    "status": "Nuevo"
+  }'
+```
+
+- **Respuesta 201**: Objeto `Lead` creado (id, name, company, email, status, source, createdAt)
+- **Errores**: `400` (validación), `401` (no autorizado), `500` (error interno)
+
+---
+
+### Documentación Interactiva (Swagger UI)
+
+Con el servidor en ejecución, visitá `/api/docs` para explorar y probar los endpoints desde el navegador con Swagger UI. La especificación OpenAPI raw está disponible en `/api/docs/openapi.json`.
 
 ## 🧪 Pruebas
 
