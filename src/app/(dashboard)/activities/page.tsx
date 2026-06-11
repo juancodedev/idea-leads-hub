@@ -1,6 +1,6 @@
 import React from "react";
 import { createClient } from "@/infrastructure/database/server";
-import { SupabaseActivityRepository } from "@/infrastructure/repositories/SupabaseActivityRepository";
+import { SupabaseActivityRepository } from "@/modules/activities/infrastructure/repositories/SupabaseActivityRepository";
 import { DashboardLayout } from "@/ui/layouts/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/ui/components/card";
 import { ActivityItem } from "@/modules/activities/components/ActivityItem";
@@ -10,9 +10,13 @@ export const dynamic = "force-dynamic";
 
 export default async function ActivitiesPage() {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) return null;
+  
   const activityRepo = new SupabaseActivityRepository(supabase);
   
-  const activities = await activityRepo.getAllPending();
+  const activities = await activityRepo.getPending(user.id);
 
   return (
     <DashboardLayout>

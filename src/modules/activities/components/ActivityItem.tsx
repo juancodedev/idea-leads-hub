@@ -3,17 +3,22 @@
 import React from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { CheckCircle2, Circle, Clock, Mail, Phone, Users, MessageSquare } from "lucide-react";
-import { Activity, ActivityType } from "@/core/domain/Activity";
+import { CheckCircle2, Circle, Clock, Mail, Phone, Users, MessageSquare, RefreshCw, Search, Zap } from "lucide-react";
+import { Activity } from "../domain/entities/Activity";
+import { ActivityType } from "../domain/enums/ActivityType";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/ui/components/checkbox";
 
 const iconMap: Record<ActivityType, any> = {
-  Email: Mail,
-  Llamada: Phone,
-  Reunión: Users,
-  Nota: MessageSquare,
-  Tarea: CheckCircle2,
+  [ActivityType.CALL]: Phone,
+  [ActivityType.MEETING]: Users,
+  [ActivityType.FOLLOW_UP]: RefreshCw,
+  [ActivityType.EMAIL]: Mail,
+  [ActivityType.TASK]: CheckCircle2,
+  [ActivityType.NOTE]: MessageSquare,
+  [ActivityType.REMINDER]: Clock,
+  [ActivityType.INVESTIGATION]: Search,
+  [ActivityType.ACTION]: Zap,
 };
 
 interface ActivityItemProps {
