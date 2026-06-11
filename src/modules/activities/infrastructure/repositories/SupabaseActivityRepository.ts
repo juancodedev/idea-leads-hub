@@ -2,9 +2,13 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { Activity, CreateActivityDTO, UpdateActivityDTO } from "../../domain/entities/Activity";
 import { ActivityRepository } from "../../domain/repositories/ActivityRepository";
 import { ActivityMapper } from "../mappers/ActivityMapper";
+import { BaseRepository } from "../../../../infrastructure/repositories/BaseRepository";
+import { Database } from "../../../../infrastructure/database/database.types";
 
-export class SupabaseActivityRepository implements ActivityRepository {
-  constructor(private readonly supabase: SupabaseClient) {}
+export class SupabaseActivityRepository extends BaseRepository implements ActivityRepository {
+  constructor(supabase: SupabaseClient<Database>) {
+    super(supabase, 'activities');
+  }
 
   async getById(id: string): Promise<Activity | null> {
     const { data, error } = await this.supabase
@@ -13,7 +17,7 @@ export class SupabaseActivityRepository implements ActivityRepository {
       .eq('id', id)
       .maybeSingle();
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
     return data ? ActivityMapper.toDomain(data) : null;
   }
 
@@ -24,7 +28,7 @@ export class SupabaseActivityRepository implements ActivityRepository {
       .eq('lead_id', leadId)
       .order('created_at', { ascending: false });
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
     return data.map(ActivityMapper.toDomain);
   }
 
@@ -35,7 +39,7 @@ export class SupabaseActivityRepository implements ActivityRepository {
       .eq('idea_id', ideaId)
       .order('created_at', { ascending: false });
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
     return data.map(ActivityMapper.toDomain);
   }
 
@@ -47,29 +51,28 @@ export class SupabaseActivityRepository implements ActivityRepository {
       .eq('completed', false)
       .order('due_date', { ascending: true });
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
     return data.map(ActivityMapper.toDomain);
   }
 
   async create(activity: CreateActivityDTO): Promise<Activity> {
-    const { data: userData, error: userError } = await this.supabase.auth.getUser();
-    if (userError || !userData.user) throw new Error('Usuario no autenticado');
+    const userId = await this.requireUser();
 
     const persistence = ActivityMapper.toPersistence({
       ...activity,
-      userId: userData.user.id
+      userId: userId
     });
     
     // Asignar user_id explícitamente para persistencia si el mapper no lo hace
-    persistence.user_id = userData.user.id;
+    persistence.user_id = userId;
 
     const { data, error } = await this.supabase
       .from('activities')
-      .insert([persistence])
+      .insert([persistence] as never)
       .select()
       .single();
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
     return ActivityMapper.toDomain(data);
   }
 
@@ -79,12 +82,12 @@ export class SupabaseActivityRepository implements ActivityRepository {
 
     const { data, error } = await this.supabase
       .from('activities')
-      .update(persistence)
+      .update(persistence as never)
       .eq('id', id)
       .select()
       .single();
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
     return ActivityMapper.toDomain(data);
   }
 
@@ -94,7 +97,7 @@ export class SupabaseActivityRepository implements ActivityRepository {
       .delete()
       .eq('id', id);
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
   }
 
   async complete(id: string): Promise<Activity> {
@@ -103,12 +106,12 @@ export class SupabaseActivityRepository implements ActivityRepository {
       .update({ 
         completed: true, 
         completed_at: new Date().toISOString() 
-      })
+      } as never)
       .eq('id', id)
       .select()
       .single();
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
     return ActivityMapper.toDomain(data);
   }
 }
