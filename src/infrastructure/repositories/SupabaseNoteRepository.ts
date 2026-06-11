@@ -2,11 +2,14 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { Note, CreateNoteDTO, UpdateNoteDTO } from "../../core/domain/Note";
 import { NoteRepository } from "../../core/ports/NoteRepository";
 import { Database } from "../database/database.types";
+import { BaseRepository } from "./BaseRepository";
 
 type NoteRow = Database['public']['Tables']['notes']['Row'];
 
-export class SupabaseNoteRepository implements NoteRepository {
-  constructor(private readonly supabase: SupabaseClient<Database>) {}
+export class SupabaseNoteRepository extends BaseRepository implements NoteRepository {
+  constructor(supabase: SupabaseClient<Database>) {
+    super(supabase, 'notes');
+  }
 
   async getForEntity(entityId: string, entityType: 'lead' | 'idea'): Promise<Note[]> {
     const column = entityType === 'lead' ? 'lead_id' : 'idea_id';
@@ -16,13 +19,12 @@ export class SupabaseNoteRepository implements NoteRepository {
       .eq(column, entityId)
       .order('created_at', { ascending: false });
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
     return (data ?? []).map(this.mapToDomain);
   }
 
   async create(note: CreateNoteDTO): Promise<Note> {
-    const { data: userData } = await this.supabase.auth.getUser();
-    if (!userData.user) throw new Error('Usuario no autenticado');
+    const userId = await this.requireUser();
 
     const column = note.entityType === 'lead' ? 'lead_id' : 'idea_id';
 
@@ -31,12 +33,12 @@ export class SupabaseNoteRepository implements NoteRepository {
       .insert([{
         [column]: note.entityId,
         content: note.content,
-        user_id: userData.user.id
+        user_id: userId
       }] as never)
       .select()
       .single();
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
     return this.mapToDomain(data as unknown as NoteRow);
   }
 
@@ -48,7 +50,7 @@ export class SupabaseNoteRepository implements NoteRepository {
       .select()
       .single();
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
     return this.mapToDomain(data as unknown as NoteRow);
   }
 
@@ -58,7 +60,7 @@ export class SupabaseNoteRepository implements NoteRepository {
       .delete()
       .eq('id', id);
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
   }
 
   private mapToDomain(row: NoteRow): Note {

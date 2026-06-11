@@ -2,6 +2,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { Lead, CreateLeadDTO, UpdateLeadDTO } from "../../core/domain/Lead";
 import { LeadRepository } from "../../core/ports/LeadRepository";
 import { Database } from "../database/database.types";
+import { BaseRepository } from "./BaseRepository";
 
 type LeadRow = Database['public']['Tables']['leads']['Row'];
 type TagRow = Database['public']['Tables']['tags']['Row'];
@@ -13,8 +14,10 @@ interface LeadWithJoins extends LeadRow {
   notes_data?: NoteRow[];
 }
 
-export class SupabaseLeadRepository implements LeadRepository {
-  constructor(private readonly supabase: SupabaseClient<Database>) {}
+export class SupabaseLeadRepository extends BaseRepository implements LeadRepository {
+  constructor(supabase: SupabaseClient<Database>) {
+    super(supabase, 'leads');
+  }
 
   async getAll(): Promise<Lead[]> {
     const { data, error } = await this.supabase
@@ -22,7 +25,7 @@ export class SupabaseLeadRepository implements LeadRepository {
       .select('*, lead_tags(tags(*)), notes_data:notes(*)')
       .order('created_at', { ascending: false });
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
     const rows = (data ?? []) as unknown as LeadWithJoins[];
     return rows.map(row => this.mapToDomain(row, row.lead_tags, row.notes_data));
   }
@@ -34,14 +37,13 @@ export class SupabaseLeadRepository implements LeadRepository {
       .eq('id', id)
       .maybeSingle();
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
     const row = data as unknown as LeadWithJoins | null;
     return row ? this.mapToDomain(row, row.lead_tags, row.notes_data) : null;
   }
 
   async create(lead: CreateLeadDTO): Promise<Lead> {
-    const { data: userData, error: userError } = await this.supabase.auth.getUser();
-    if (userError || !userData.user) throw new Error('Usuario no autenticado');
+    const userId = await this.requireUser();
 
     const { data, error } = await this.supabase
       .from('leads')
@@ -55,12 +57,12 @@ export class SupabaseLeadRepository implements LeadRepository {
         notes: lead.notes ?? null,
         pipeline_id: lead.pipelineId ?? null,
         stage_id: lead.stageId ?? null,
-        user_id: userData.user.id
+        user_id: userId
       }] as never)
       .select()
       .single();
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
     return this.mapToDomain(data as unknown as LeadRow);
   }
 
@@ -88,7 +90,7 @@ export class SupabaseLeadRepository implements LeadRepository {
       .select()
       .single();
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
     return this.mapToDomain(data as unknown as LeadRow);
   }
 
@@ -105,10 +107,10 @@ export class SupabaseLeadRepository implements LeadRepository {
 
     if (error) {
       console.error('Error updating status:', error);
-      throw new Error(error.message);
+      this.handleError(error);
     }
 
-    if (!data) throw new Error('No se encontró el lead para actualizar');
+    if (!data) this.handleError({ code: 'PGRST116', message: 'No se encontró el lead para actualizar', details: '', hint: '' });
 
     return this.mapToDomain(data as unknown as LeadRow);
   }
@@ -119,7 +121,7 @@ export class SupabaseLeadRepository implements LeadRepository {
       .delete()
       .eq('id', id);
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
   }
 
   private mapToDomain(row: LeadRow, entityTags?: Array<{ tags: TagRow }>, notesData?: NoteRow[]): Lead {

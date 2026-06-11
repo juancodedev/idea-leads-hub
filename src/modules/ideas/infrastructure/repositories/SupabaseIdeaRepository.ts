@@ -3,9 +3,13 @@ import { Idea, CreateIdeaDTO, UpdateIdeaDTO } from "../../domain/entities/Idea";
 import { IdeaRepository } from "../../domain/repositories/IdeaRepository";
 import { IdeaStatus } from "../../domain/enums/IdeaEnums";
 import { IdeaMapper } from "../mappers/IdeaMapper";
+import { BaseRepository } from "../../../../infrastructure/repositories/BaseRepository";
+import { Database } from "../../../../infrastructure/database/database.types";
 
-export class SupabaseIdeaRepository implements IdeaRepository {
-  constructor(private readonly supabase: SupabaseClient) {}
+export class SupabaseIdeaRepository extends BaseRepository implements IdeaRepository {
+  constructor(supabase: SupabaseClient<Database>) {
+    super(supabase, 'ideas');
+  }
 
   async getById(id: string): Promise<Idea | null> {
     const { data, error } = await this.supabase
@@ -14,7 +18,7 @@ export class SupabaseIdeaRepository implements IdeaRepository {
       .eq('id', id)
       .maybeSingle();
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
     return data ? IdeaMapper.toDomain(data) : null;
   }
 
@@ -34,40 +38,39 @@ export class SupabaseIdeaRepository implements IdeaRepository {
 
     const { data, error } = await query;
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
     return data.map(IdeaMapper.toDomain);
   }
 
   async create(idea: CreateIdeaDTO): Promise<Idea> {
-    const { data: userData, error: userError } = await this.supabase.auth.getUser();
-    if (userError || !userData.user) throw new Error('Usuario no autenticado');
+    const userId = await this.requireUser();
 
     const { tagIds, ...ideaData } = idea;
 
     const persistence = IdeaMapper.toPersistence({
       ...ideaData,
-      createdBy: userData.user.id
+      createdBy: userId
     });
 
     const { data, error } = await this.supabase
       .from('ideas')
-      .insert([persistence])
+      .insert([persistence] as never)
       .select()
-      .single();
+      .single() as unknown as { data: any; error: any };
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
 
     // Assign tags if provided
     if (tagIds && tagIds.length > 0) {
       const tagAssignments = tagIds.map(tagId => ({
         idea_id: data.id,
         tag_id: tagId,
-        user_id: userData.user.id
+        user_id: userId
       }));
 
       const { error: tagError } = await this.supabase
         .from('idea_tags')
-        .insert(tagAssignments);
+        .insert(tagAssignments as never);
       
       if (tagError) console.error("Error assigning tags:", tagError);
     }
@@ -79,17 +82,16 @@ export class SupabaseIdeaRepository implements IdeaRepository {
     const { id, tagIds, ...updates } = idea;
     const persistence = IdeaMapper.toPersistence(updates);
     
-    const { data: userData, error: userError } = await this.supabase.auth.getUser();
-    if (userError || !userData.user) throw new Error('Usuario no autenticado');
+    const userId = await this.requireUser();
 
     const { data, error } = await this.supabase
       .from('ideas')
-      .update(persistence)
+      .update(persistence as never)
       .eq('id', id)
       .select()
       .single();
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
 
     // Sync tags if provided
     if (tagIds !== undefined) {
@@ -104,12 +106,12 @@ export class SupabaseIdeaRepository implements IdeaRepository {
         const tagAssignments = tagIds.map(tagId => ({
           idea_id: id,
           tag_id: tagId,
-          user_id: userData.user.id
+          user_id: userId
         }));
 
         await this.supabase
           .from('idea_tags')
-          .insert(tagAssignments);
+          .insert(tagAssignments as never);
       }
     }
 
@@ -122,7 +124,7 @@ export class SupabaseIdeaRepository implements IdeaRepository {
       .delete()
       .eq('id', id);
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
   }
 
   async archive(id: string): Promise<Idea> {
@@ -131,12 +133,12 @@ export class SupabaseIdeaRepository implements IdeaRepository {
       .update({ 
         status: IdeaStatus.ARCHIVED,
         archived_at: new Date().toISOString() 
-      })
+      } as never)
       .eq('id', id)
       .select()
       .single();
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
     return IdeaMapper.toDomain(data);
   }
 
@@ -146,24 +148,24 @@ export class SupabaseIdeaRepository implements IdeaRepository {
       .update({ 
         status: IdeaStatus.BACKLOG,
         archived_at: null 
-      })
+      } as never)
       .eq('id', id)
       .select()
       .single();
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
     return IdeaMapper.toDomain(data);
   }
 
   async moveStatus(id: string, status: IdeaStatus): Promise<Idea> {
     const { data, error } = await this.supabase
       .from('ideas')
-      .update({ status })
+      .update({ status } as never)
       .eq('id', id)
       .select()
       .single();
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
     return IdeaMapper.toDomain(data);
   }
 }

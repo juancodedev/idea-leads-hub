@@ -2,11 +2,14 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { Tag, CreateTagDTO } from "../../core/domain/Tag";
 import { TagRepository } from "../../core/ports/TagRepository";
 import { Database } from "../database/database.types";
+import { BaseRepository } from "./BaseRepository";
 
 type TagRow = Database['public']['Tables']['tags']['Row'];
 
-export class SupabaseTagRepository implements TagRepository {
-  constructor(private readonly supabase: SupabaseClient<Database>) {}
+export class SupabaseTagRepository extends BaseRepository implements TagRepository {
+  constructor(supabase: SupabaseClient<Database>) {
+    super(supabase, 'tags');
+  }
 
   async getAll(): Promise<Tag[]> {
     const { data, error } = await this.supabase
@@ -14,25 +17,24 @@ export class SupabaseTagRepository implements TagRepository {
       .select('*')
       .order('name', { ascending: true });
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
     return (data ?? []).map(this.mapToDomain);
   }
 
   async create(tag: CreateTagDTO): Promise<Tag> {
-    const { data: userData } = await this.supabase.auth.getUser();
-    if (!userData.user) throw new Error('Usuario no autenticado');
+    const userId = await this.requireUser();
 
     const { data, error } = await this.supabase
       .from('tags')
       .insert([{
         name: tag.name,
         color: tag.color,
-        user_id: userData.user.id
+        user_id: userId
       }] as never)
       .select()
       .single();
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
     return this.mapToDomain(data as unknown as TagRow);
   }
 
@@ -42,12 +44,11 @@ export class SupabaseTagRepository implements TagRepository {
       .delete()
       .eq('id', id);
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
   }
 
   async assignToEntity(tagId: string, entityId: string, entityType: 'lead' | 'idea'): Promise<void> {
-    const { data: userData } = await this.supabase.auth.getUser();
-    if (!userData.user) throw new Error('Usuario no autenticado');
+    const userId = await this.requireUser();
 
     const table = entityType === 'lead' ? 'lead_tags' : 'idea_tags';
     const column = entityType === 'lead' ? 'lead_id' : 'idea_id';
@@ -57,11 +58,11 @@ export class SupabaseTagRepository implements TagRepository {
       .insert([{
         tag_id: tagId,
         [column]: entityId,
-        user_id: userData.user.id
+        user_id: userId
       }] as never);
 
     if (error && error.code !== '23505') { // Ignore unique constraint violation
-      throw new Error(error.message);
+      this.handleError(error);
     }
   }
 
@@ -75,7 +76,7 @@ export class SupabaseTagRepository implements TagRepository {
       .eq('tag_id', tagId)
       .eq(column, entityId);
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
   }
 
   async getForEntity(entityId: string, entityType: 'lead' | 'idea'): Promise<Tag[]> {
@@ -87,7 +88,7 @@ export class SupabaseTagRepository implements TagRepository {
       .select('tags (*)')
       .eq(column, entityId);
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
     const rows = (data ?? []) as unknown as Array<{ tags: TagRow }>;
     return rows.map(row => this.mapToDomain(row.tags));
   }

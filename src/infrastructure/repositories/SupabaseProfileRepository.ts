@@ -2,11 +2,14 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { Profile, UpdateProfileDTO } from "../../core/domain/Profile";
 import { ProfileRepository } from "../../core/ports/ProfileRepository";
 import { Database } from "../database/database.types";
+import { BaseRepository } from "./BaseRepository";
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row'];
 
-export class SupabaseProfileRepository implements ProfileRepository {
-  constructor(private readonly supabase: SupabaseClient<Database>) {}
+export class SupabaseProfileRepository extends BaseRepository implements ProfileRepository {
+  constructor(supabase: SupabaseClient<Database>) {
+    super(supabase, 'profiles');
+  }
 
   async getProfile(id: string): Promise<Profile | null> {
     const { data, error } = await this.supabase
@@ -15,7 +18,7 @@ export class SupabaseProfileRepository implements ProfileRepository {
       .eq('id', id)
       .maybeSingle();
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
     return data ? this.mapToDomain(data as unknown as ProfileRow) : null;
   }
 
@@ -38,7 +41,7 @@ export class SupabaseProfileRepository implements ProfileRepository {
       .select()
       .single();
 
-    if (error) throw new Error(error.message);
+    if (error) this.handleError(error);
     return this.mapToDomain(data as unknown as ProfileRow);
   }
 
