@@ -128,7 +128,7 @@ export function TagSelector({ selectedTags, onAssign, onRemove }: TagSelectorPro
                   disabled={loading}
                 >
                   <Plus className="mr-2 h-3 w-3" />
-                  Crear "{inputValue}"
+                  Crear &quot;{inputValue}&quot;
                 </Button>
               </CommandEmpty>
               <CommandGroup>

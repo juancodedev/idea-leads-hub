@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { ErrorBoundary } from "@/ui/components/ErrorBoundary";
+import { Providers } from "@/ui/providers/QueryProvider";
 
 export const metadata: Metadata = {
   title: "Idea Leads Hub - Personal CRM",
@@ -17,7 +18,9 @@ export default function RootLayout({
     <html lang="es" suppressHydrationWarning>
       <body className="antialiased font-sans">
         <ErrorBoundary>
-          {children}
+          <Providers>
+            {children}
+          </Providers>
         </ErrorBoundary>
         <Toaster position="top-right" />
       </body>
