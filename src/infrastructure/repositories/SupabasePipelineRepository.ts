@@ -1,9 +1,18 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Pipeline, PipelineStage, CreatePipelineDTO, CreatePipelineStageDTO } from "../../core/domain/Pipeline";
 import { PipelineRepository } from "../../core/ports/PipelineRepository";
+import { Database } from "../database/database.types";
+
+type PipelineRow = Database['public']['Tables']['pipelines']['Row'];
+type PipelineStageRow = Database['public']['Tables']['pipeline_stages']['Row'];
+
+// PostgREST join shape
+interface PipelineWithStages extends PipelineRow {
+  pipeline_stages?: PipelineStageRow[];
+}
 
 export class SupabasePipelineRepository implements PipelineRepository {
-  constructor(private readonly supabase: SupabaseClient) {}
+  constructor(private readonly supabase: SupabaseClient<Database>) {}
 
   async getAll(): Promise<Pipeline[]> {
     const { data, error } = await this.supabase
@@ -12,7 +21,8 @@ export class SupabasePipelineRepository implements PipelineRepository {
       .order('created_at', { ascending: true });
 
     if (error) throw new Error(error.message);
-    return data.map(row => this.mapPipelineToDomain(row, row.pipeline_stages));
+    const rows = (data ?? []) as unknown as PipelineWithStages[];
+    return rows.map(row => this.mapPipelineToDomain(row, row.pipeline_stages));
   }
 
   async getById(id: string): Promise<Pipeline | null> {
@@ -23,7 +33,8 @@ export class SupabasePipelineRepository implements PipelineRepository {
       .maybeSingle();
 
     if (error) throw new Error(error.message);
-    return data ? this.mapPipelineToDomain(data, data.pipeline_stages) : null;
+    const row = data as unknown as PipelineWithStages | null;
+    return row ? this.mapPipelineToDomain(row, row.pipeline_stages) : null;
   }
 
   async create(pipeline: CreatePipelineDTO): Promise<Pipeline> {
@@ -34,26 +45,26 @@ export class SupabasePipelineRepository implements PipelineRepository {
       .from('pipelines')
       .insert([{
         name: pipeline.name,
-        description: pipeline.description,
+        description: pipeline.description ?? null,
         user_id: userData.user.id
-      }])
+      }] as never)
       .select()
       .single();
 
     if (error) throw new Error(error.message);
-    return this.mapPipelineToDomain(data);
+    return this.mapPipelineToDomain(data as unknown as PipelineRow);
   }
 
   async update(id: string, pipeline: Partial<CreatePipelineDTO>): Promise<Pipeline> {
     const { data, error } = await this.supabase
       .from('pipelines')
-      .update(pipeline)
+      .update(pipeline as never)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw new Error(error.message);
-    return this.mapPipelineToDomain(data);
+    return this.mapPipelineToDomain(data as unknown as PipelineRow);
   }
 
   async delete(id: string): Promise<void> {
@@ -73,7 +84,7 @@ export class SupabasePipelineRepository implements PipelineRepository {
       .order('position', { ascending: true });
 
     if (error) throw new Error(error.message);
-    return data.map(this.mapStageToDomain);
+    return (data ?? []).map(this.mapStageToDomain);
   }
 
   async createStage(stage: CreatePipelineStageDTO): Promise<PipelineStage> {
@@ -90,16 +101,16 @@ export class SupabasePipelineRepository implements PipelineRepository {
         is_closed: stage.isClosed,
         is_won: stage.isWon,
         user_id: userData.user.id
-      }])
+      }] as never)
       .select()
       .single();
 
     if (error) throw new Error(error.message);
-    return this.mapStageToDomain(data);
+    return this.mapStageToDomain(data as unknown as PipelineStageRow);
   }
 
   async updateStage(id: string, stage: Partial<CreatePipelineStageDTO>): Promise<PipelineStage> {
-    const dbUpdates: any = {};
+    const dbUpdates: Record<string, unknown> = {};
     if (stage.name) dbUpdates.name = stage.name;
     if (stage.position !== undefined) dbUpdates.position = stage.position;
     if (stage.color) dbUpdates.color = stage.color;
@@ -108,13 +119,13 @@ export class SupabasePipelineRepository implements PipelineRepository {
 
     const { data, error } = await this.supabase
       .from('pipeline_stages')
-      .update(dbUpdates)
+      .update(dbUpdates as never)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw new Error(error.message);
-    return this.mapStageToDomain(data);
+    return this.mapStageToDomain(data as unknown as PipelineStageRow);
   }
 
   async deleteStage(id: string): Promise<void> {
@@ -129,23 +140,23 @@ export class SupabasePipelineRepository implements PipelineRepository {
   async reorderStages(stages: { id: string, position: number }[]): Promise<void> {
     const { error } = await this.supabase
       .from('pipeline_stages')
-      .upsert(stages.map(s => ({ id: s.id, position: s.position })));
+      .upsert(stages as never);
 
     if (error) throw new Error(error.message);
   }
 
-  private mapPipelineToDomain(row: any, stagesRow?: any[]): Pipeline {
+  private mapPipelineToDomain(row: PipelineRow, stagesRow?: PipelineStageRow[]): Pipeline {
     return {
       id: row.id,
       name: row.name,
-      description: row.description,
+      description: row.description ?? undefined,
       userId: row.user_id,
       createdAt: row.created_at,
       stages: stagesRow ? stagesRow.map(this.mapStageToDomain).sort((a, b) => a.position - b.position) : undefined,
     };
   }
 
-  private mapStageToDomain(row: any): PipelineStage {
+  private mapStageToDomain(row: PipelineStageRow): PipelineStage {
     return {
       id: row.id,
       pipelineId: row.pipeline_id,

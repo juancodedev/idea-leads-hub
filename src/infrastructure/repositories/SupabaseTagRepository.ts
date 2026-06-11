@@ -1,9 +1,12 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Tag, CreateTagDTO } from "../../core/domain/Tag";
 import { TagRepository } from "../../core/ports/TagRepository";
+import { Database } from "../database/database.types";
+
+type TagRow = Database['public']['Tables']['tags']['Row'];
 
 export class SupabaseTagRepository implements TagRepository {
-  constructor(private readonly supabase: SupabaseClient) {}
+  constructor(private readonly supabase: SupabaseClient<Database>) {}
 
   async getAll(): Promise<Tag[]> {
     const { data, error } = await this.supabase
@@ -12,7 +15,7 @@ export class SupabaseTagRepository implements TagRepository {
       .order('name', { ascending: true });
 
     if (error) throw new Error(error.message);
-    return data.map(this.mapToDomain);
+    return (data ?? []).map(this.mapToDomain);
   }
 
   async create(tag: CreateTagDTO): Promise<Tag> {
@@ -21,16 +24,16 @@ export class SupabaseTagRepository implements TagRepository {
 
     const { data, error } = await this.supabase
       .from('tags')
-      .insert([{ 
+      .insert([{
         name: tag.name,
         color: tag.color,
-        user_id: userData.user.id 
-      }])
+        user_id: userData.user.id
+      }] as never)
       .select()
       .single();
 
     if (error) throw new Error(error.message);
-    return this.mapToDomain(data);
+    return this.mapToDomain(data as unknown as TagRow);
   }
 
   async delete(id: string): Promise<void> {
@@ -55,7 +58,7 @@ export class SupabaseTagRepository implements TagRepository {
         tag_id: tagId,
         [column]: entityId,
         user_id: userData.user.id
-      }]);
+      }] as never);
 
     if (error && error.code !== '23505') { // Ignore unique constraint violation
       throw new Error(error.message);
@@ -85,10 +88,11 @@ export class SupabaseTagRepository implements TagRepository {
       .eq(column, entityId);
 
     if (error) throw new Error(error.message);
-    return data.map((row: any) => this.mapToDomain(row.tags));
+    const rows = (data ?? []) as unknown as Array<{ tags: TagRow }>;
+    return rows.map(row => this.mapToDomain(row.tags));
   }
 
-  private mapToDomain(row: any): Tag {
+  private mapToDomain(row: TagRow): Tag {
     return {
       id: row.id,
       name: row.name,

@@ -1,8 +1,14 @@
-import { Idea, CreateIdeaDTO, UpdateIdeaDTO } from "../../domain/entities/Idea";
+import { Idea, IdeaAttachment } from "../../domain/entities/Idea";
 import { IdeaPriority, IdeaStatus } from "../../domain/enums/IdeaEnums";
+import { Database } from "@/infrastructure/database/database.types";
+
+type IdeaRow = Database['public']['Tables']['ideas']['Row'];
+type TagRow = Database['public']['Tables']['tags']['Row'];
+type IdeaRowInsert = Database['public']['Tables']['ideas']['Insert'];
+type IdeaRowUpdate = Database['public']['Tables']['ideas']['Update'];
 
 export class IdeaMapper {
-  static toDomain(row: any): Idea {
+  static toDomain(row: IdeaRow & { idea_tags?: Array<{ tags: TagRow }> }): Idea {
     return {
       id: row.id,
       title: row.title,
@@ -14,8 +20,8 @@ export class IdeaMapper {
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
       archivedAt: row.archived_at ? new Date(row.archived_at) : undefined,
-      attachments: row.attachments || [],
-      tags: row.idea_tags?.map((it: any) => ({
+      attachments: (row.attachments || []) as IdeaAttachment[],
+      tags: row.idea_tags?.map(it => ({
         id: it.tags.id,
         name: it.tags.name,
         color: it.tags.color,
@@ -25,8 +31,8 @@ export class IdeaMapper {
     };
   }
 
-  static toPersistence(idea: Partial<Idea>): any {
-    const persistence: any = {};
+  static toPersistence(idea: Partial<Idea>): IdeaRowUpdate {
+    const persistence: IdeaRowUpdate = {};
     if (idea.title !== undefined) persistence.title = idea.title;
     if (idea.description !== undefined) persistence.description = idea.description;
     if (idea.priority !== undefined) persistence.priority = idea.priority;

@@ -1,9 +1,12 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Profile, UpdateProfileDTO } from "../../core/domain/Profile";
 import { ProfileRepository } from "../../core/ports/ProfileRepository";
+import { Database } from "../database/database.types";
+
+type ProfileRow = Database['public']['Tables']['profiles']['Row'];
 
 export class SupabaseProfileRepository implements ProfileRepository {
-  constructor(private readonly supabase: SupabaseClient) {}
+  constructor(private readonly supabase: SupabaseClient<Database>) {}
 
   async getProfile(id: string): Promise<Profile | null> {
     const { data, error } = await this.supabase
@@ -13,30 +16,30 @@ export class SupabaseProfileRepository implements ProfileRepository {
       .maybeSingle();
 
     if (error) throw new Error(error.message);
-    return data ? this.mapToDomain(data) : null;
+    return data ? this.mapToDomain(data as unknown as ProfileRow) : null;
   }
 
   async updateProfile(id: string, profile: UpdateProfileDTO): Promise<Profile> {
     const dataToUpsert = {
       id,
-      full_name: profile.fullName,
-      avatar_url: profile.avatarUrl,
-      company_name: profile.companyName,
-      job_title: profile.jobTitle,
-      phone: profile.phone,
-      bio: profile.bio,
-      website: profile.website,
+      full_name: profile.fullName ?? null,
+      avatar_url: profile.avatarUrl ?? null,
+      company_name: profile.companyName ?? null,
+      job_title: profile.jobTitle ?? null,
+      phone: profile.phone ?? null,
+      bio: profile.bio ?? null,
+      website: profile.website ?? null,
       updated_at: new Date().toISOString(),
     };
 
     const { data, error } = await this.supabase
       .from('profiles')
-      .upsert(dataToUpsert)
+      .upsert(dataToUpsert as never)
       .select()
       .single();
 
     if (error) throw new Error(error.message);
-    return this.mapToDomain(data);
+    return this.mapToDomain(data as unknown as ProfileRow);
   }
 
   async uploadAvatar(userId: string, file: File): Promise<string> {
@@ -57,16 +60,16 @@ export class SupabaseProfileRepository implements ProfileRepository {
     return publicUrl;
   }
 
-  private mapToDomain(row: any): Profile {
+  private mapToDomain(row: ProfileRow): Profile {
     return {
       id: row.id,
-      fullName: row.full_name,
-      avatarUrl: row.avatar_url,
-      companyName: row.company_name,
-      jobTitle: row.job_title,
-      phone: row.phone,
-      bio: row.bio,
-      website: row.website,
+      fullName: row.full_name ?? undefined,
+      avatarUrl: row.avatar_url ?? undefined,
+      companyName: row.company_name ?? undefined,
+      jobTitle: row.job_title ?? undefined,
+      phone: row.phone ?? undefined,
+      bio: row.bio ?? undefined,
+      website: row.website ?? undefined,
       updatedAt: row.updated_at,
     };
   }
