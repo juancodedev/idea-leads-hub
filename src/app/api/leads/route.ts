@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/infrastructure/database/server';
+import { apiHandler } from '@/lib/api/api-handler';
+import { withAuth } from '@/lib/api/with-auth';
 import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLeadRepository';
 import { CreateLead } from '@/core/application/leads/CreateLead';
 import { ApiCreateLeadSchema } from '@/core/domain/LeadSchema';
@@ -58,6 +60,35 @@ import { ApiCreateLeadSchema } from '@/core/domain/LeadSchema';
  */
 
 export const runtime = 'nodejs';
+
+export const GET = apiHandler(async (request: NextRequest) => {
+  const { supabase } = await withAuth(request);
+  const { searchParams } = new URL(request.url);
+
+  const statusParam = searchParams.get('status');
+  const qParam = searchParams.get('q');
+
+  const repo = new SupabaseLeadRepository(supabase);
+  let leads = await repo.getAll();
+
+  // Filter by status
+  if (statusParam) {
+    leads = leads.filter((lead) => lead.status === statusParam);
+  }
+
+  // Filter by search query (matches company, name, email)
+  if (qParam) {
+    const query = qParam.toLowerCase();
+    leads = leads.filter(
+      (lead) =>
+        lead.company.toLowerCase().includes(query) ||
+        lead.name.toLowerCase().includes(query) ||
+        lead.email.toLowerCase().includes(query)
+    );
+  }
+
+  return NextResponse.json(leads, { status: 200 });
+});
 
 export async function POST(request: NextRequest) {
   try {
