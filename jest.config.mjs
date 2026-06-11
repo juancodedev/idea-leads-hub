@@ -9,9 +9,14 @@ const createJestConfig = nextJest({
 /** @type {import('jest').Config} */
 const config = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
-  testEnvironment: 'node',
+  testEnvironment: 'jsdom',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    '^@core/(.*)$': '<rootDir>/src/core/$1',
+    '^@modules/(.*)$': '<rootDir>/src/modules/$1',
+    '^@infrastructure/(.*)$': '<rootDir>/src/infrastructure/$1',
+    '^@ui/(.*)$': '<rootDir>/src/ui/$1',
+    '^@lib/(.*)$': '<rootDir>/src/lib/$1',
   },
 }
 
