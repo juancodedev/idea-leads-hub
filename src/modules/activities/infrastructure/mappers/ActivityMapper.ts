@@ -1,8 +1,12 @@
-import { Activity } from "../../domain/entities/Activity";
+import { Activity, ActivityAttachment } from "../../domain/entities/Activity";
 import { ActivityType } from "../../domain/enums/ActivityType";
+import { Database } from "@/infrastructure/database/database.types";
+
+type ActivityRow = Database['public']['Tables']['activities']['Row'];
+type ActivityRowUpdate = Database['public']['Tables']['activities']['Update'];
 
 export class ActivityMapper {
-  static toDomain(row: any): Activity {
+  static toDomain(row: ActivityRow): Activity {
     return {
       id: row.id,
       leadId: row.lead_id,
@@ -16,12 +20,12 @@ export class ActivityMapper {
       completedAt: row.completed_at ? new Date(row.completed_at) : undefined,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
-      attachments: row.attachments || [],
+      attachments: (row.attachments || []) as ActivityAttachment[],
     };
   }
 
-  static toPersistence(activity: Partial<Activity>) {
-    const persistence: any = {};
+  static toPersistence(activity: Partial<Activity>): ActivityRowUpdate {
+    const persistence: ActivityRowUpdate = {};
     
     if (activity.leadId !== undefined) persistence.lead_id = activity.leadId;
     if (activity.ideaId !== undefined) persistence.idea_id = activity.ideaId;

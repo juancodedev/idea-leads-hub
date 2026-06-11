@@ -54,17 +54,17 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         });
 
         // Try to get profile info
-        const { data: profiles } = await supabase
+        const { data: profilesData, error: profilesError } = await supabase
           .from('profiles')
           .select('full_name, avatar_url')
-          .eq('id', user.id);
-        
-        if (isMounted && profiles && profiles.length > 0) {
-          const profile = profiles[0];
+          .eq('id', user.id) as unknown as { data: Array<{ full_name: string | null; avatar_url: string | null }> | null; error: unknown };
+
+        if (isMounted && !profilesError && profilesData && profilesData.length > 0) {
+          const profile = profilesData[0];
           setUserData({
             email: user.email,
-            name: profile.full_name || user.email?.split('@')[0],
-            avatar_url: profile.avatar_url
+            name: profile.full_name ?? user.email?.split('@')[0] ?? '',
+            avatar_url: profile.avatar_url ?? undefined
           });
         }
       } catch (error) {
