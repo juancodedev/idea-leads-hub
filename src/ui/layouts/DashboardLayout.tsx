@@ -20,7 +20,7 @@ import { Button } from "@/ui/components/button";
 import { CommandMenu } from "@/ui/components/CommandMenu";
 import { Search } from "lucide-react";
 import { logoutAction } from "@/modules/shared/infrastructure/actions/authActions";
-import { createClient } from "@/infrastructure/database/client";
+import { getProfileData } from "@/modules/shared/infrastructure/actions/profileActions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/ui/components/avatar";
 
 const navigation = [
@@ -41,34 +41,11 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     let isMounted = true;
     async function fetchUser() {
       try {
-        const supabase = createClient();
-        const { data: authData } = await supabase.auth.getUser();
-        const user = authData?.user;
-        
-        if (!user || !isMounted) return;
-
-        // Set initial user info from Auth
-        setUserData({
-          email: user.email,
-          name: user.email?.split('@')[0],
-        });
-
-        // Try to get profile info
-        const { data: profilesData, error: profilesError } = await supabase
-          .from('profiles')
-          .select('full_name, avatar_url')
-          .eq('id', user.id) as unknown as { data: Array<{ full_name: string | null; avatar_url: string | null }> | null; error: unknown };
-
-        if (isMounted && !profilesError && profilesData && profilesData.length > 0) {
-          const profile = profilesData[0];
-          setUserData({
-            email: user.email,
-            name: profile.full_name ?? user.email?.split('@')[0] ?? '',
-            avatar_url: profile.avatar_url ?? undefined
-          });
+        const data = await getProfileData();
+        if (data && isMounted) {
+          setUserData(data);
         }
       } catch (error) {
-        // Silent catch to avoid crashing the overlay
         console.debug("Layout fetchUser error (handled):", error);
       }
     }
