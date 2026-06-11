@@ -124,14 +124,14 @@ export async function POST(request: NextRequest) {
     const repository = new SupabaseLeadRepository(supabase);
     const useCase = new CreateLead(repository);
 
-    // Map API fields to DTO
+    // Map API fields to DTO (prefer English, fall back to Spanish for backward compat)
     const lead = await useCase.execute({
-      company: data.empresa,
+      company: data.company || data.empresa!,
       email: data.email,
-      source: data.origen,
-      name: data.nombre || data.empresa, // Default name to company if not provided
-      phone: data.telefono,
-      notes: data.notas,
+      source: data.source || data.origen!,
+      name: data.name || data.nombre || data.company || data.empresa!,
+      phone: data.phone || data.telefono,
+      notes: data.notes || data.notas,
       status: data.status || 'Nuevo'
     });
 
