@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/infrastructure/database/server';
 import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLeadRepository';
 import { CreateLead } from '@/core/application/leads/CreateLead';
-import { ApiCreateLeadSchema } from '@/core/domain/schemas/LeadSchema';
+import { ApiCreateLeadSchema } from '@/core/domain/LeadSchema';
 
 /**
  * @openapi

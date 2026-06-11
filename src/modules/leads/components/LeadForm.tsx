@@ -2,7 +2,7 @@
 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { LeadSchema, LeadFormValues } from '@/core/domain/schemas/LeadSchema';
+import { LeadSchema, LeadFormValues } from '@/core/domain/LeadSchema';
 import { Button } from '@/ui/components/button';
 import {
   Form,
