@@ -3,9 +3,8 @@ import { createClient } from "@/infrastructure/database/server";
 import { SupabaseActivityRepository } from "@/modules/activities/infrastructure/repositories/SupabaseActivityRepository";
 import { DashboardLayout } from "@/ui/layouts/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/ui/components/card";
-import { ActivityItem } from "@/modules/activities/components/ActivityItem";
+import { ActivitiesList } from "./ActivitiesList";
 
-// export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export default async function ActivitiesPage() {
@@ -30,21 +29,7 @@ export default async function ActivitiesPage() {
             <CardTitle>Tareas Pendientes</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            {activities.length > 0 ? (
-              <div className="flex flex-col">
-                {activities.map((activity) => (
-                  <ActivityItem 
-                    key={activity.id} 
-                    activity={activity} 
-                    onToggle={() => {}} // Handle client side or with server actions
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="p-8 text-center text-muted-foreground">
-                No tienes actividades pendientes. ¡Buen trabajo!
-              </div>
-            )}
+            <ActivitiesList activities={activities} />
           </CardContent>
         </Card>
       </div>

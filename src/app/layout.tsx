@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Toaster } from "sonner";
+import { ErrorBoundary } from "@/ui/components/ErrorBoundary";
 
 export const metadata: Metadata = {
   title: "Idea Leads Hub - Personal CRM",
@@ -15,7 +16,9 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <body className="antialiased font-sans">
-        {children}
+        <ErrorBoundary>
+          {children}
+        </ErrorBoundary>
         <Toaster position="top-right" />
       </body>
     </html>
