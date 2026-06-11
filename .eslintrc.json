@@ -1,0 +1,25 @@
+{
+  "extends": "next/core-web-vitals",
+  "rules": {
+    "no-restricted-imports": [
+      "warn",
+      {
+        "patterns": [
+          {
+            "group": ["@core/infrastructure/*", "@core/ui/*", "@core/modules/*"],
+            "message": "La capa core no debe importar de infrastructure, ui o modules"
+          },
+          {
+            "group": ["@modules/*/infrastructure/*"],
+            "message": "Los modulos no deben importar infraestructura de otros modulos"
+          },
+          {
+            "group": ["@ui/*/infrastructure/*", "@ui/*/core/application/*"],
+            "message": "UI no debe importar de infraestructura o use cases directamente"
+          }
+        ]
+      }
+    ],
+    "import/no-cycle": "warn"
+  }
+}
