@@ -2,6 +2,11 @@
   "name": "idea-leads-hub",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22.13",
+    "pnpm": ">=8"
+  },
+  "packageManager": "pnpm@8.15.9",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
