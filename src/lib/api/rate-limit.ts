@@ -41,10 +41,13 @@ export function checkRateLimit(
 
 /**
  * Clean up expired entries periodically to prevent memory leaks.
+ * Solo se ejecuta fuera de Jest para evitar el warning de open handles.
  */
-setInterval(() => {
-  const now = Date.now();
-  for (const [ip, entry] of hits) {
-    if (now > entry.resetAt) hits.delete(ip);
-  }
-}, 60_000);
+if (typeof jest === 'undefined') {
+  setInterval(() => {
+    const now = Date.now();
+    for (const [ip, entry] of hits) {
+      if (now > entry.resetAt) hits.delete(ip);
+    }
+  }, 60_000);
+}
