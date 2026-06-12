@@ -8,31 +8,45 @@ Idea Leads Hub es un CRM personal diseñado para gestionar leads e ideas de nego
 -   **Pipeline de Ventas**: Visualización del estado de tus leads en un tablero Kanban.
 -   **Gestión de Ideas**: Repositorio para capturar y validar ideas de negocio, vinculándolas a leads si es necesario.
 -   **Seguimiento de Actividades**: Registro de llamadas, correos, reuniones y tareas pendientes.
--   **API Privada**: Endpoint seguro para la carga automatizada de leads desde fuentes externas.
--   **Documentación Interactiva**: Documentación de la API integrada con Swagger UI.
+-   **API REST Completa**: ~25 endpoints para todas las entidades, con autenticación JWT, rate limiting y logging estructurado.
+-   **Documentación Interactiva**: Documentación de la API integrada con Swagger UI (OpenAPI 3.0).
+-   **106 Tests Automatizados**: Tests unitarios con Jest + React Testing Library.
 
 ## 🏗️ Arquitectura
 
-El proyecto está construido siguiendo los principios de **Arquitectura Hexagonal** y **Clean Architecture**, lo que permite:
--   Independencia de la base de datos (Supabase por defecto).
--   Lógica de negocio aislada y testeable.
--   Fácil mantenimiento y escalabilidad.
+El proyecto está construido siguiendo los principios de **Arquitectura Hexagonal** y **Clean Architecture**:
+
+-   `src/core/` — Entidades, puertos, casos de uso (lógica de negocio pura).
+-   `src/infrastructure/` — Adaptadores de base de datos (Supabase), repositorios concretos.
+-   `src/modules/` — Módulos por dominio (ideas, activities) con su propia UI e infraestructura.
+-   `src/ui/` — Componentes de presentación reutilizables (shadcn/ui).
+-   `src/lib/` — Utilidades compartidas (logger, API helpers).
+-   `src/app/` — Next.js App Router (rutas de página + API endpoints).
+
+Incluye:
+-   `BaseRepository` compartido que elimina boilerplate en los 7 repositorios.
+-   Tipado fuerte con `Database` interface generada desde las migraciones SQL.
+-   Errores tipados (`NotFoundError`, `ConflictError`, `UnauthorizedError`, `DatabaseError`).
+-   `apiHandler` wrapper con rate limiting, auth centralizada y logging.
 
 Para más detalles, consulta la [Guía de Arquitectura](./docs/architecture.md).
 
 ## 🛠️ Tecnologías
 
--   **Framework**: [Next.js 14](https://nextjs.org/) (App Router)
--   **Lenguaje**: TypeScript
+-   **Framework**: [Next.js 15](https://nextjs.org/) (App Router)
+-   **Lenguaje**: TypeScript (strict mode)
 -   **Base de Datos & Auth**: [Supabase](https://supabase.com/)
 -   **Estilos**: Tailwind CSS + shadcn/ui
 -   **Validación**: Zod
--   **Estado**: Zustand
+-   **Estado**: Zustand + React Query (@tanstack/react-query)
+-   **Drag & Drop**: @dnd-kit (Kanban pipeline)
+-   **Testing**: Jest + React Testing Library (106 tests)
+-   **CI/CD**: GitHub Actions (type-check, lint, tests en cada PR)
 
 ## 📋 Requisitos Previos
 
--   Node.js 18+ 
--   npm o pnpm
+-   Node.js 22+ (ver `.nvmrc`)
+-   pnpm 8+ (ver `package.json` → `packageManager`)
 -   Una cuenta en Supabase
 
 ## 🔧 Instalación y Configuración
@@ -43,14 +57,18 @@ Para más detalles, consulta la [Guía de Arquitectura](./docs/architecture.md).
     cd idea-leads-hub
     ```
 
-2.  **Instalar dependencias**:
+2.  **Inicializar Node.js con la versión correcta**:
     ```bash
-    npm install
-    # o si usas pnpm
+    nvm use
+    # o instalá la versión del .nvmrc manualmente
+    ```
+
+3.  **Instalar dependencias**:
+    ```bash
     pnpm install
     ```
 
-3.  **Configurar variables de entorno**:
+4.  **Configurar variables de entorno**:
     Copia el archivo de ejemplo y rellena tus credenciales de Supabase:
     ```bash
     cp .env.example .env.local
@@ -60,81 +78,99 @@ Para más detalles, consulta la [Guía de Arquitectura](./docs/architecture.md).
     -   `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Clave anónima para el cliente.
     -   `NEXT_PUBLIC_APP_URL`: URL base de la aplicación (ej: `http://localhost:3000`).
 
-4.  **Preparar la Base de Datos**:
+5.  **Preparar la Base de Datos**:
     Ejecuta las migraciones de la carpeta `supabase/migrations` en el SQL Editor de tu proyecto Supabase para crear las tablas, políticas de RLS y funciones necesarias.
 
-5.  **Iniciar el servidor de desarrollo**:
+6.  **Iniciar el servidor de desarrollo**:
     ```bash
-    npm run dev
+    pnpm dev
     ```
 
 ## 🔌 API REST
 
-La plataforma expone una API REST privada para integración con sistemas externos. La especificación completa sigue el estándar **OpenAPI 3.0** y está disponible en el endpoint `/api/docs/openapi.json`.
+La plataforma expone una API REST privada. Todos los endpoints (excepto `/api/auth/login`) requieren autenticación via header `Authorization: Bearer <token>` (JWT de Supabase). Rate limit: 50 requests/minuto por IP.
 
-### Endpoints
+La especificación completa sigue el estándar **OpenAPI 3.0** y está disponible en `/api/docs/openapi.json`. También podés explorarla interactivamente en `/api/docs` (Swagger UI).
 
-#### `POST /api/auth/login`
-Autenticación de usuario. Devuelve un token JWT necesario para acceder al resto de los endpoints protegidos.
+### Auth
 
-- **Autenticación**: No requiere
-- **Cuerpo** (`application/json`):
+| Método | Path | Auth | Descripción |
+|--------|------|------|-------------|
+| POST | `/api/auth/login` | ❌ | Obtener token JWT (email + password) |
 
-| Campo      | Tipo   | Obligatorio | Descripción              |
-|------------|--------|-------------|--------------------------|
-| `email`    | string | ✅          | Email del usuario        |
-| `password` | string | ✅          | Contraseña del usuario   |
+### Profile
 
-- **Respuesta 200**:
-```json
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIs...",
-  "expires_in": 3600,
-  "refresh_token": "...",
-  "user": { "id": "uuid", "email": "usuario@ejemplo.com" }
-}
-```
+| Método | Path | Descripción |
+|--------|------|-------------|
+| GET | `/api/profile` | Obtener perfil del usuario actual |
+| PUT | `/api/profile` | Actualizar perfil |
 
-- **Errores**: `400` (validación), `401` (credenciales inválidas), `500` (error interno)
+### Leads
 
----
+| Método | Path | Descripción |
+|--------|------|-------------|
+| GET | `/api/leads` | Listar leads (filtros: `status`, `q`) |
+| POST | `/api/leads` | Crear lead (campos en español, backward compat) |
+| GET | `/api/leads/:id` | Obtener lead |
+| PATCH | `/api/leads/:id` | Actualizar lead (campos en inglés) |
+| DELETE | `/api/leads/:id` | Eliminar lead |
+| PATCH | `/api/leads/:id/status` | Cambiar estado |
 
-#### `POST /api/leads`
-Crear un nuevo lead en el sistema.
+### Ideas
 
-- **Autenticación**: Requiere header `Authorization: Bearer <token>` (JWT de Supabase)
-- **Cuerpo** (`application/json`):
+| Método | Path | Descripción |
+|--------|------|-------------|
+| GET | `/api/ideas` | Listar ideas (filtros: `status`, `leadId`) |
+| POST | `/api/ideas` | Crear idea |
+| GET | `/api/ideas/:id` | Obtener idea |
+| PATCH | `/api/ideas/:id` | Actualizar idea |
+| DELETE | `/api/ideas/:id` | Eliminar idea |
+| PATCH | `/api/ideas/:id/status` | Cambiar estado |
 
-| Campo      | Tipo   | Obligatorio | Descripción                                              |
-|------------|--------|-------------|----------------------------------------------------------|
-| `empresa`  | string | ✅          | Nombre de la empresa                                     |
-| `email`    | string | ✅          | Email de contacto                                        |
-| `origen`   | string | ✅          | Fuente del lead (ej: "Campaña Web 2024")                 |
-| `nombre`   | string | ❌          | Nombre del contacto (default: valor de `empresa`)        |
-| `telefono` | string | ❌          | Teléfono de contacto                                     |
-| `notas`    | string | ❌          | Notas adicionales                                        |
-| `status`   | enum   | ❌          | Estado: `Nuevo` \| `Contactado` \| `Interesado` \| `Propuesta` \| `Ganado` \| `Perdido` (default: `Nuevo`) |
+### Activities
 
-- **Ejemplo**:
-```bash
-curl -X POST http://localhost:3000/api/leads \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "empresa": "TechCorp S.A.",
-    "email": "contacto@techcorp.com",
-    "origen": "Landing Page",
-    "nombre": "Carlos López",
-    "telefono": "+54 11 5555-1234",
-    "notas": "Cliente interesado en consultoría",
-    "status": "Nuevo"
-  }'
-```
+| Método | Path | Descripción |
+|--------|------|-------------|
+| GET | `/api/activities` | Listar actividades (filtros: `leadId`, `ideaId`) |
+| POST | `/api/activities` | Crear actividad |
+| GET | `/api/activities/:id` | Obtener actividad |
+| PATCH | `/api/activities/:id` | Actualizar actividad |
+| DELETE | `/api/activities/:id` | Eliminar actividad |
+| PATCH | `/api/activities/:id/complete` | Completar actividad |
 
-- **Respuesta 201**: Objeto `Lead` creado (id, name, company, email, status, source, createdAt)
-- **Errores**: `400` (validación), `401` (no autorizado), `500` (error interno)
+### Pipeline + Stages
 
----
+| Método | Path | Descripción |
+|--------|------|-------------|
+| GET | `/api/pipelines` | Listar pipelines |
+| POST | `/api/pipelines` | Crear pipeline |
+| GET | `/api/pipelines/:id` | Obtener pipeline con stages |
+| PATCH | `/api/pipelines/:id` | Actualizar pipeline |
+| DELETE | `/api/pipelines/:id` | Eliminar pipeline |
+| GET | `/api/pipelines/:id/stages` | Listar stages |
+| POST | `/api/pipelines/:id/stages` | Crear stage |
+| PATCH | `/api/pipelines/:id/stages/:stageId` | Actualizar stage |
+| DELETE | `/api/pipelines/:id/stages/:stageId` | Eliminar stage |
+| PUT | `/api/pipelines/:id/stages/reorder` | Reordenar stages |
+
+### Tags
+
+| Método | Path | Descripción |
+|--------|------|-------------|
+| GET | `/api/tags` | Listar tags |
+| POST | `/api/tags` | Crear tag |
+| DELETE | `/api/tags/:id` | Eliminar tag |
+| POST | `/api/tags/assign` | Asignar tag a entidad |
+| POST | `/api/tags/remove` | Remover tag de entidad |
+
+### Notes
+
+| Método | Path | Descripción |
+|--------|------|-------------|
+| GET | `/api/notes` | Listar notas por entidad (`entityId` + `entityType`) |
+| POST | `/api/notes` | Crear nota |
+| PATCH | `/api/notes/:id` | Actualizar nota |
+| DELETE | `/api/notes/:id` | Eliminar nota |
 
 ### Documentación Interactiva (Swagger UI)
 
@@ -142,10 +178,33 @@ Con el servidor en ejecución, visitá `/api/docs` para explorar y probar los en
 
 ## 🧪 Pruebas
 
-Para ejecutar las pruebas unitarias:
 ```bash
-npm test
+# Ejecutar tests unitarios
+pnpm test
+
+# Ver cobertura
+pnpm test -- --coverage
+
+# Type checking
+npx tsc --noEmit
+
+# Linter
+npx eslint .
 ```
+
+Actualmente **106 tests** pasando en 23 suites, incluyendo:
+- Tests de casos de uso (CreateLead, CreateIdea, CreateActivity, etc.)
+- Tests de API routes (Profile, Tags, Notes, Ideas, Activities, Pipeline, Leads)
+- Tests de BaseRepository y error classes
+
+## 🔄 CI/CD
+
+Cada PR a `main` ejecuta automáticamente:
+1. TypeScript type-check (`tsc --noEmit`)
+2. ESLint (30 warnings máx.)
+3. Test suite completa (`jest`)
+
+Ver `.github/workflows/ci.yml` para más detalles.
 
 ## 📖 Documentación Adicional
 
