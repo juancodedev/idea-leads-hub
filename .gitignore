@@ -38,3 +38,12 @@ next-env.d.ts
 # Supabase temp files
 supabase/.temp/*
 
+# test coverage
+coverage/
+
+# SDD tooling
+.atl/
+
+# SDD architecture docs (uncomment to track in repo)
+# openspec/
+
