@@ -15,5 +15,5 @@ jobs:
           cache: pnpm
       - run: pnpm install --no-frozen-lockfile
       - run: npx tsc --noEmit
-      - run: npx next lint
+      - run: npx eslint . --max-warnings 30
       - run: pnpm test
