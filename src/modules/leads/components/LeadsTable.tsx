@@ -37,6 +37,14 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/ui/components/sheet';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/ui/components/dialog';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { LeadQuickView } from './LeadQuickView';
@@ -51,12 +59,13 @@ interface LeadsTableProps {
 }
 
 export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableProps) {
-  const { leads, setLeads, updateLead, isLoading, setLoading } = useLeadsStore();
+  const { leads, setLeads, updateLead, removeLead, isLoading, setLoading } = useLeadsStore();
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedStage, setSelectedStage] = React.useState<string>('all');
   const [selectedTag, setSelectedTag] = React.useState<string>('all');
   const [selectedLeadId, setSelectedLeadId] = React.useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = React.useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = React.useState<string | null>(null);
 
   const router = useRouter();
 
@@ -76,6 +85,21 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
   const handleOpenQuickView = (lead: Lead) => {
     setSelectedLeadId(lead.id);
     setIsSheetOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirmId) return;
+
+    try {
+      const supabase = createClient();
+      const repository = new SupabaseLeadRepository(supabase);
+      await repository.delete(deleteConfirmId);
+      removeLead(deleteConfirmId);
+    } catch (error) {
+      console.error('Error deleting lead:', error);
+    } finally {
+      setDeleteConfirmId(null);
+    }
   };
 
   const refreshLead = async (leadId: string) => {
@@ -249,7 +273,10 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
                             <Edit className="mr-2 h-4 w-4" /> Editar
                           </Link>
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive focus:text-destructive">
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onSelect={() => setDeleteConfirmId(lead.id)}
+                        >
                           <Trash2 className="mr-2 h-4 w-4" /> Eliminar
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -266,6 +293,26 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
           </div>
         )}
       </div>
+
+      {/* Diálogo de confirmación para eliminar */}
+      <Dialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Eliminar lead</DialogTitle>
+            <DialogDescription>
+              ¿Estás seguro de que querés eliminar este lead? Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirmId(null)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm}>
+              Eliminar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
         <SheetContent side="right" className="sm:max-w-2xl">

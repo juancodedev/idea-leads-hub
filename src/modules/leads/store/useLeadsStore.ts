@@ -7,6 +7,7 @@ interface LeadsState {
   setLeads: (leads: Lead[]) => void;
   updateLead: (updatedLead: Lead) => void;
   updateLeadStage: (leadId: string, stageId: string, status?: string) => void;
+  removeLead: (leadId: string) => void;
   setLoading: (loading: boolean) => void;
 }
 
@@ -23,6 +24,10 @@ export const useLeadsStore = create<LeadsState>((set) => ({
       leads: state.leads.map((lead) =>
         lead.id === leadId ? { ...lead, stageId, status: (status as LeadStatus) || lead.status } : lead
       ),
+    })),
+  removeLead: (leadId) =>
+    set((state) => ({
+      leads: state.leads.filter((l) => l.id !== leadId),
     })),
   setLoading: (loading) => set({ isLoading: loading }),
 }));
