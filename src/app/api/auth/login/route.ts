@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/infrastructure/database/server';
 import { z } from 'zod';
+import { handlePreflight, withCors } from '@/lib/api/cors';
 
 const LoginSchema = z.object({
   email: z.string().email('Email inválido'),
@@ -54,7 +55,14 @@ const LoginSchema = z.object({
 
 export const runtime = 'nodejs';
 
+// CORS preflight
+export async function OPTIONS(request: NextRequest) {
+  return handlePreflight(request) ?? new Response(null, { status: 204 });
+}
+
 export async function POST(request: NextRequest) {
+  const origin = request.headers.get('origin');
+
   try {
     const supabase = await createClient();
     
@@ -63,13 +71,13 @@ export async function POST(request: NextRequest) {
     const validation = LoginSchema.safeParse(body);
 
     if (!validation.success) {
-      return NextResponse.json(
+      return withCors(NextResponse.json(
         { 
           error: 'Error de validación', 
           details: validation.error.format() 
         },
         { status: 400 }
-      );
+      ), origin);
     }
 
     const { email, password } = validation.data;
@@ -81,14 +89,14 @@ export async function POST(request: NextRequest) {
     });
 
     if (error) {
-      return NextResponse.json(
+      return withCors(NextResponse.json(
         { error: 'Credenciales inválidas', message: error.message },
         { status: 401 }
-      );
+      ), origin);
     }
 
     // Return the session data (includes access_token)
-    return NextResponse.json({
+    return withCors(NextResponse.json({
       access_token: data.session.access_token,
       expires_in: data.session.expires_in,
       refresh_token: data.session.refresh_token,
@@ -96,14 +104,17 @@ export async function POST(request: NextRequest) {
         id: data.user.id,
         email: data.user.email,
       }
-    });
+    }), origin);
 
   } catch (error: any) {
     console.error('API Login Error:', error);
     
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500 }
+    return withCors(
+      NextResponse.json(
+        { error: 'Error interno del servidor' },
+        { status: 500 }
+      ),
+      origin
     );
   }
 }

@@ -90,66 +90,49 @@ export const GET = apiHandler(async (request: NextRequest) => {
   return NextResponse.json(leads, { status: 200 });
 });
 
-export async function POST(request: NextRequest) {
-  try {
-    const supabase = await createClient();
-    
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'No autorizado. Se requiere una sesión válida.' },
-        { status: 401 }
-      );
-    }
+export const POST = apiHandler(async (request: NextRequest) => {
+  const supabase = await createClient();
 
-    // Parse and validate body
-    const body = await request.json();
-    const validation = ApiCreateLeadSchema.safeParse(body);
+  // Check authentication
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    if (!validation.success) {
-      return NextResponse.json(
-        { 
-          error: 'Error de validación', 
-          details: validation.error.format() 
-        },
-        { status: 400 }
-      );
-    }
-
-    const data = validation.data;
-
-    // Dependency Injection (Hexagonal Architecture)
-    const repository = new SupabaseLeadRepository(supabase);
-    const useCase = new CreateLead(repository);
-
-    // Map API fields to DTO (prefer English, fall back to Spanish for backward compat)
-    const lead = await useCase.execute({
-      company: data.company || data.empresa!,
-      email: data.email,
-      source: data.source || data.origen!,
-      name: data.name || data.nombre || data.company || data.empresa!,
-      phone: data.phone || data.telefono,
-      notes: data.notes || data.notas,
-      status: data.status || 'Nuevo'
-    });
-
-    return NextResponse.json(lead, { status: 201 });
-
-  } catch (error: any) {
-    console.error('API Lead Error:', error);
-    
-    if (error instanceof SyntaxError) {
-      return NextResponse.json(
-        { error: 'Cuerpo de la solicitud mal formado (JSON inválido)' },
-        { status: 400 }
-      );
-    }
-
+  if (authError || !user) {
     return NextResponse.json(
-      { error: 'Error interno del servidor', message: error.message },
-      { status: 500 }
+      { error: 'No autorizado. Se requiere una sesión válida.' },
+      { status: 401 }
     );
   }
-}
+
+  // Parse and validate body
+  const body = await request.json();
+  const validation = ApiCreateLeadSchema.safeParse(body);
+
+  if (!validation.success) {
+    return NextResponse.json(
+      {
+        error: 'Error de validación',
+        details: validation.error.format()
+      },
+      { status: 400 }
+    );
+  }
+
+  const data = validation.data;
+
+  // Dependency Injection (Hexagonal Architecture)
+  const repository = new SupabaseLeadRepository(supabase);
+  const useCase = new CreateLead(repository);
+
+  // Map API fields to DTO (prefer English, fall back to Spanish for backward compat)
+  const lead = await useCase.execute({
+    company: data.company || data.empresa!,
+    email: data.email,
+    source: data.source || data.origen!,
+    name: data.name || data.nombre || data.company || data.empresa!,
+    phone: data.phone || data.telefono,
+    notes: data.notes || data.notas,
+    status: data.status || 'Nuevo'
+  });
+
+  return NextResponse.json(lead, { status: 201 });
+});

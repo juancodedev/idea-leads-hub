@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { handlePreflight, withCors } from '@/lib/api/cors';
 
 const openapi = {
   openapi: "3.0.0",
@@ -1665,6 +1666,12 @@ const openapi = {
 
 export const runtime = 'nodejs';
 
-export async function GET() {
-  return NextResponse.json(openapi);
+// CORS preflight
+export async function OPTIONS(request: NextRequest) {
+  return handlePreflight(request) ?? new Response(null, { status: 204 });
+}
+
+export async function GET(request: NextRequest) {
+  const origin = request.headers.get('origin');
+  return withCors(NextResponse.json(openapi), origin);
 }
