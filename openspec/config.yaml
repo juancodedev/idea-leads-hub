@@ -1,0 +1,75 @@
+# openspec/config.yaml
+schema: spec-driven
+
+context: |
+  Tech stack: Next.js 15 (App Router) + TypeScript 5 + React 19
+  Styling: Tailwind CSS 3 + shadcn/ui (Radix UI + class-variance-authority)
+  Backend: Supabase (auth, database) via @supabase/ssr
+  State: Zustand 4
+  Validation: Zod + react-hook-form + @hookform/resolvers
+  Deployment: OpenNext + Cloudflare Workers
+  Package manager: pnpm
+
+  Architecture: Hexagonal/Clean Architecture
+    - src/core/domain/ — domain entities (Activity, Idea, Lead, Note, Pipeline, Profile, Tag)
+    - src/core/application/ — use cases per domain
+    - src/core/ports/ — repository interfaces
+    - src/infrastructure/ — database, repository, service implementations
+    - src/modules/ — feature modules (ideas, leads, activities, dashboard, shared) each with own domain/application/infrastructure/store
+    - src/ui/ — shared UI components, layouts, providers
+    - src/app/ — Next.js App Router pages and API routes
+    - src/lib/ — shared utilities
+
+  Path aliases: @/ @core/ @modules/ @infrastructure/ @ui/ @lib/
+
+testing:
+  strict_tdd: true
+  runner:
+    command: pnpm test
+    framework: Jest 29 (next/jest)
+  layers:
+    unit:
+      available: true
+      tool: Jest + @testing-library/react
+    integration:
+      available: true
+      tool: Jest + @testing-library/react
+    e2e:
+      available: false
+      tool: null
+  coverage:
+    available: true
+    command: jest --coverage
+  quality:
+    linter:
+      available: true
+      command: next lint
+    type_checker:
+      available: true
+      command: npx tsc --noEmit
+    formatter:
+      available: true
+      command: prettier --write
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+  tasks:
+    - Group by phase, use hierarchical numbering
+    - Keep tasks completable in one session
+  apply:
+    - Follow existing code patterns
+    tdd: true
+    test_command: pnpm test
+  verify:
+    test_command: pnpm test
+    build_command: pnpm build
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas
