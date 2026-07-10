@@ -52,6 +52,8 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
         company: lead.company,
         email: lead.email,
         phone: lead.phone ?? null,
+        address: lead.address ?? null,
+        website: lead.website ?? null,
         status: lead.status || 'Nuevo',
         source: lead.source ?? null,
         notes: lead.notes ?? null,
@@ -75,6 +77,8 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
     if (updates.company !== undefined) dbUpdates.company = updates.company;
     if (updates.email) dbUpdates.email = updates.email;
     if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
+    if (updates.address !== undefined) dbUpdates.address = updates.address;
+    if (updates.website !== undefined) dbUpdates.website = updates.website;
     if (updates.status) dbUpdates.status = updates.status;
     if (updates.source !== undefined) dbUpdates.source = updates.source;
     if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
@@ -131,6 +135,8 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
       company: row.company,
       email: row.email,
       phone: row.phone ?? undefined,
+      address: row.address ?? undefined,
+      website: row.website ?? undefined,
       status: row.status as Lead['status'],
       source: row.source ?? undefined,
       notes: row.notes ?? undefined,

@@ -9,6 +9,8 @@ export interface Lead {
   company: string;
   email: string;
   phone?: string;
+  address?: string;
+  website?: string;
   status: LeadStatus;
   source?: string;
   notes?: string;
@@ -26,6 +28,8 @@ export interface CreateLeadDTO {
   company: string;
   email: string;
   phone?: string;
+  address?: string;
+  website?: string;
   status?: LeadStatus;
   source?: string;
   notes?: string;

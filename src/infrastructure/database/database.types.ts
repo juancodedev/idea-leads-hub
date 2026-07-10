@@ -49,6 +49,8 @@ export interface Database {
           company: string;
           email: string;
           phone: string | null;
+          address: string | null;
+          website: string | null;
           status: string;
           source: string | null;
           notes: string | null;
@@ -64,6 +66,8 @@ export interface Database {
           company: string;
           email: string;
           phone?: string | null;
+          address?: string | null;
+          website?: string | null;
           status?: string;
           source?: string | null;
           notes?: string | null;
@@ -79,6 +83,8 @@ export interface Database {
           company?: string;
           email?: string;
           phone?: string | null;
+          address?: string | null;
+          website?: string | null;
           status?: string;
           source?: string | null;
           notes?: string | null;

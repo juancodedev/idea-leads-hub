@@ -40,6 +40,8 @@ export function LeadForm({ initialData }: LeadFormProps) {
       company: initialData?.company || '',
       email: initialData?.email || '',
       phone: initialData?.phone || '',
+      address: initialData?.address || '',
+      website: initialData?.website || '',
       status: initialData?.status || 'Nuevo',
       source: initialData?.source || '',
       notes: initialData?.notes || '',
@@ -171,7 +173,33 @@ export function LeadForm({ initialData }: LeadFormProps) {
               </FormItem>
             )}
           />
+          <FormField
+            control={form.control}
+            name="website"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Sitio Web</FormLabel>
+                <FormControl>
+                  <Input type="url" placeholder="https://acme.com" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
+        <FormField
+          control={form.control}
+          name="address"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Dirección</FormLabel>
+              <FormControl>
+                <Textarea placeholder="Calle, ciudad, país..." {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <FormField
           control={form.control}
           name="notes"
