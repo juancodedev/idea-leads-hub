@@ -49,6 +49,8 @@ const mockLead = {
   company: "Acme Inc",
   email: "john@acme.com",
   phone: "+1234567890",
+  address: "Av. Corrientes 1234, CABA",
+  website: "https://acme.com",
   status: "Nuevo",
   source: "Web",
   notes: "Interested",
@@ -95,7 +97,7 @@ describe("GET /api/leads (new)", () => {
   });
 
   it("should filter leads by search query q", async () => {
-    const lead2 = { ...mockLead, id: "lead-2", name: "Jane Smith", company: "Beta Corp", email: "jane@beta.com" };
+    const lead2 = { ...mockLead, id: "lead-2", name: "Jane Smith", company: "Beta Corp", email: "jane@beta.com", website: "https://beta-corp.io" };
     mockGetAll.mockResolvedValue([mockLead, lead2]);
 
     const request = new NextRequest(

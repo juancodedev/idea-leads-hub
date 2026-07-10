@@ -33,6 +33,8 @@ const mockLead = {
   company: "Acme Inc",
   email: "john@acme.com",
   phone: "+1234567890",
+  address: "Av. Corrientes 1234, CABA",
+  website: "https://acme.com",
   status: "Nuevo",
   source: "Web",
   notes: "Interested",
