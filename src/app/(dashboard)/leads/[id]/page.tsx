@@ -5,7 +5,7 @@ import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLe
 import { notFound } from 'next/navigation';
 import { Button } from '@/ui/components/button';
 import Link from 'next/link';
-import { Edit2, Phone, Mail, Building, Globe, Calendar, ChevronLeft } from 'lucide-react';
+import { Edit2, Phone, Mail, Building, Globe, MapPin, Calendar, ChevronLeft } from 'lucide-react';
 import { DashboardLayout } from '@/ui/layouts/DashboardLayout';
 import { LeadWorkspace } from '@/modules/leads/components/LeadWorkspace';
 
@@ -68,10 +68,24 @@ export default async function LeadDetailsPage({ params }: LeadDetailsPageProps) 
                     <span className="text-sm">{lead.phone}</span>
                   </div>
                 )}
+                {lead.website && (
+                  <div className="flex items-center gap-3 overflow-hidden">
+                    <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <a href={lead.website} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline truncate">
+                      {lead.website}
+                    </a>
+                  </div>
+                )}
                 <div className="flex items-center gap-3">
                   <Building className="h-4 w-4 text-muted-foreground shrink-0" />
                   <span className="text-sm">{lead.company}</span>
                 </div>
+                {lead.address && (
+                  <div className="flex items-center gap-3">
+                    <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="text-sm">{lead.address}</span>
+                  </div>
+                )}
                 {lead.source && (
                   <div className="flex items-center gap-3">
                     <Globe className="h-4 w-4 text-muted-foreground shrink-0" />

@@ -11,6 +11,8 @@ export const LeadSchema = z.object({
   company: z.string().min(2, 'La empresa es requerida'),
   email: z.string().email('Email inválido'),
   phone: z.string().optional(),
+  address: z.string().optional(),
+  website: z.string().url('URL inválida').optional().or(z.literal('')),
   status: LeadStatusEnum,
   source: z.string().optional(),
   notes: z.string().optional(),
@@ -32,6 +34,8 @@ export const ApiCreateLeadSchema = z.object({
   source: z.string().min(1, 'Source is required').optional(),
   name: z.string().optional(),
   phone: z.string().optional(),
+  address: z.string().optional(),
+  website: z.string().url('Invalid URL').optional(),
   notes: z.string().optional(),
   status: LeadStatusEnum.optional(),
 
@@ -40,6 +44,8 @@ export const ApiCreateLeadSchema = z.object({
   origen: z.string().min(1, 'El origen es obligatorio').optional(),
   nombre: z.string().optional(),
   telefono: z.string().optional(),
+  direccion: z.string().optional(),
+  sitio_web: z.string().url('URL inválida').optional(),
   notas: z.string().optional(),
 }).strict().refine(
   (data) => data.company || data.empresa,

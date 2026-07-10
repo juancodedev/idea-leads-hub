@@ -120,7 +120,8 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
       const matchesSearch =
         lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         lead.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        lead.email.toLowerCase().includes(searchTerm.toLowerCase());
+        lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (lead.website && lead.website.toLowerCase().includes(searchTerm.toLowerCase()));
 
       const matchesStage = selectedStage === 'all' || lead.stageId === selectedStage;
 

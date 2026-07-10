@@ -12,6 +12,8 @@ import {
   Phone,
   ExternalLink,
   Calendar,
+  Globe,
+  MapPin,
   Tag as TagIcon
 } from 'lucide-react';
 import { TagSelector } from '@/modules/shared/components/TagSelector';
@@ -74,6 +76,20 @@ export function LeadQuickView({ lead, stages, onUpdate }: LeadQuickViewProps) {
             <div className="flex items-center gap-3 text-sm">
               <Phone className="h-4 w-4 text-muted-foreground" />
               <span>{lead.phone}</span>
+            </div>
+          )}
+          {lead.website && (
+            <div className="flex items-center gap-3 text-sm">
+              <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
+              <a href={lead.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
+                {lead.website}
+              </a>
+            </div>
+          )}
+          {lead.address && (
+            <div className="flex items-center gap-3 text-sm">
+              <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span>{lead.address}</span>
             </div>
           )}
           <div className="flex items-center gap-3 text-sm">
