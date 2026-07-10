@@ -76,14 +76,15 @@ export const GET = apiHandler(async (request: NextRequest) => {
     leads = leads.filter((lead) => lead.status === statusParam);
   }
 
-  // Filter by search query (matches company, name, email)
+  // Filter by search query (matches company, name, email, website)
   if (qParam) {
     const query = qParam.toLowerCase();
     leads = leads.filter(
       (lead) =>
         lead.company.toLowerCase().includes(query) ||
         lead.name.toLowerCase().includes(query) ||
-        lead.email.toLowerCase().includes(query)
+        lead.email.toLowerCase().includes(query) ||
+        (lead.website && lead.website.toLowerCase().includes(query))
     );
   }
 
@@ -130,6 +131,8 @@ export const POST = apiHandler(async (request: NextRequest) => {
     source: data.source || data.origen!,
     name: data.name || data.nombre || data.company || data.empresa!,
     phone: data.phone || data.telefono,
+    address: data.address || data.direccion,
+    website: data.website || data.sitio_web,
     notes: data.notes || data.notas,
     status: data.status || 'Nuevo'
   });

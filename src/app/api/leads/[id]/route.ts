@@ -12,6 +12,8 @@ const UpdateLeadSchema = z.object({
   company: z.string().min(1).optional(),
   email: z.string().email().optional(),
   phone: z.string().optional(),
+  address: z.string().optional(),
+  website: z.string().optional(),
   source: z.string().optional(),
   notes: z.string().optional(),
   pipelineId: z.string().uuid().optional(),
