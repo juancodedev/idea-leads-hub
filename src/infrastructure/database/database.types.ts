@@ -56,6 +56,8 @@ export interface Database {
           notes: string | null;
           pipeline_id: string | null;
           stage_id: string | null;
+          instagram_handle: string | null;
+          instagram_scoped_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -73,6 +75,8 @@ export interface Database {
           notes?: string | null;
           pipeline_id?: string | null;
           stage_id?: string | null;
+          instagram_handle?: string | null;
+          instagram_scoped_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -90,6 +94,8 @@ export interface Database {
           notes?: string | null;
           pipeline_id?: string | null;
           stage_id?: string | null;
+          instagram_handle?: string | null;
+          instagram_scoped_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -181,6 +187,38 @@ export interface Database {
           completed?: boolean;
           completed_at?: string | null;
           attachments?: any[];
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      user_secrets: {
+        Row: {
+          id: string;
+          user_id: string;
+          instagram_token: string | null;
+          instagram_ig_id: string | null;
+          instagram_page_id: string | null;
+          token_expires_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          instagram_token?: string | null;
+          instagram_ig_id?: string | null;
+          instagram_page_id?: string | null;
+          token_expires_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          instagram_token?: string | null;
+          instagram_ig_id?: string | null;
+          instagram_page_id?: string | null;
+          token_expires_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -379,4 +417,5 @@ export namespace Tables {
   export type PipelineStages = Database['public']['Tables']['pipeline_stages']['Row'];
   export type Notes = Database['public']['Tables']['notes']['Row'];
   export type AuditLogs = Database['public']['Tables']['audit_logs']['Row'];
+  export type UserSecrets = Database['public']['Tables']['user_secrets']['Row'];
 }

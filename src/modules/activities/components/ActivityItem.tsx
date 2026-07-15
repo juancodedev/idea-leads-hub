@@ -3,7 +3,7 @@
 import React from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { CheckCircle2, Circle, Clock, Mail, Phone, Users, MessageSquare, RefreshCw, Search, Zap } from "lucide-react";
+import { CheckCircle2, Circle, Clock, Mail, Phone, Users, MessageSquare, RefreshCw, Search, Zap, MessageCircle } from "lucide-react";
 import { Activity } from "../domain/entities/Activity";
 import { ActivityType } from "../domain/enums/ActivityType";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,7 @@ const iconMap: Record<ActivityType, any> = {
   [ActivityType.REMINDER]: Clock,
   [ActivityType.INVESTIGATION]: Search,
   [ActivityType.ACTION]: Zap,
+  [ActivityType.INSTAGRAM_MESSAGE]: MessageCircle,
 };
 
 interface ActivityItemProps {

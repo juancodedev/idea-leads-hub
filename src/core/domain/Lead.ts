@@ -17,6 +17,8 @@ export interface Lead {
   userId: string;
   pipelineId?: string;
   stageId?: string;
+  instagramHandle?: string;
+  instagramScopedId?: string;
   tags?: Tag[];
   notes_data?: Note[];
   createdAt: string;
@@ -35,6 +37,8 @@ export interface CreateLeadDTO {
   notes?: string;
   pipelineId?: string;
   stageId?: string;
+  instagramHandle?: string;
+  instagramScopedId?: string;
 }
 
 export interface UpdateLeadDTO extends Partial<CreateLeadDTO> {
