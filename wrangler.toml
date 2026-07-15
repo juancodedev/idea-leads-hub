@@ -10,6 +10,12 @@ NEXT_PUBLIC_SUPABASE_URL = "https://xsqyftoblnsjkavhldcm.supabase.co"
 # NEXT_PUBLIC_SUPABASE_ANON_KEY = "<your-anon-key>"
 # NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "<your-publishable-key>"
 
+# Instagram/Meta Integration — set via Cloudflare dashboard → Settings → Variables:
+# META_APP_ID = "<your-meta-app-id>"
+# META_APP_SECRET = "<your-meta-app-secret>"
+# META_VERIFY_TOKEN = "<your-webhook-verify-token>"
+# TOKEN_ENCRYPTION_KEY = "<32-char-aes-key-for-pgcrypto>"
+
 [assets]
 directory = ".open-next/assets"
 binding = "ASSETS"
