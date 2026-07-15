@@ -32,12 +32,12 @@ Chain strategy: stacked-to-main
 
 ## Phase 2: Backend — Services + API Routes + Webhook
 
-- [ ] 2.1 Create `InstagramAuthService.ts`: `getToken()`/`storeToken()`/`refreshToken()` with pgcrypto encrypt/decrypt; unit test mocks Supabase query and verifies decrypt path
-- [ ] 2.2 Create `InstagramMessagingService.ts`: `sendDM()`, `verifyMetaSignature()` (HMAC-SHA256 with `crypto.subtle`), `parseIncomingMessage()`; unit tests: mock fetch for DM call shape, known payload→true and tampered→false for signature verification
-- [ ] 2.3 Create webhook route `src/app/api/webhook/instagram/route.ts`: GET returns challenge on matching verify token (else 403), POST verifies HMAC signature then calls `parseIncomingMessage()` and creates Activity; test both paths
-- [ ] 2.4 Create `POST /api/leads/[id]/instagram/send`: resolve recipient by `instagramScopedId` (fallback to `instagramHandle`), call `sendDM()`, persist Activity; test API contract
-- [ ] 2.5 Create `GET /api/leads/[id]/instagram/conversation`: query `INSTAGRAM_MESSAGE` activities for lead, return ordered timeline; test returns filtered results
-- [ ] 2.6 Add env vars `TOKEN_ENCRYPTION_KEY`, `META_APP_SECRET`, `META_VERIFY_TOKEN` to `wrangler.toml`
+- [x] 2.1 Create `InstagramAuthService.ts`: `getToken()`/`storeToken()`/`refreshToken()` with pgcrypto encrypt/decrypt; unit test mocks Supabase query and verifies decrypt path
+- [x] 2.2 Create `InstagramMessagingService.ts`: `sendDM()`, `verifyMetaSignature()` (HMAC-SHA256 with `crypto.subtle`), `parseIncomingMessage()`; unit tests: mock fetch for DM call shape, known payload→true and tampered→false for signature verification
+- [x] 2.3 Create webhook route `src/app/api/webhook/instagram/route.ts`: GET returns challenge on matching verify token (else 403), POST verifies HMAC signature then calls `parseIncomingMessage()` and creates Activity; test both paths
+- [x] 2.4 Create `POST /api/leads/[id]/instagram/send`: resolve recipient by `instagramScopedId` (fallback to `instagramHandle`), call `sendDM()`, persist Activity; test API contract
+- [x] 2.5 Create `GET /api/leads/[id]/instagram/conversation`: query `INSTAGRAM_MESSAGE` activities for lead, return ordered timeline; test returns filtered results
+- [x] 2.6 Add env vars `TOKEN_ENCRYPTION_KEY`, `META_APP_SECRET`, `META_VERIFY_TOKEN` to `wrangler.toml`
 
 ## Phase 3: UI + Auto-Trigger
 
