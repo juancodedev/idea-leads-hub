@@ -18,6 +18,8 @@ export const LeadSchema = z.object({
   notes: z.string().optional(),
   pipelineId: z.preprocess((val) => val === '' ? undefined : val, z.string().uuid().optional()),
   stageId: z.preprocess((val) => val === '' ? undefined : val, z.string().uuid().optional()),
+  instagramHandle: z.string().optional(),
+  instagramScopedId: z.string().optional(),
 });
 
 /**
@@ -38,6 +40,9 @@ export const ApiCreateLeadSchema = z.object({
   website: z.string().url('Invalid URL').optional(),
   notes: z.string().optional(),
   status: LeadStatusEnum.optional(),
+
+  instagramHandle: z.string().optional(),
+  instagramScopedId: z.string().optional(),
 
   // Spanish fields (deprecated — kept for backward compat)
   empresa: z.string().min(1, 'La empresa es obligatoria').optional(),

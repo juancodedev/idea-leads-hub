@@ -1,4 +1,4 @@
-import { Phone, Users, Repeat, Mail, CheckSquare, FileText, Bell } from "lucide-react";
+import { Phone, Users, Repeat, Mail, CheckSquare, FileText, Bell, MessageCircle } from "lucide-react";
 import { ActivityType } from "../../domain/enums/ActivityType";
 
 interface ActivityTypeIconProps {
@@ -22,6 +22,8 @@ export function ActivityTypeIcon({ type, className }: ActivityTypeIconProps) {
       return <FileText className={className} />;
     case ActivityType.REMINDER:
       return <Bell className={className} />;
+    case ActivityType.INSTAGRAM_MESSAGE:
+      return <MessageCircle className={className} />;
     default:
       return <CheckSquare className={className} />;
   }

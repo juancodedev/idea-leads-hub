@@ -59,6 +59,8 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
         notes: lead.notes ?? null,
         pipeline_id: lead.pipelineId ?? null,
         stage_id: lead.stageId ?? null,
+        instagram_handle: lead.instagramHandle ?? null,
+        instagram_scoped_id: lead.instagramScopedId ?? null,
         user_id: userId
       }] as never)
       .select()
@@ -84,6 +86,8 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
     if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
     if (updates.pipelineId !== undefined) dbUpdates.pipeline_id = updates.pipelineId;
     if (updates.stageId !== undefined) dbUpdates.stage_id = updates.stageId;
+    if (updates.instagramHandle !== undefined) dbUpdates.instagram_handle = updates.instagramHandle;
+    if (updates.instagramScopedId !== undefined) dbUpdates.instagram_scoped_id = updates.instagramScopedId;
 
     dbUpdates.updated_at = new Date().toISOString();
 
@@ -143,6 +147,8 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
       userId: row.user_id,
       pipelineId: row.pipeline_id ?? undefined,
       stageId: row.stage_id ?? undefined,
+      instagramHandle: row.instagram_handle ?? undefined,
+      instagramScopedId: row.instagram_scoped_id ?? undefined,
       tags: entityTags ? entityTags.map(et => ({
         id: et.tags.id,
         name: et.tags.name,
