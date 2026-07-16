@@ -32,7 +32,8 @@ export function InstagramIntegration() {
       toast.success("Instagram conectado correctamente");
       window.history.replaceState({}, "", "/settings/profile");
     } else if (instagramParam === "error") {
-      toast.error("Error al conectar Instagram. Intentalo de nuevo.");
+      const step = searchParams.get("step") || "unknown";
+      toast.error(`Error al conectar Instagram (${step}). Intentalo de nuevo.`);
       window.history.replaceState({}, "", "/settings/profile");
     }
 

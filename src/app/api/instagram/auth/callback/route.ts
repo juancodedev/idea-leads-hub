@@ -27,8 +27,9 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get("state");
 
   if (!code || !state) {
+    logger.warn("Missing code or state in callback", { hasCode: !!code, hasState: !!state });
     return NextResponse.redirect(
-      new URL("/settings/profile?instagram=error", appUrl),
+      new URL("/settings/profile?instagram=error&step=missing_code_state", appUrl),
       302
     );
   }
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest) {
       received: state,
     });
     return NextResponse.redirect(
-      new URL("/settings/profile?instagram=error", appUrl),
+      new URL("/settings/profile?instagram=error&step=state_mismatch", appUrl),
       302
     );
   }
@@ -70,7 +71,7 @@ export async function GET(request: NextRequest) {
         body: errorBody,
       });
       return NextResponse.redirect(
-        new URL("/settings/profile?instagram=error", appUrl),
+        new URL("/settings/profile?instagram=error&step=token_exchange", appUrl),
         302
       );
     }
@@ -89,11 +90,13 @@ export async function GET(request: NextRequest) {
 
     const longLivedRes = await fetch(longLivedUrl.toString());
     if (!longLivedRes.ok) {
+      const errorBody = await longLivedRes.text();
       logger.error("Failed to exchange for long-lived token", {
         status: longLivedRes.status,
+        body: errorBody,
       });
       return NextResponse.redirect(
-        new URL("/settings/profile?instagram=error", appUrl),
+        new URL("/settings/profile?instagram=error&step=long_lived", appUrl),
         302
       );
     }
@@ -112,9 +115,10 @@ export async function GET(request: NextRequest) {
 
     const pagesRes = await fetch(pagesUrl.toString());
     if (!pagesRes.ok) {
-      logger.error("Failed to fetch pages", { status: pagesRes.status });
+      const errorBody = await pagesRes.text();
+      logger.error("Failed to fetch pages", { status: pagesRes.status, body: errorBody });
       return NextResponse.redirect(
-        new URL("/settings/profile?instagram=error", appUrl),
+        new URL("/settings/profile?instagram=error&step=fetch_pages", appUrl),
         302
       );
     }
@@ -151,7 +155,7 @@ export async function GET(request: NextRequest) {
     if (!igId || !pageId) {
       logger.warn("No Instagram Business Account found for user's pages");
       return NextResponse.redirect(
-        new URL("/settings/profile?instagram=error", appUrl),
+        new URL("/settings/profile?instagram=error&step=no_ig_account", appUrl),
         302
       );
     }
@@ -164,9 +168,9 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      logger.error("Failed to authenticate user in OAuth callback");
+      logger.error("Failed to authenticate user in OAuth callback", { error: authError });
       return NextResponse.redirect(
-        new URL("/settings/profile?instagram=error", appUrl),
+        new URL("/settings/profile?instagram=error&step=auth_user", appUrl),
         302
       );
     }
@@ -186,7 +190,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     logger.error("Instagram OAuth callback error", { error });
     return NextResponse.redirect(
-      new URL("/settings/profile?instagram=error", appUrl),
+      new URL("/settings/profile?instagram=error&step=exception", appUrl),
       302
     );
   }
