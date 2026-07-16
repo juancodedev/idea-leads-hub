@@ -12,7 +12,8 @@ import {
   Menu,
   X,
   Settings,
-  User
+  User,
+  MessageCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/ui/components/button";
@@ -27,6 +28,7 @@ const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Leads", href: "/leads", icon: Users },
   { name: "Pipeline", href: "/pipeline", icon: LayoutDashboard }, // Kanban
+  { name: "Mensajes", href: "/messages", icon: MessageCircle },
   { name: "Ideas", href: "/ideas", icon: Lightbulb },
   { name: "Actividades", href: "/activities", icon: CheckSquare },
   { name: "Ajustes", href: "/settings/profile", icon: Settings },
