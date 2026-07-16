@@ -39,7 +39,7 @@ export const GET = apiHandler(async (request: NextRequest) => {
   const params = new URLSearchParams({
     client_id: appId,
     redirect_uri: `${appUrl}/api/instagram/auth/callback`,
-    scope: "pages_show_list,pages_read_engagement,instagram_business_messaging",
+    scope: "pages_show_list,pages_read_engagement,pages_manage_metadata",
     state,
     response_type: "code",
   });
