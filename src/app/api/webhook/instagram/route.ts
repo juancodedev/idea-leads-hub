@@ -76,11 +76,12 @@ export async function POST(request: NextRequest) {
   const activityRepo = new SupabaseActivityRepository(supabase);
 
   // Find lead by Instagram-scoped sender ID
-  const { data: leads } = await supabase
+  type LeadRow = Database["public"]["Tables"]["leads"]["Row"];
+  const { data: leads } = (await supabase
     .from("leads")
     .select("id")
     .eq("instagram_scoped_id", parsed.senderId)
-    .limit(1);
+    .limit(1)) as unknown as { data: Pick<LeadRow, "id">[] | null };
 
   const leadId = leads?.[0]?.id ?? null;
 

@@ -34,14 +34,16 @@ export class InstagramAuthService {
       throw new Error("Failed to retrieve Instagram token: " + error.message);
     }
 
-    if (!data) {
+    const row = data as UserSecretRow | null;
+
+    if (!row) {
       throw new Error("No Instagram token found for user");
     }
 
     return {
-      token: data.instagram_token ?? "",
-      igId: data.instagram_ig_id ?? "",
-      pageId: data.instagram_page_id ?? "",
+      token: row.instagram_token ?? "",
+      igId: row.instagram_ig_id ?? "",
+      pageId: row.instagram_page_id ?? "",
     };
   }
 
@@ -49,8 +51,8 @@ export class InstagramAuthService {
    * Store or update Instagram token for a user.
    */
   async storeToken(userId: string, tokenData: StoreTokenData): Promise<void> {
-    const { error } = await this.supabase
-      .from("user_secrets")
+    const { error } = await (this.supabase
+      .from("user_secrets") as any)
       .upsert(
         {
           user_id: userId,

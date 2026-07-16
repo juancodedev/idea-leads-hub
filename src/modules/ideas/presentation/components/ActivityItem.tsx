@@ -15,6 +15,7 @@ import {
   Search, 
   Zap, 
   MessageSquare,
+  MessageCircle,
   Paperclip,
   ExternalLink
 } from "lucide-react";
@@ -35,6 +36,7 @@ const typeConfig = {
   [ActivityType.FOLLOW_UP]: { icon: FileText, color: "text-indigo-500", bg: "bg-indigo-500/10", label: "Seguimiento" },
   [ActivityType.INVESTIGATION]: { icon: Search, color: "text-cyan-500", bg: "bg-cyan-500/10", label: "Investigación" },
   [ActivityType.ACTION]: { icon: Zap, color: "text-rose-500", bg: "bg-rose-500/10", label: "Acción" },
+  [ActivityType.INSTAGRAM_MESSAGE]: { icon: MessageCircle, color: "text-pink-500", bg: "bg-pink-500/10", label: "Instagram DM" },
 };
 
 export function ActivityItem({ activity, onUpdate }: ActivityItemProps) {
