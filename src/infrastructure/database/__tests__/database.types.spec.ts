@@ -50,7 +50,7 @@ describe("database.types.ts - Instagram fields", () => {
   it("user_secrets should have Row, Insert, and Update sub-types", () => {
     // Find the user_secrets section
     const userSecretsSection = source.match(
-      /user_secrets: \{[^}]+\}[^}]+[^}]+[^}]+}/s
+      /user_secrets: \{[\s\S]*?\}[\s\S]*?[\s\S]*?[\s\S]*?}/
     );
     // Check that Row is defined
     expect(source.split("user_secrets: {")[1] || "").toContain("Row: {");
