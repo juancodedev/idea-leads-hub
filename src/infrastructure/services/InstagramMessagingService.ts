@@ -129,7 +129,9 @@ export class InstagramMessagingService {
       senderId,
       messageId,
       text,
-      timestamp: new Date(messaging.timestamp).toISOString(),
+      timestamp: messaging.timestamp
+        ? new Date(messaging.timestamp).toISOString()
+        : new Date().toISOString(),
     };
   }
 }
