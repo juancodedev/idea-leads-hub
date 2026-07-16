@@ -1230,6 +1230,216 @@ const openapi = {
         },
       },
     },
+
+    // ── Instagram ──────────────────────────────────────────
+    "/api/instagram/auth": {
+      get: {
+        summary: "Iniciar conexión OAuth con Instagram",
+        description: "Redirige al usuario a Facebook para autorizar la conexión de Instagram Business. Requiere META_APP_ID configurada.",
+        tags: ["Instagram"],
+        security: [{ supabaseAuth: [] }],
+        responses: {
+          302: { description: "Redirección a Facebook OAuth" },
+          400: { description: "META_APP_ID no configurada" },
+          401: { description: "No autorizado" },
+        },
+      },
+      delete: {
+        summary: "Desconectar Instagram",
+        description: "Elimina los tokens de Instagram del usuario autenticado.",
+        tags: ["Instagram"],
+        security: [{ supabaseAuth: [] }],
+        responses: {
+          200: {
+            description: "Desconectado exitosamente",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/SuccessResponse" },
+              },
+            },
+          },
+          401: { description: "No autorizado" },
+          500: { description: "Error interno del servidor" },
+        },
+      },
+    },
+    "/api/instagram/auth/callback": {
+      get: {
+        summary: "Callback OAuth de Instagram",
+        description: "Endpoint interno que recibe el código de autorización de Facebook, intercambia por tokens y almacena la conexión.",
+        tags: ["Instagram"],
+        parameters: [
+          {
+            name: "code",
+            in: "query",
+            required: true,
+            schema: { type: "string" },
+            description: "Código de autorización de Facebook",
+          },
+          {
+            name: "state",
+            in: "query",
+            required: true,
+            schema: { type: "string" },
+            description: "Estado CSRF para verificación",
+          },
+        ],
+        responses: {
+          302: { description: "Redirección a /settings/profile con resultado" },
+          400: { description: "Error de validación (state inválido o parámetros faltantes)" },
+          500: { description: "Error interno del servidor" },
+        },
+      },
+    },
+    "/api/instagram/status": {
+      get: {
+        summary: "Estado de conexión Instagram",
+        description: "Obtiene el estado de conexión de Instagram Business del usuario autenticado.",
+        tags: ["Instagram"],
+        security: [{ supabaseAuth: [] }],
+        responses: {
+          200: {
+            description: "Estado de conexión",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    connected: { type: "boolean" },
+                    igId: { type: "string", nullable: true },
+                    expiresAt: { type: "string", nullable: true },
+                  },
+                },
+              },
+            },
+          },
+          401: { description: "No autorizado" },
+          500: { description: "Error interno del servidor" },
+        },
+      },
+    },
+    "/api/leads/{id}/instagram/send": {
+      post: {
+        summary: "Enviar mensaje de Instagram a un lead",
+        description: "Envía un DM de Instagram a un lead a través de la API de Meta. Requiere Instagram conectado.",
+        tags: ["Leads", "Instagram"],
+        security: [{ supabaseAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["text"],
+                properties: {
+                  text: { type: "string", minLength: 1, description: "Texto del mensaje" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Mensaje enviado",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    messageId: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+          400: { description: "Error de validación" },
+          401: { description: "No autorizado" },
+          404: { description: "Lead no encontrado" },
+          500: { description: "Error interno del servidor" },
+        },
+      },
+    },
+    "/api/leads/{id}/instagram/conversation": {
+      get: {
+        summary: "Obtener conversación de Instagram",
+        description: "Obtiene el historial de mensajes de Instagram de un lead, ordenado cronológicamente.",
+        tags: ["Leads", "Instagram"],
+        security: [{ supabaseAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Lista de mensajes",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: { $ref: "#/components/schemas/Activity" },
+                },
+              },
+            },
+          },
+          401: { description: "No autorizado" },
+          404: { description: "Lead no encontrado" },
+          500: { description: "Error interno del servidor" },
+        },
+      },
+    },
+    "/api/webhook/instagram": {
+      get: {
+        summary: "Verificación de webhook de Meta",
+        description: "Endpoint de verificación utilizado por Meta para confirmar el webhook durante la configuración.",
+        tags: ["Instagram"],
+        parameters: [
+          {
+            name: "hub.mode",
+            in: "query",
+            required: true,
+            schema: { type: "string" },
+          },
+          {
+            name: "hub.verify_token",
+            in: "query",
+            required: true,
+            schema: { type: "string" },
+          },
+          {
+            name: "hub.challenge",
+            in: "query",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          200: { description: "Challenge verificado, devuelve el challenge" },
+          403: { description: "Verificación fallida" },
+        },
+      },
+      post: {
+        summary: "Recibir evento de webhook de Instagram",
+        description: "Recibe mensajes entrantes de Instagram desde Meta y los registra como actividades en el CRM.",
+        tags: ["Instagram"],
+        responses: {
+          200: { description: "Evento recibido" },
+          403: { description: "Firma inválida" },
+          500: { description: "Error interno del servidor" },
+        },
+      },
+    },
   },
   components: {
     securitySchemes: {
@@ -1438,7 +1648,7 @@ const openapi = {
       // ── Activities ────────────────────────────────────────
       ActivityType: {
         type: "string",
-        enum: ["CALL", "MEETING", "FOLLOW_UP", "EMAIL", "TASK", "NOTE", "REMINDER", "INVESTIGATION", "ACTION"],
+        enum: ["CALL", "MEETING", "FOLLOW_UP", "EMAIL", "TASK", "NOTE", "REMINDER", "INVESTIGATION", "ACTION", "INSTAGRAM_MESSAGE"],
       },
       Activity: {
         type: "object",

@@ -7,10 +7,11 @@ Idea Leads Hub es un CRM personal diseñado para gestionar leads e ideas de nego
 -   **Gestión de Leads**: Registro y seguimiento detallado de prospectos.
 -   **Pipeline de Ventas**: Visualización del estado de tus leads en un tablero Kanban.
 -   **Gestión de Ideas**: Repositorio para capturar y validar ideas de negocio, vinculándolas a leads si es necesario.
--   **Seguimiento de Actividades**: Registro de llamadas, correos, reuniones y tareas pendientes.
--   **API REST Completa**: ~25 endpoints para todas las entidades, con autenticación JWT, rate limiting y logging estructurado.
+-   **Seguimiento de Actividades**: Registro de llamadas, correos, reuniones, tareas e Instagram DMs.
+-   **Integración con Instagram**: Envío y recepción de mensajes DM vía Meta API, timeline de conversaciones por lead y auto-DM en transiciones de estado.
+-   **API REST Completa**: ~35 endpoints para todas las entidades, con autenticación JWT, rate limiting y logging estructurado.
 -   **Documentación Interactiva**: Documentación de la API integrada con Swagger UI (OpenAPI 3.0).
--   **106 Tests Automatizados**: Tests unitarios con Jest + React Testing Library.
+-   **203 Tests Automatizados**: Tests unitarios con Jest + React Testing Library.
 
 ## 🏗️ Arquitectura
 
@@ -40,7 +41,7 @@ Para más detalles, consulta la [Guía de Arquitectura](./docs/architecture.md).
 -   **Validación**: Zod
 -   **Estado**: Zustand + React Query (@tanstack/react-query)
 -   **Drag & Drop**: @dnd-kit (Kanban pipeline)
--   **Testing**: Jest + React Testing Library (106 tests)
+-   **Testing**: Jest + React Testing Library (203 tests)
 -   **CI/CD**: GitHub Actions (type-check, lint, tests en cada PR)
 
 ## 📋 Requisitos Previos
@@ -77,6 +78,12 @@ Para más detalles, consulta la [Guía de Arquitectura](./docs/architecture.md).
     -   `NEXT_PUBLIC_SUPABASE_URL`: URL de tu proyecto Supabase.
     -   `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Clave anónima para el cliente.
     -   `NEXT_PUBLIC_APP_URL`: URL base de la aplicación (ej: `http://localhost:3000`).
+
+    Variables de integración con Instagram (opcionales, necesarias para usar mensajería):
+    -   `META_APP_ID`: ID de tu app en Meta Developers.
+    -   `META_APP_SECRET`: Secreto de la app en Meta Developers.
+    -   `META_VERIFY_TOKEN`: Token de verificación para el webhook de Meta.
+    -   `TOKEN_ENCRYPTION_KEY`: Clave AES-256 (32 caracteres) para encriptar tokens en Supabase.
 
 5.  **Preparar la Base de Datos**:
     Ejecuta las migraciones de la carpeta `supabase/migrations` en el SQL Editor de tu proyecto Supabase para crear las tablas, políticas de RLS y funciones necesarias.
@@ -172,6 +179,21 @@ La especificación completa sigue el estándar **OpenAPI 3.0** y está disponibl
 | PATCH | `/api/notes/:id` | Actualizar nota |
 | DELETE | `/api/notes/:id` | Eliminar nota |
 
+### Instagram + Webhook
+
+| Método | Path | Auth | Descripción |
+|--------|------|------|-------------|
+| GET | `/api/instagram/auth` | ✅ | Iniciar OAuth para conectar Instagram Business |
+| DELETE | `/api/instagram/auth` | ✅ | Desconectar Instagram |
+| GET | `/api/instagram/auth/callback` | 🍪 | Callback OAuth de Meta (usa cookie de sesión) |
+| GET | `/api/instagram/status` | ✅ | Verificar si Instagram está conectado |
+| POST | `/api/leads/:id/instagram/send` | ✅ | Enviar DM de Instagram a un lead |
+| GET | `/api/leads/:id/instagram/conversation` | ✅ | Obtener timeline de conversación |
+| GET | `/api/webhook/instagram` | ❌ | Verificación de webhook de Meta |
+| POST | `/api/webhook/instagram` | 🔒 | Recibir mensajes entrantes de Instagram (firma HMAC) |
+
+> **Auth**: ✅ = JWT de Supabase, 🍪 = Cookie de sesión, ❌ = Público (endpoint de Meta), 🔒 = Verificación por firma HMAC-SHA256
+
 ### Documentación Interactiva (Swagger UI)
 
 Con el servidor en ejecución, visitá `/api/docs` para explorar y probar los endpoints desde el navegador con Swagger UI. La especificación OpenAPI raw está disponible en `/api/docs/openapi.json`.
@@ -192,9 +214,12 @@ npx tsc --noEmit
 npx eslint .
 ```
 
-Actualmente **106 tests** pasando en 23 suites, incluyendo:
+Actualmente **203 tests** pasando en 39 suites, incluyendo:
 - Tests de casos de uso (CreateLead, CreateIdea, CreateActivity, etc.)
-- Tests de API routes (Profile, Tags, Notes, Ideas, Activities, Pipeline, Leads)
+- Tests de API routes (Profile, Tags, Notes, Ideas, Activities, Pipeline, Leads, Instagram)
+- Tests de servicios (InstagramAuthService, InstagramMessagingService)
+- Tests de componentes (ActivityItem, ActivityTypeIcon, InstagramSendDialog)
+- Tests de integración de Instagram OAuth (auth, callback, status routes)
 - Tests de BaseRepository y error classes
 
 ## 🔄 CI/CD
