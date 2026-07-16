@@ -4,6 +4,7 @@ compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
+NEXT_PUBLIC_APP_URL = "https://crm.juancode.dev"
 NEXT_PUBLIC_SUPABASE_URL = "https://xsqyftoblnsjkavhldcm.supabase.co"
 # WARNING: Hardcoded ANON_KEY removed. Set via Cloudflare dashboard:
 # Settings → Variables → Add `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
