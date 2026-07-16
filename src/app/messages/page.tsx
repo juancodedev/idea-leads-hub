@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/ui/components/button";
 import { Avatar, AvatarFallback } from "@/ui/components/avatar";
 import { InstagramConversation } from "@/modules/instagram/components/InstagramConversation";
+import { DashboardLayout } from "@/ui/layouts/DashboardLayout";
 
 /* ---------- types ---------- */
 
@@ -225,20 +226,23 @@ export default function MessagesPage() {
 
   if (!loading && conversations.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-        <MessageCircle className="h-16 w-16 text-muted-foreground/40 mb-4" />
-        <h2 className="text-xl font-semibold text-muted-foreground">
-          No hay conversaciones
-        </h2>
-        <p className="text-sm text-muted-foreground/70 mt-1 max-w-md">
-          Las conversaciones de Instagram aparecerán acá cuando recibas o
-          envíes mensajes a través de la plataforma.
-        </p>
-      </div>
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+          <MessageCircle className="h-16 w-16 text-muted-foreground/40 mb-4" />
+          <h2 className="text-xl font-semibold text-muted-foreground">
+            No hay conversaciones
+          </h2>
+          <p className="text-sm text-muted-foreground/70 mt-1 max-w-md">
+            Las conversaciones de Instagram aparecerán acá cuando recibas o
+            envíes mensajes a través de la plataforma.
+          </p>
+        </div>
+      </DashboardLayout>
     );
   }
 
   return (
+    <DashboardLayout>
     <div className="flex flex-col h-[calc(100vh-8rem)]">
       {/* Header */}
       <div className="flex items-center justify-between pb-4 border-b mb-0">
@@ -423,5 +427,6 @@ export default function MessagesPage() {
         </div>
       </div>
     </div>
+    </DashboardLayout>
   );
 }
