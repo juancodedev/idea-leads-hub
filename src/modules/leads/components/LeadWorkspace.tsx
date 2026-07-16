@@ -11,9 +11,11 @@ import { createClient } from '@/infrastructure/database/client';
 import { SupabaseTagRepository } from '@/infrastructure/repositories/SupabaseTagRepository';
 import { SupabaseNoteRepository } from '@/infrastructure/repositories/SupabaseNoteRepository';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/components/tabs';
-import { MessageSquare, History, Lightbulb } from 'lucide-react';
+import { MessageSquare, History, Lightbulb, MessageCircle } from 'lucide-react';
 import { LeadActivitiesSection } from '@/modules/activities/presentation/components/LeadActivitiesSection';
 import { RelatedIdeasSection } from '@/modules/ideas/presentation/components/RelatedIdeasSection';
+import { InstagramSendDialog } from '@/modules/instagram/components/InstagramSendDialog';
+import { InstagramConversation } from '@/modules/instagram/components/InstagramConversation';
 
 interface LeadWorkspaceProps {
   lead: Lead;
@@ -70,7 +72,7 @@ export function LeadWorkspace({ lead }: LeadWorkspaceProps) {
       {/* Columna Derecha: Workspace con Tabs */}
       <div className="md:col-span-2">
         <Tabs defaultValue="notes" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="notes" className="gap-2">
               <MessageSquare className="h-4 w-4" />
               Notas
@@ -82,6 +84,10 @@ export function LeadWorkspace({ lead }: LeadWorkspaceProps) {
             <TabsTrigger value="ideas" className="gap-2">
               <Lightbulb className="h-4 w-4" />
               Ideas
+            </TabsTrigger>
+            <TabsTrigger value="instagram" className="gap-2">
+              <MessageCircle className="h-4 w-4" />
+              Instagram
             </TabsTrigger>
           </TabsList>
 
@@ -118,6 +124,17 @@ export function LeadWorkspace({ lead }: LeadWorkspaceProps) {
             <div className="rounded-xl border bg-card p-6 shadow-sm">
               <RelatedIdeasSection leadId={lead.id} />
             </div>
+          </TabsContent>
+
+          <TabsContent value="instagram" className="space-y-6">
+            <InstagramSendDialog
+              leadId={lead.id}
+              leadName={lead.name}
+              instagramHandle={lead.instagramHandle}
+              instagramScopedId={lead.instagramScopedId}
+            />
+
+            <InstagramConversation leadId={lead.id} />
           </TabsContent>
         </Tabs>
       </div>
