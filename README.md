@@ -231,6 +231,32 @@ Cada PR a `main` ejecuta automáticamente:
 
 Ver `.github/workflows/ci.yml` para más detalles.
 
+### 🚀 Deploy a Cloudflare Workers
+
+El deploy se activa automáticamente al hacer push a `main` (`.github/workflows/deploy.yml`).
+
+**Las secrets de Supabase** se pasan desde GitHub Secrets en el build:
+
+| GitHub Secret | Uso |
+|--------------|-----|
+| `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto Supabase |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clave anónima |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Clave publicable |
+| `CLOUDFLARE_API_TOKEN` | Token de API de Cloudflare |
+| `CLOUDFLARE_ACCOUNT_ID` | ID de cuenta Cloudflare |
+
+**Las secrets de Meta** se configuran en el dashboard de Cloudflare Workers (secrets runtime, no van en build):
+
+```bash
+# Desde la CLI (alternativa al dashboard):
+npx wrangler secret put META_APP_ID
+npx wrangler secret put META_APP_SECRET
+npx wrangler secret put META_VERIFY_TOKEN
+npx wrangler secret put TOKEN_ENCRYPTION_KEY
+```
+
+O desde [Cloudflare Dashboard](https://dash.cloudflare.com) → Workers & Pages → idea-leads-hub → Settings → Variables.
+
 ## 📖 Documentación Adicional
 
 -   [Configuración de Desarrollo](./docs/development-setup.md)
