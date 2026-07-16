@@ -19,7 +19,7 @@ describe("ActivityItem with INSTAGRAM_MESSAGE", () => {
       userId: "user-1",
       ideaId: null,
       dueDate: null,
-      completedAt: null,
+      completedAt: undefined,
       attachments: [],
       createdAt: new Date("2024-01-01"),
       updatedAt: new Date("2024-01-01"),
