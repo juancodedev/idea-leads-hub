@@ -41,10 +41,10 @@ Chain strategy: stacked-to-main
 
 ## Phase 3: UI + Auto-Trigger
 
-- [ ] 3.1 Create `InstagramSendDialog.tsx`: textarea + send button, calls `POST /api/leads/[id]/instagram/send`, shows success/error state
-- [ ] 3.2 Add Instagram DM tab/button in `LeadWorkspace.tsx` that opens the send dialog; verify render
-- [ ] 3.3 Create `InstagramAutoTrigger.ts`: check status transition config, call messaging service if configured, log unsent if outside 24h window; unit test with mock service
-- [ ] 3.4 Hook auto-trigger in `UpdateLead.ts` after status change succeeds; test that trigger fires on configured transitions
+- [x] 3.1 Create `InstagramSendDialog.tsx`: textarea + send button, calls `POST /api/leads/[id]/instagram/send`, shows success/error state
+- [x] 3.2 Add Instagram DM tab/button in `LeadWorkspace.tsx` that opens the send dialog; verify render
+- [x] 3.3 Create `InstagramAutoTrigger.ts`: check status transition config, call messaging service if configured, log unsent if outside 24h window; unit test with mock service
+- [x] 3.4 Hook auto-trigger in status route after status change succeeds; test that trigger fires on configured transitions
 
 ## Phase 4: Integration Verification
 
