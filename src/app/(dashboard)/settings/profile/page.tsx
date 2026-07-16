@@ -1,6 +1,7 @@
 import React from "react";
 import { DashboardLayout } from "@/ui/layouts/DashboardLayout";
 import { ProfileForm } from "@/modules/shared/presentation/components/ProfileForm";
+import { InstagramIntegration } from "@/modules/integrations/components/InstagramIntegration";
 import { createClient } from "@/infrastructure/database/server";
 import { SupabaseProfileRepository } from "@/infrastructure/repositories/SupabaseProfileRepository";
 import { GetProfile } from "@/core/application/profile/ProfileUseCases";
@@ -40,6 +41,12 @@ export default async function ProfilePage() {
           </p>
         </div>
         <ProfileForm initialData={profile} />
+        <div className="mt-10">
+          <h2 className="text-2xl font-semibold tracking-tight mb-4">
+            Integraciones
+          </h2>
+          <InstagramIntegration />
+        </div>
       </div>
     </DashboardLayout>
   );
