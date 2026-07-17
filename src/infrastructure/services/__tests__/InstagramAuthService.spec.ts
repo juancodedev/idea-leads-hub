@@ -31,6 +31,7 @@ describe("InstagramAuthService", () => {
     id: "secret-1",
     user_id: userId,
     instagram_token: "EAATestToken123",
+    instagram_user_token: "EAATestUserToken456",
     instagram_ig_id: "ig-123456",
     instagram_page_id: "page-789",
     token_expires_at: "2026-12-31T23:59:59Z",
@@ -66,6 +67,7 @@ describe("InstagramAuthService", () => {
       expect(mockEq).toHaveBeenCalledWith("user_id", userId);
       expect(result).toEqual({
         token: "EAATestToken123",
+        userToken: "EAATestUserToken456",
         igId: "ig-123456",
         pageId: "page-789",
       });
@@ -93,7 +95,8 @@ describe("InstagramAuthService", () => {
 
   describe("storeToken", () => {
     const tokenData = {
-      token: "EAATestToken123",
+      token: "EAATestPageToken123",
+      userToken: "EAATestUserToken456",
       igId: "ig-123456",
       pageId: "page-789",
       expiresAt: "2026-12-31T23:59:59Z",
@@ -109,6 +112,7 @@ describe("InstagramAuthService", () => {
         {
           user_id: userId,
           instagram_token: tokenData.token,
+          instagram_user_token: tokenData.userToken,
           instagram_ig_id: tokenData.igId,
           instagram_page_id: tokenData.pageId,
           token_expires_at: tokenData.expiresAt,
@@ -135,14 +139,24 @@ describe("InstagramAuthService", () => {
     });
 
     it("should refresh token via Meta API and store the new token", async () => {
-      const newToken = "EAANewToken456";
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          access_token: newToken,
-          expires_in: 5184000, // 60 days
-        }),
-      } as Response);
+      const newUserToken = "EAANewUserToken456";
+      const newPageToken = "EAANewPageToken789";
+      mockFetch
+        // First call: fb_exchange_token returns new user token
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            access_token: newUserToken,
+            expires_in: 5184000, // 60 days
+          }),
+        } as Response)
+        // Second call: /me/accounts returns pages with new page token
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            data: [{ id: "page-789", access_token: newPageToken }],
+          }),
+        } as Response);
 
       mockUpsert.mockResolvedValue({ data: null, error: null });
 
@@ -152,7 +166,8 @@ describe("InstagramAuthService", () => {
         expect.stringContaining("grant_type=fb_exchange_token")
       );
       expect(mockUpsert).toHaveBeenCalled();
-      expect(result).toBe(newToken);
+      expect(result.token).toBe(newPageToken);
+      expect(result.userToken).toBe(newUserToken);
     });
 
     it("should throw when Meta API returns non-ok", async () => {
@@ -170,7 +185,7 @@ describe("InstagramAuthService", () => {
       mockMaybeSingle.mockResolvedValue({ data: null, error: null });
 
       await expect(service.refreshToken(userId)).rejects.toThrow(
-        "No existing Instagram token to refresh"
+        "No existing user token to refresh"
       );
     });
   });

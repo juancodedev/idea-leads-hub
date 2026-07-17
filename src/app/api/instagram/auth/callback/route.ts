@@ -124,20 +124,25 @@ export async function GET(request: NextRequest) {
     }
 
     const pagesBody: {
-      data: Array<{ id: string; name: string }>;
+      data: Array<{ id: string; name: string; access_token: string }>;
     } = await pagesRes.json();
     const pages = pagesBody.data;
 
-    // 4. Find the first page that has an Instagram Business Account
+    // 4. Find the first page that has an Instagram Business Account.
+    //    Uses the Page Access Token (from /me/accounts) — required by Meta
+    //    for the instagram_business_account field on a Page node.
     let igId: string | null = null;
     let pageId: string | null = null;
+    let pageToken: string | null = null;
 
     for (const page of pages) {
+      if (!page.access_token) continue;
+
       const pageUrl = new URL(
         `https://graph.facebook.com/v21.0/${page.id}`
       );
       pageUrl.searchParams.set("fields", "instagram_business_account");
-      pageUrl.searchParams.set("access_token", longLivedToken);
+      pageUrl.searchParams.set("access_token", page.access_token);
 
       const pageRes = await fetch(pageUrl.toString());
       if (pageRes.ok) {
@@ -147,12 +152,13 @@ export async function GET(request: NextRequest) {
         if (pageBody.instagram_business_account?.id) {
           igId = pageBody.instagram_business_account.id;
           pageId = page.id;
+          pageToken = page.access_token;
           break;
         }
       }
     }
 
-    if (!igId || !pageId) {
+    if (!igId || !pageId || !pageToken) {
       logger.warn("No Instagram Business Account found for user's pages");
       return NextResponse.redirect(
         new URL("/settings/profile?instagram=error&step=no_ig_account", appUrl),
@@ -175,14 +181,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 6. Store the token and Instagram IDs
+    // 6. Store both tokens: Page Access Token (API calls) and User Access Token (refresh)
     const authService = new InstagramAuthService(supabase);
     const expiresAt = new Date(
       Date.now() + expiresIn * 1000
     ).toISOString();
 
     await authService.storeToken(user.id, {
-      token: longLivedToken,
+      token: pageToken,              // Page Access Token — para enviar DMs, webhooks
+      userToken: longLivedToken,     // User Access Token — para refrescar después de 60 días
       igId,
       pageId,
       expiresAt,

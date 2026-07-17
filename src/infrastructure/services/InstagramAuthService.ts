@@ -4,13 +4,19 @@ import { Database } from "../database/database.types";
 type UserSecretRow = Database["public"]["Tables"]["user_secrets"]["Row"];
 
 export interface TokenResult {
+  /** Page Access Token — used for API calls (send DM, webhooks) */
   token: string;
+  /** User Access Token — used for OAuth token refresh */
+  userToken: string;
   igId: string;
   pageId: string;
 }
 
 export interface StoreTokenData {
+  /** Page Access Token */
   token: string;
+  /** User Access Token */
+  userToken: string;
   igId: string;
   pageId: string;
   expiresAt: string;
@@ -20,8 +26,7 @@ export class InstagramAuthService {
   constructor(private readonly supabase: SupabaseClient<Database>) {}
 
   /**
-   * Retrieve stored Instagram token for a user.
-   * Assumes token is decrypted at rest by pgcrypto in the DB.
+   * Retrieve stored Instagram tokens for a user.
    */
   async getToken(userId: string): Promise<TokenResult> {
     const { data, error } = await this.supabase
@@ -42,13 +47,15 @@ export class InstagramAuthService {
 
     return {
       token: row.instagram_token ?? "",
+      userToken: row.instagram_user_token ?? "",
       igId: row.instagram_ig_id ?? "",
       pageId: row.instagram_page_id ?? "",
     };
   }
 
   /**
-   * Store or update Instagram token for a user.
+   * Store or update Instagram tokens for a user.
+   * Saves both the Page Access Token and the User Access Token.
    */
   async storeToken(userId: string, tokenData: StoreTokenData): Promise<void> {
     const { error } = await (this.supabase
@@ -57,6 +64,7 @@ export class InstagramAuthService {
         {
           user_id: userId,
           instagram_token: tokenData.token,
+          instagram_user_token: tokenData.userToken,
           instagram_ig_id: tokenData.igId,
           instagram_page_id: tokenData.pageId,
           token_expires_at: tokenData.expiresAt,
@@ -70,22 +78,27 @@ export class InstagramAuthService {
   }
 
   /**
-   * Refresh a long-lived Instagram token via Meta's OAuth endpoint.
+   * Refresh both the User Access Token and Page Access Token.
+   *
+   * 1. Uses the stored User Access Token with fb_exchange_token to get a
+   *    fresh long-lived user token.
+   * 2. Calls /me/accounts with the refreshed user token to get a new
+   *    Page Access Token.
    */
-  async refreshToken(userId: string): Promise<string> {
+  async refreshToken(userId: string): Promise<TokenResult> {
     const current = await this.getToken(userId).catch(() => null);
 
-    if (!current) {
-      throw new Error("No existing Instagram token to refresh");
+    if (!current?.userToken) {
+      throw new Error("No existing user token to refresh");
     }
 
     const appSecret = process.env.META_APP_SECRET ?? "";
     const appId = process.env.META_APP_ID ?? "";
 
-    const url = `https://graph.facebook.com/v21.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${current.token}`;
+    // Step 1: Refresh the User Access Token
+    const url = `https://graph.facebook.com/v21.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${current.userToken}`;
 
     const response = await fetch(url);
-
     if (!response.ok) {
       throw new Error(
         "Failed to refresh Instagram token: " + response.statusText
@@ -97,17 +110,44 @@ export class InstagramAuthService {
       expires_in: number;
     };
 
+    const refreshedUserToken = body.access_token;
     const expiresAt = new Date(
       Date.now() + (body.expires_in || 5184000) * 1000
     ).toISOString();
 
+    // Step 2: Get a fresh Page Access Token via /me/accounts
+    const pagesUrl = `https://graph.facebook.com/v21.0/me/accounts?access_token=${refreshedUserToken}&limit=100`;
+    const pagesRes = await fetch(pagesUrl);
+    let freshPageToken = current.token; // fallback to current page token
+
+    if (pagesRes.ok) {
+      const pagesBody: {
+        data: Array<{ id: string; access_token: string }>;
+      } = await pagesRes.json();
+      const targetPage = pagesBody.data.find(
+        (p) => p.id === current.pageId
+      );
+      if (targetPage?.access_token) {
+        freshPageToken = targetPage.access_token;
+      }
+    }
+
+    // Step 3: Store both refreshed tokens
+    const result: TokenResult = {
+      token: freshPageToken,
+      userToken: refreshedUserToken,
+      igId: current.igId,
+      pageId: current.pageId,
+    };
+
     await this.storeToken(userId, {
-      token: body.access_token,
+      token: freshPageToken,
+      userToken: refreshedUserToken,
       igId: current.igId,
       pageId: current.pageId,
       expiresAt,
     });
 
-    return body.access_token;
+    return result;
   }
 }

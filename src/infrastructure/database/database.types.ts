@@ -196,6 +196,7 @@ export interface Database {
           id: string;
           user_id: string;
           instagram_token: string | null;
+          instagram_user_token: string | null;
           instagram_ig_id: string | null;
           instagram_page_id: string | null;
           token_expires_at: string | null;
@@ -206,6 +207,7 @@ export interface Database {
           id?: string;
           user_id: string;
           instagram_token?: string | null;
+          instagram_user_token?: string | null;
           instagram_ig_id?: string | null;
           instagram_page_id?: string | null;
           token_expires_at?: string | null;
@@ -216,6 +218,7 @@ export interface Database {
           id?: string;
           user_id?: string;
           instagram_token?: string | null;
+          instagram_user_token?: string | null;
           instagram_ig_id?: string | null;
           instagram_page_id?: string | null;
           token_expires_at?: string | null;
