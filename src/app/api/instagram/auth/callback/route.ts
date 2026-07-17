@@ -128,6 +128,12 @@ export async function GET(request: NextRequest) {
     } = await pagesRes.json();
     const pages = pagesBody.data;
 
+    // Debug: log what pages were returned
+    logger.info("Pages returned from /me/accounts", {
+      count: pages.length,
+      pageIds: pages.map((p) => ({ id: p.id, name: p.name, hasToken: !!p.access_token })),
+    });
+
     // 4. Find the first page that has an Instagram Business Account.
     //    Uses the Page Access Token (from /me/accounts) — required by Meta
     //    for the instagram_business_account field on a Page node.
@@ -136,7 +142,10 @@ export async function GET(request: NextRequest) {
     let pageToken: string | null = null;
 
     for (const page of pages) {
-      if (!page.access_token) continue;
+      if (!page.access_token) {
+        logger.warn("Page has no access_token", { pageId: page.id, pageName: page.name });
+        continue;
+      }
 
       const pageUrl = new URL(
         `https://graph.facebook.com/v21.0/${page.id}`
@@ -146,20 +155,30 @@ export async function GET(request: NextRequest) {
 
       const pageRes = await fetch(pageUrl.toString());
       if (pageRes.ok) {
-        const pageBody: {
-          instagram_business_account?: { id: string };
-        } = await pageRes.json();
-        if (pageBody.instagram_business_account?.id) {
-          igId = pageBody.instagram_business_account.id;
+        const pageBody: Record<string, unknown> = await pageRes.json();
+        logger.info("Page detail response", {
+          pageId: page.id,
+          keys: Object.keys(pageBody),
+          hasIgAccount: !!pageBody.instagram_business_account,
+        });
+        const igAccount = pageBody.instagram_business_account as { id?: string } | undefined;
+        if (igAccount?.id) {
+          igId = igAccount.id;
           pageId = page.id;
           pageToken = page.access_token;
           break;
         }
+      } else {
+        const errBody = await pageRes.text();
+        logger.warn("Failed to fetch page detail", { pageId: page.id, status: pageRes.status, body: errBody });
       }
     }
 
     if (!igId || !pageId || !pageToken) {
-      logger.warn("No Instagram Business Account found for user's pages");
+      logger.warn("No Instagram Business Account found for user's pages", {
+        pagesCount: pages.length,
+        pageIds: pages.map((p) => p.id),
+      });
       return NextResponse.redirect(
         new URL("/settings/profile?instagram=error&step=no_ig_account", appUrl),
         302
