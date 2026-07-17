@@ -103,12 +103,10 @@ export class InstagramMessagingService {
       ? { message: { text } } // Self-messaging: no recipient field needed
       : { recipient: { id: recipientIgSid }, message: { text } };
 
-    const response = await fetch(url, {
+    const params = new URLSearchParams({ access_token: pageAccessToken });
+    const response = await fetch(`${url}?${params}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${pageAccessToken}`,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
 

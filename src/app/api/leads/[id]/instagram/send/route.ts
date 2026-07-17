@@ -4,7 +4,8 @@ import { apiHandler } from "@/lib/api/api-handler";
 import { withAuth } from "@/lib/api/with-auth";
 import { SupabaseLeadRepository } from "@/infrastructure/repositories/SupabaseLeadRepository";
 import { InstagramAuthService } from "@/infrastructure/services/InstagramAuthService";
-import { InstagramMessagingService } from "@/infrastructure/services/InstagramMessagingService";
+import { InstagramMessagingService, type SendDMResult } from "@/infrastructure/services/InstagramMessagingService";
+import { logger } from "@/lib/logger";
 import { SupabaseActivityRepository } from "@/modules/activities/infrastructure/repositories/SupabaseActivityRepository";
 import { ActivityType } from "@/modules/activities/domain/enums/ActivityType";
 
@@ -72,12 +73,26 @@ export const POST = apiHandler(
     }
 
     // Send the DM via Meta API
-    const result = await messagingService.sendDM(
-      tokenData.igId,
-      recipientId,
-      text,
-      tokenData.token
-    );
+    let result: SendDMResult;
+    try {
+      result = await messagingService.sendDM(
+        tokenData.igId,
+        recipientId,
+        text,
+        tokenData.token
+      );
+    } catch (sendError: any) {
+      logger.error("Instagram send failed", {
+        error: sendError.message,
+        igId: tokenData.igId,
+        recipientId,
+        tokenPrefix: tokenData.token?.substring(0, 8),
+      });
+      return NextResponse.json(
+        { error: sendError.message || "Error al enviar mensaje de Instagram" },
+        { status: 502 }
+      );
+    }
 
     // Create outbound activity record
     const activityRepo = new SupabaseActivityRepository(supabase);

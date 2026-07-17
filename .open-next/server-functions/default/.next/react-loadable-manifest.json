@@ -1,0 +1,10 @@
+{
+  "modules/activities/presentation/components/LeadActivitiesSection.tsx -> ../../infrastructure/repositories/SupabaseActivityRepository": {
+    "id": 810,
+    "files": []
+  },
+  "modules/activities/presentation/components/LeadActivitiesSection.tsx -> @/infrastructure/database/client": {
+    "id": 3829,
+    "files": []
+  }
+}

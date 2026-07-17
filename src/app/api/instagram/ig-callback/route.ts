@@ -49,7 +49,9 @@ export const POST = apiHandler(async (request: NextRequest) => {
   }
 
   try {
-    // Step 1: Exchange code for short-lived Instagram User Token
+    // Step 1: Exchange code for Instagram User Token (valid ~60 days for Business Login)
+    // NOTE: Do NOT exchange via graph.instagram.com — that converts it to a Basic Display
+    // API token which does NOT work with graph.facebook.com endpoints.
     const tokenBody = new URLSearchParams({
       client_id: instagramAppId,
       client_secret: instagramAppSecret,
@@ -76,44 +78,25 @@ export const POST = apiHandler(async (request: NextRequest) => {
     const tokenData = (await tokenRes.json()) as {
       access_token: string;
       user_id: number;
+      permissions?: string[];
+      token_type?: string;
     };
 
-    const shortLivedToken = tokenData.access_token;
+    const accessToken = tokenData.access_token;
     const igUserId = String(tokenData.user_id);
+    const expiresAt = new Date(Date.now() + 5184000 * 1000).toISOString(); // ~60 days for Business Login
 
-    // Step 2: Exchange for long-lived token (60 days)
-    const longLivedUrl = new URL("https://graph.instagram.com/access_token");
-    longLivedUrl.searchParams.set("grant_type", "ig_exchange_token");
-    longLivedUrl.searchParams.set("client_secret", instagramAppSecret);
-    longLivedUrl.searchParams.set("access_token", shortLivedToken);
-
-    const longLivedRes = await fetch(longLivedUrl.toString());
-
-    let longLivedToken = shortLivedToken;
-    let expiresAt = new Date(Date.now() + 5184000 * 1000).toISOString(); // default 60 days
-
-    if (longLivedRes.ok) {
-      const longLivedData = (await longLivedRes.json()) as {
-        access_token: string;
-        expires_in: number;
-      };
-      longLivedToken = longLivedData.access_token;
-      expiresAt = new Date(
-        Date.now() + (longLivedData.expires_in || 5184000) * 1000
-      ).toISOString();
-    }
-
-    // Step 3: Store the token
+    // Step 2: Store the token
     const authService = new InstagramAuthService(supabase);
     await authService.storeToken(user.id, {
-      token: longLivedToken,
-      userToken: longLivedToken,
+      token: accessToken,
+      userToken: accessToken,
       igId: igUserId,
       pageId: igUserId, // Instagram Business Account ID (no Facebook Page)
       expiresAt,
     });
 
-    logger.info("Instagram connected via Instagram Business Login", { igUserId });
+    logger.info("Instagram connected via Instagram Business Login", { igUserId, permissions: tokenData.permissions });
 
     return NextResponse.json({ success: true, igId: igUserId, expiresAt });
   } catch (err) {
