@@ -28,6 +28,7 @@ export function InstagramIntegration() {
   const [isDisconnecting, setIsDisconnecting] = React.useState(false);
   const [showManual, setShowManual] = React.useState(false);
   const [manualToken, setManualToken] = React.useState("");
+  const [manualPageId, setManualPageId] = React.useState("100066919921305");
   const [isConfiguring, setIsConfiguring] = React.useState(false);
 
   React.useEffect(() => {
@@ -90,10 +91,17 @@ export function InstagramIntegration() {
 
     setIsConfiguring(true);
     try {
+      const body: Record<string, string> = {
+        userAccessToken: manualToken.trim(),
+      };
+      if (manualPageId.trim()) {
+        body.pageIdOverride = manualPageId.trim();
+      }
+
       const response = await fetch("/api/instagram/auth/manual", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userAccessToken: manualToken.trim() }),
+        body: JSON.stringify(body),
       });
 
       const data = await response.json();
@@ -215,14 +223,30 @@ export function InstagramIntegration() {
             ) : (
               <div className="space-y-3 rounded-lg border p-4">
                 <p className="text-sm text-muted-foreground">
-                  Pegá un token de acceso de Facebook con permisos para
-                  Instagram Business.
+                  Pegá un token de acceso de Facebook. Si tenés una página
+                  bajo Business Manager, seleccioná "Page Token" en el Graph
+                  API Explorer y también completá el ID de la página.
                 </p>
-                <Input
-                  placeholder="EAATestToken..."
-                  value={manualToken}
-                  onChange={(e) => setManualToken(e.target.value)}
-                />
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Token de acceso
+                  </label>
+                  <Input
+                    placeholder="EAATestToken..."
+                    value={manualToken}
+                    onChange={(e) => setManualToken(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    ID de página (opcional — solo si el token no descubre la página)
+                  </label>
+                  <Input
+                    placeholder="100066919921305"
+                    value={manualPageId}
+                    onChange={(e) => setManualPageId(e.target.value)}
+                  />
+                </div>
                 <div className="flex gap-2">
                   <Button
                     size="sm"
