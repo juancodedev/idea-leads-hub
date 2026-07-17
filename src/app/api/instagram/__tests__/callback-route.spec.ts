@@ -137,18 +137,8 @@ describe("GET /api/instagram/auth/callback", () => {
           return Promise.resolve(
             new Response(
               JSON.stringify({
-                data: [{ id: "page-no-ig", name: "No IG Page" }],
+                data: [{ id: "page-no-ig", name: "No IG Page", access_token: "page-token-no-ig" }],
               }),
-              { status: 200, headers: { "Content-Type": "application/json" } }
-            )
-          );
-        }
-
-        // Page details — no instagram_business_account field
-        if (urlStr.includes("fields=instagram_business_account")) {
-          return Promise.resolve(
-            new Response(
-              JSON.stringify({ id: "page-no-ig" }),
               { status: 200, headers: { "Content-Type": "application/json" } }
             )
           );
@@ -213,8 +203,8 @@ describe("GET /api/instagram/auth/callback", () => {
             new Response(
               JSON.stringify({
                 data: [
-                  { id: "page-1", name: "Test Page" },
-                  { id: "page-2", name: "Other Page" },
+                  { id: "page-1", name: "Test Page", access_token: "page-token-1" },
+                  { id: "page-2", name: "Other Page", access_token: "page-token-2" },
                 ],
               }),
               { status: 200, headers: { "Content-Type": "application/json" } }
@@ -280,7 +270,7 @@ describe("GET /api/instagram/auth/callback", () => {
           return Promise.resolve(
             new Response(
               JSON.stringify({
-                data: [{ id: "page-1", name: "Test Page" }],
+                data: [{ id: "page-1", name: "Test Page", access_token: "page-token-1" }],
               }),
               { status: 200, headers: { "Content-Type": "application/json" } }
             )

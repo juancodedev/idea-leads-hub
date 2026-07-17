@@ -28,14 +28,17 @@ export function InstagramIntegration() {
   const [isDisconnecting, setIsDisconnecting] = React.useState(false);
   const [showManual, setShowManual] = React.useState(false);
   const [manualToken, setManualToken] = React.useState("");
-  const [manualPageId, setManualPageId] = React.useState("100066919921305");
+  const [manualPageId, setManualPageId] = React.useState("212449262850750");
+  const [manualIgId, setManualIgId] = React.useState("");
   const [isConfiguring, setIsConfiguring] = React.useState(false);
 
   React.useEffect(() => {
+    const code = searchParams.get("code");
+    const state = searchParams.get("state");
     const instagramParam = searchParams.get("instagram");
-    if (instagramParam === "connected") {
-      toast.success("Instagram conectado correctamente");
-      window.history.replaceState({}, "", "/settings/profile");
+
+    if (code) {
+      exchangeCode(code, state);
     } else if (instagramParam === "error") {
       const step = searchParams.get("step") || "unknown";
       toast.error(`Error al conectar Instagram (${step}). Intentalo de nuevo.`);
@@ -44,6 +47,36 @@ export function InstagramIntegration() {
 
     fetchStatus();
   }, []);
+
+  async function exchangeCode(code: string, state: string | null) {
+    setIsLoading(true);
+    try {
+      const response = await fetch("/api/instagram/ig-callback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, state }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success("Instagram conectado correctamente");
+        window.history.replaceState({}, "", "/settings/profile");
+        fetchStatus();
+      } else {
+        toast.error(data.error || "Error al conectar Instagram", {
+          description: data.detail || undefined,
+          duration: 8000,
+        });
+        window.history.replaceState({}, "", "/settings/profile");
+      }
+    } catch {
+      toast.error("Error de conexión al autenticar Instagram");
+      window.history.replaceState({}, "", "/settings/profile");
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   async function fetchStatus() {
     setIsLoading(true);
@@ -80,7 +113,7 @@ export function InstagramIntegration() {
   }
 
   function handleConnect() {
-    window.location.href = "/api/instagram/auth";
+    window.location.href = "/api/instagram/ig-auth";
   }
 
   async function handleManualConfig() {
@@ -96,6 +129,9 @@ export function InstagramIntegration() {
       };
       if (manualPageId.trim()) {
         body.pageIdOverride = manualPageId.trim();
+      }
+      if (manualIgId.trim()) {
+        body.igIdOverride = manualIgId.trim();
       }
 
       const response = await fetch("/api/instagram/auth/manual", {
@@ -242,9 +278,19 @@ export function InstagramIntegration() {
                     ID de página (opcional — solo si el token no descubre la página)
                   </label>
                   <Input
-                    placeholder="100066919921305"
+                    placeholder="212449262850750"
                     value={manualPageId}
                     onChange={(e) => setManualPageId(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    ID de Instagram Business (opcional — para tokens de Instagram)
+                  </label>
+                  <Input
+                    placeholder="17841445859210403"
+                    value={manualIgId}
+                    onChange={(e) => setManualIgId(e.target.value)}
                   />
                 </div>
                 <div className="flex gap-2">

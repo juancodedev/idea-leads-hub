@@ -20,10 +20,11 @@ const UpdateLeadSchema = z.object({
   stageId: z.string().uuid().optional(),
 });
 
-export const GET = apiHandler(async (request: NextRequest, context: { params: { id: string } }) => {
+export const GET = apiHandler(async (request: NextRequest, context: { params: Promise<{ id: string }> }) => {
+  const { id } = await context.params;
   const { supabase } = await withAuth(request);
   const repo = new SupabaseLeadRepository(supabase);
-  const lead = await repo.getById(context.params.id);
+  const lead = await repo.getById(id);
 
   if (!lead) {
     return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
@@ -32,25 +33,27 @@ export const GET = apiHandler(async (request: NextRequest, context: { params: { 
   return NextResponse.json(lead, { status: 200 });
 });
 
-export const PATCH = apiHandler(async (request: NextRequest, context: { params: { id: string } }) => {
+export const PATCH = apiHandler(async (request: NextRequest, context: { params: Promise<{ id: string }> }) => {
+  const { id } = await context.params;
   const { supabase } = await withAuth(request);
   const body = await request.json();
   const data = UpdateLeadSchema.parse(body);
 
   const repo = new SupabaseLeadRepository(supabase);
-  const existing = await repo.getById(context.params.id);
+  const existing = await repo.getById(id);
   if (!existing) throw new NotFoundError('Lead not found');
 
-  const lead = await repo.update({ id: context.params.id, ...data });
+  const lead = await repo.update({ id, ...data });
   return NextResponse.json(lead, { status: 200 });
 });
 
-export const DELETE = apiHandler(async (request: NextRequest, context: { params: { id: string } }) => {
+export const DELETE = apiHandler(async (request: NextRequest, context: { params: Promise<{ id: string }> }) => {
+  const { id } = await context.params;
   const { supabase } = await withAuth(request);
   const repo = new SupabaseLeadRepository(supabase);
-  const existing = await repo.getById(context.params.id);
+  const existing = await repo.getById(id);
   if (!existing) throw new NotFoundError('Lead not found');
 
-  await repo.delete(context.params.id);
+  await repo.delete(id);
   return new NextResponse(null, { status: 204 });
 });

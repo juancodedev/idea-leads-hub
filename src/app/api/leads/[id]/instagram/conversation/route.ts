@@ -15,13 +15,14 @@ interface ConversationMessage {
 
 export const GET = apiHandler(
   async (
-    request: NextRequest,
-    context: { params: { id: string } }
+      request: NextRequest,
+    context: { params: Promise<{ id: string }> }
   ) => {
+    const { id } = await context.params;
     const { supabase } = await withAuth(request);
     const repo = new SupabaseActivityRepository(supabase);
 
-    const activities = await repo.getForLead(context.params.id);
+    const activities = await repo.getForLead(id);
 
     const messages: ConversationMessage[] = activities
       .filter((a) => a.type === ActivityType.INSTAGRAM_MESSAGE)

@@ -14,21 +14,23 @@ const CreateStageSchema = z.object({
   isWon: z.boolean().optional(),
 });
 
-export const GET = apiHandler(async (request: NextRequest, context: { params: { id: string } }) => {
+export const GET = apiHandler(async (request: NextRequest, context: { params: Promise<{ id: string }> }) => {
+  const { id } = await context.params;
   const { supabase } = await withAuth(request);
   const repo = new SupabasePipelineRepository(supabase);
-  const stages = await repo.getStages(context.params.id);
+  const stages = await repo.getStages(id);
   return NextResponse.json(stages, { status: 200 });
 });
 
-export const POST = apiHandler(async (request: NextRequest, context: { params: { id: string } }) => {
+export const POST = apiHandler(async (request: NextRequest, context: { params: Promise<{ id: string }> }) => {
+  const { id } = await context.params;
   const { supabase } = await withAuth(request);
   const body = await request.json();
   const data = CreateStageSchema.parse(body);
 
   const repo = new SupabasePipelineRepository(supabase);
   const stage = await repo.createStage({
-    pipelineId: context.params.id,
+    pipelineId: id,
     name: data.name,
     position: data.position,
     color: data.color,

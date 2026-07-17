@@ -5,9 +5,10 @@ import { SupabaseTagRepository } from '@/infrastructure/repositories/SupabaseTag
 
 export const runtime = 'nodejs';
 
-export const DELETE = apiHandler(async (request: NextRequest, context: { params: { id: string } }) => {
+export const DELETE = apiHandler(async (request: NextRequest, context: { params: Promise<{ id: string }> }) => {
+  const { id } = await context.params;
   const { supabase } = await withAuth(request);
   const repo = new SupabaseTagRepository(supabase);
-  await repo.delete(context.params.id);
+  await repo.delete(id);
   return new NextResponse(null, { status: 204 });
 });

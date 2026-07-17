@@ -16,22 +16,54 @@ const SendMessageSchema = z.object({
 
 export const POST = apiHandler(
   async (
-    request: NextRequest,
-    context: { params: { id: string } }
+      request: NextRequest,
+    context: { params: Promise<{ id: string }> }
   ) => {
+    const { id } = await context.params;
     const { supabase, user } = await withAuth(request);
     const body = await request.json();
     const { text } = SendMessageSchema.parse(body);
 
     const leadRepo = new SupabaseLeadRepository(supabase);
-    const lead = await leadRepo.getById(context.params.id);
+    const lead = await leadRepo.getById(id);
 
     if (!lead) {
       return NextResponse.json({ error: "Lead not found" }, { status: 404 });
     }
 
-    // Resolve recipient: prefer instagramScopedId, fallback to instagramHandle
-    const recipientId = lead.instagramScopedId || lead.instagramHandle;
+    // Resolve recipient: prefer instagramScopedId, or resolve handle -> numeric ID
+    const authService = new InstagramAuthService(supabase);
+    const tokenData = await authService.getToken(user.id);
+    const messagingService = new InstagramMessagingService();
+
+    let recipientId = lead.instagramScopedId;
+
+    if (!recipientId && lead.instagramHandle) {
+      try {
+        // Resolve via Business Discovery API and cache it
+        recipientId = await messagingService.resolveHandleToUserId(
+          lead.instagramHandle,
+          tokenData.igId,
+          tokenData.userToken || tokenData.token
+        );
+
+        // Cache the resolved ID on the lead for future sends
+        await leadRepo.update({
+          id: lead.id,
+          instagramScopedId: recipientId,
+        });
+      } catch (resolveError: any) {
+        return NextResponse.json(
+          {
+            error: resolveError.message,
+            tip: "Abrí el Graph API Explorer de Meta con el Page Token de JuanshoDev, corré GET /me?fields=id,name y copiá el ID numérico. Después, edita el lead y agregá ese ID en el campo 'Instagram ID' debajo del handle.",
+            needsManualId: true,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     if (!recipientId) {
       return NextResponse.json(
         { error: "Lead has no Instagram identifier" },
@@ -39,12 +71,7 @@ export const POST = apiHandler(
       );
     }
 
-    // Get the page access token for the current user
-    const authService = new InstagramAuthService(supabase);
-    const tokenData = await authService.getToken(user.id);
-
     // Send the DM via Meta API
-    const messagingService = new InstagramMessagingService();
     const result = await messagingService.sendDM(
       tokenData.igId,
       recipientId,

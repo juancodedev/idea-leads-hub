@@ -7,15 +7,16 @@ export const runtime = "nodejs";
 export const PATCH = apiHandler(
   async (
     _request: NextRequest,
-    context: { params: { id: string } }
+    context: { params: Promise<{ id: string }> }
   ) => {
+    const { id } = await context.params;
     const { supabase } = await withAuth(_request);
 
     // Check activity exists
     const { data: existing, error: findError } = await supabase
       .from("activities")
       .select("id")
-      .eq("id", context.params.id)
+      .eq("id", id)
       .maybeSingle();
 
     if (findError) {
@@ -40,7 +41,7 @@ export const PATCH = apiHandler(
         completed: true,
         completed_at: new Date().toISOString(),
       } as never)
-      .eq("id", context.params.id);
+      .eq("id", id);
 
     if (updateError) {
       console.error("Error marking activity as read:", updateError);

@@ -19,10 +19,11 @@ const UpdateIdeaSchema = z.object({
   tagIds: z.array(z.string().uuid()).optional(),
 });
 
-export const GET = apiHandler(async (request: NextRequest, context: { params: { id: string } }) => {
+export const GET = apiHandler(async (request: NextRequest, context: { params: Promise<{ id: string }> }) => {
+  const { id } = await context.params;
   const { supabase } = await withAuth(request);
   const repo = new SupabaseIdeaRepository(supabase);
-  const idea = await repo.getById(context.params.id);
+  const idea = await repo.getById(id);
 
   if (!idea) {
     return NextResponse.json({ error: 'Idea not found' }, { status: 404 });
@@ -31,27 +32,29 @@ export const GET = apiHandler(async (request: NextRequest, context: { params: { 
   return NextResponse.json(idea, { status: 200 });
 });
 
-export const PATCH = apiHandler(async (request: NextRequest, context: { params: { id: string } }) => {
+export const PATCH = apiHandler(async (request: NextRequest, context: { params: Promise<{ id: string }> }) => {
+  const { id } = await context.params;
   const { supabase } = await withAuth(request);
   const body = await request.json();
   const data = UpdateIdeaSchema.parse(body);
 
   const repo = new SupabaseIdeaRepository(supabase);
-  const existing = await repo.getById(context.params.id);
+  const existing = await repo.getById(id);
   if (!existing) throw new NotFoundError('Idea not found');
 
   const useCase = new UpdateIdea(repo);
-  const idea = await useCase.execute({ id: context.params.id, ...data });
+  const idea = await useCase.execute({ id, ...data });
   return NextResponse.json(idea, { status: 200 });
 });
 
-export const DELETE = apiHandler(async (request: NextRequest, context: { params: { id: string } }) => {
+export const DELETE = apiHandler(async (request: NextRequest, context: { params: Promise<{ id: string }> }) => {
+  const { id } = await context.params;
   const { supabase } = await withAuth(request);
   const repo = new SupabaseIdeaRepository(supabase);
-  const existing = await repo.getById(context.params.id);
+  const existing = await repo.getById(id);
   if (!existing) throw new NotFoundError('Idea not found');
 
   const useCase = new DeleteIdea(repo);
-  await useCase.execute(context.params.id);
+  await useCase.execute(id);
   return new NextResponse(null, { status: 204 });
 });

@@ -16,16 +16,17 @@ const ChangeStatusSchema = z.object({
   status: LeadStatusEnum,
 });
 
-export const PATCH = apiHandler(async (request: NextRequest, context: { params: { id: string } }) => {
+export const PATCH = apiHandler(async (request: NextRequest, context: { params: Promise<{ id: string }> }) => {
+  const { id } = await context.params;
   const { supabase } = await withAuth(request);
   const body = await request.json();
   const { status } = ChangeStatusSchema.parse(body);
 
   const repo = new SupabaseLeadRepository(supabase);
-  const existing = await repo.getById(context.params.id);
+  const existing = await repo.getById(id);
   if (!existing) throw new NotFoundError('Lead not found');
 
-  const lead = await repo.updateStatus(context.params.id, status);
+  const lead = await repo.updateStatus(id, status);
 
   // Fire-and-forget: auto-DM on status transition (non-blocking)
   try {

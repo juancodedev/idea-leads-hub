@@ -14,19 +14,21 @@ const UpdateStageSchema = z.object({
   isWon: z.boolean().optional(),
 });
 
-export const PATCH = apiHandler(async (request: NextRequest, context: { params: { id: string; stageId: string } }) => {
+export const PATCH = apiHandler(async (request: NextRequest, context: { params: Promise<{ id: string; stageId: string }> }) => {
+  const { stageId } = await context.params;
   const { supabase } = await withAuth(request);
   const body = await request.json();
   const data = UpdateStageSchema.parse(body);
 
   const repo = new SupabasePipelineRepository(supabase);
-  const stage = await repo.updateStage(context.params.stageId, data);
+  const stage = await repo.updateStage(stageId, data);
   return NextResponse.json(stage, { status: 200 });
 });
 
-export const DELETE = apiHandler(async (request: NextRequest, context: { params: { id: string; stageId: string } }) => {
+export const DELETE = apiHandler(async (request: NextRequest, context: { params: Promise<{ id: string; stageId: string }> }) => {
+  const { stageId } = await context.params;
   const { supabase } = await withAuth(request);
   const repo = new SupabasePipelineRepository(supabase);
-  await repo.deleteStage(context.params.stageId);
+  await repo.deleteStage(stageId);
   return new NextResponse(null, { status: 204 });
 });

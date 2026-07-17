@@ -19,10 +19,11 @@ const UpdateActivitySchema = z.object({
   completed: z.boolean().optional(),
 });
 
-export const GET = apiHandler(async (request: NextRequest, context: { params: { id: string } }) => {
+export const GET = apiHandler(async (request: NextRequest, context: { params: Promise<{ id: string }> }) => {
+  const { id } = await context.params;
   const { supabase } = await withAuth(request);
   const repo = new SupabaseActivityRepository(supabase);
-  const activity = await repo.getById(context.params.id);
+  const activity = await repo.getById(id);
 
   if (!activity) {
     return NextResponse.json({ error: 'Activity not found' }, { status: 404 });
@@ -31,21 +32,23 @@ export const GET = apiHandler(async (request: NextRequest, context: { params: { 
   return NextResponse.json(activity, { status: 200 });
 });
 
-export const PATCH = apiHandler(async (request: NextRequest, context: { params: { id: string } }) => {
+export const PATCH = apiHandler(async (request: NextRequest, context: { params: Promise<{ id: string }> }) => {
+  const { id } = await context.params;
   const { supabase } = await withAuth(request);
   const body = await request.json();
   const data = UpdateActivitySchema.parse(body);
 
   const repo = new SupabaseActivityRepository(supabase);
   const useCase = new UpdateActivity(repo);
-  const activity = await useCase.execute(context.params.id, data);
+  const activity = await useCase.execute(id, data);
   return NextResponse.json(activity, { status: 200 });
 });
 
-export const DELETE = apiHandler(async (request: NextRequest, context: { params: { id: string } }) => {
+export const DELETE = apiHandler(async (request: NextRequest, context: { params: Promise<{ id: string }> }) => {
+  const { id } = await context.params;
   const { supabase } = await withAuth(request);
   const repo = new SupabaseActivityRepository(supabase);
   const useCase = new DeleteActivity(repo);
-  await useCase.execute(context.params.id);
+  await useCase.execute(id);
   return new NextResponse(null, { status: 204 });
 });

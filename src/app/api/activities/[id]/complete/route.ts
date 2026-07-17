@@ -7,13 +7,14 @@ import { CompleteActivity } from '@/modules/activities/application/use-cases/Com
 
 export const runtime = 'nodejs';
 
-export const PATCH = apiHandler(async (request: NextRequest, context: { params: { id: string } }) => {
+export const PATCH = apiHandler(async (request: NextRequest, context: { params: Promise<{ id: string }> }) => {
+  const { id } = await context.params;
   const { supabase } = await withAuth(request);
   const repo = new SupabaseActivityRepository(supabase);
-  const existing = await repo.getById(context.params.id);
+  const existing = await repo.getById(id);
   if (!existing) throw new NotFoundError('Activity not found');
 
   const useCase = new CompleteActivity(repo);
-  const activity = await useCase.execute(context.params.id);
+  const activity = await useCase.execute(id);
   return NextResponse.json(activity, { status: 200 });
 });

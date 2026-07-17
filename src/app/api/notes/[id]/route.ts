@@ -10,18 +10,20 @@ const UpdateNoteSchema = z.object({
   content: z.string().min(1, 'El contenido es obligatorio'),
 });
 
-export const PATCH = apiHandler(async (request: NextRequest, context: { params: { id: string } }) => {
+export const PATCH = apiHandler(async (request: NextRequest, context: { params: Promise<{ id: string }> }) => {
+  const { id } = await context.params;
   const { supabase } = await withAuth(request);
   const body = await request.json();
   const data = UpdateNoteSchema.parse(body);
   const repo = new SupabaseNoteRepository(supabase);
-  const note = await repo.update({ id: context.params.id, content: data.content });
+  const note = await repo.update({ id, content: data.content });
   return NextResponse.json(note, { status: 200 });
 });
 
-export const DELETE = apiHandler(async (request: NextRequest, context: { params: { id: string } }) => {
+export const DELETE = apiHandler(async (request: NextRequest, context: { params: Promise<{ id: string }> }) => {
+  const { id } = await context.params;
   const { supabase } = await withAuth(request);
   const repo = new SupabaseNoteRepository(supabase);
-  await repo.delete(context.params.id);
+  await repo.delete(id);
   return new NextResponse(null, { status: 204 });
 });

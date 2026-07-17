@@ -43,6 +43,7 @@ export function LeadForm({ initialData }: LeadFormProps) {
       address: initialData?.address || '',
       website: initialData?.website || '',
       instagramHandle: initialData?.instagramHandle || '',
+      instagramScopedId: initialData?.instagramScopedId || '',
       status: initialData?.status || 'Nuevo',
       source: initialData?.source || '',
       notes: initialData?.notes || '',
@@ -195,6 +196,19 @@ export function LeadForm({ initialData }: LeadFormProps) {
                 <FormLabel>Instagram</FormLabel>
                 <FormControl>
                   <Input placeholder="@usuario o https://instagram.com/..." {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="instagramScopedId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Instagram ID (numérico)</FormLabel>
+                <FormControl>
+                  <Input placeholder="Ej: 17841405822304715" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

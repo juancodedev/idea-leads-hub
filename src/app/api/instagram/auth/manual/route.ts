@@ -8,10 +8,12 @@ import { logger } from "@/lib/logger";
 export const runtime = "nodejs";
 
 const ManualTokenSchema = z.object({
-  /** User Access Token OR Page Access Token */
+  /** User Access Token, Page Access Token, or Instagram User Token */
   userAccessToken: z.string().min(1, "Token requerido"),
   /** Optional: if provided, bypasses page discovery and uses these directly */
   pageIdOverride: z.string().optional(),
+  /** Optional IG Business Account ID — when the token is an Instagram token (not a Page token) */
+  igIdOverride: z.string().optional(),
 });
 
 /**
@@ -29,7 +31,7 @@ export const POST = apiHandler(
     const { supabase, user } = await withAuth(request);
 
     const body = await request.json();
-    const { userAccessToken, pageIdOverride } = ManualTokenSchema.parse(body);
+    const { userAccessToken, pageIdOverride, igIdOverride } = ManualTokenSchema.parse(body);
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL;
     if (!appUrl) {
@@ -40,6 +42,29 @@ export const POST = apiHandler(
     }
 
     try {
+      // Strategy D: igIdOverride provided — Instagram Business Token, skip page query
+      if (igIdOverride) {
+        const expiresAt = new Date(
+          Date.now() + 5184000 * 1000
+        ).toISOString();
+        const authService = new InstagramAuthService(supabase);
+        await authService.storeToken(user.id, {
+          token: userAccessToken,
+          userToken: userAccessToken,
+          igId: igIdOverride,
+          pageId: pageIdOverride || igIdOverride,
+          expiresAt,
+        });
+
+        return NextResponse.json({
+          connected: true,
+          pageId: pageIdOverride || igIdOverride,
+          igId: igIdOverride,
+          expiresAt,
+          note: "Configurado con token de Instagram. Algunas funciones de página no estarán disponibles.",
+        });
+      }
+
       // Strategy C: pageIdOverride provided — query that page directly
       if (pageIdOverride) {
         const pageUrl = new URL(

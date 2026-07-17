@@ -12,10 +12,11 @@ const UpdatePipelineSchema = z.object({
   description: z.string().optional(),
 });
 
-export const GET = apiHandler(async (request: NextRequest, context: { params: { id: string } }) => {
+export const GET = apiHandler(async (request: NextRequest, context: { params: Promise<{ id: string }> }) => {
+  const { id } = await context.params;
   const { supabase } = await withAuth(request);
   const repo = new SupabasePipelineRepository(supabase);
-  const pipeline = await repo.getById(context.params.id);
+  const pipeline = await repo.getById(id);
 
   if (!pipeline) {
     return NextResponse.json({ error: 'Pipeline not found' }, { status: 404 });
@@ -24,25 +25,27 @@ export const GET = apiHandler(async (request: NextRequest, context: { params: { 
   return NextResponse.json(pipeline, { status: 200 });
 });
 
-export const PATCH = apiHandler(async (request: NextRequest, context: { params: { id: string } }) => {
+export const PATCH = apiHandler(async (request: NextRequest, context: { params: Promise<{ id: string }> }) => {
+  const { id } = await context.params;
   const { supabase } = await withAuth(request);
   const body = await request.json();
   const data = UpdatePipelineSchema.parse(body);
 
   const repo = new SupabasePipelineRepository(supabase);
-  const existing = await repo.getById(context.params.id);
+  const existing = await repo.getById(id);
   if (!existing) throw new NotFoundError('Pipeline not found');
 
-  const pipeline = await repo.update(context.params.id, data);
+  const pipeline = await repo.update(id, data);
   return NextResponse.json(pipeline, { status: 200 });
 });
 
-export const DELETE = apiHandler(async (request: NextRequest, context: { params: { id: string } }) => {
+export const DELETE = apiHandler(async (request: NextRequest, context: { params: Promise<{ id: string }> }) => {
+  const { id } = await context.params;
   const { supabase } = await withAuth(request);
   const repo = new SupabasePipelineRepository(supabase);
-  const existing = await repo.getById(context.params.id);
+  const existing = await repo.getById(id);
   if (!existing) throw new NotFoundError('Pipeline not found');
 
-  await repo.delete(context.params.id);
+  await repo.delete(id);
   return new NextResponse(null, { status: 204 });
 });

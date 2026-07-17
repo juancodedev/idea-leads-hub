@@ -26,32 +26,32 @@ export function LeadWorkspace({ lead }: LeadWorkspaceProps) {
   const [notes, setNotes] = React.useState<Note[]>([]);
   const [loading, setLoading] = React.useState(true);
 
-  const supabase = createClient();
-  const tagRepository = new SupabaseTagRepository(supabase);
-  const noteRepository = new SupabaseNoteRepository(supabase);
+  const supabaseRef = React.useRef(createClient());
+  const tagRepositoryRef = React.useRef(new SupabaseTagRepository(supabaseRef.current));
+  const noteRepositoryRef = React.useRef(new SupabaseNoteRepository(supabaseRef.current));
 
   const fetchNotes = React.useCallback(async () => {
     try {
-      const data = await noteRepository.getForEntity(lead.id, 'lead');
+      const data = await noteRepositoryRef.current.getForEntity(lead.id, 'lead');
       setNotes(data);
     } catch (error) {
       console.error('Error fetching notes:', error);
     } finally {
       setLoading(false);
     }
-  }, [lead.id, noteRepository]);
+  }, [lead.id]);
 
   React.useEffect(() => {
     fetchNotes();
   }, [fetchNotes]);
 
   const handleAssignTag = async (tag: Tag) => {
-    await tagRepository.assignToEntity(tag.id, lead.id, 'lead');
+    await tagRepositoryRef.current.assignToEntity(tag.id, lead.id, 'lead');
     setTags((prev) => [...prev, tag]);
   };
 
   const handleRemoveTag = async (tagId: string) => {
-    await tagRepository.removeFromEntity(tagId, lead.id, 'lead');
+    await tagRepositoryRef.current.removeFromEntity(tagId, lead.id, 'lead');
     setTags((prev) => prev.filter((t) => t.id !== tagId));
   };
 
