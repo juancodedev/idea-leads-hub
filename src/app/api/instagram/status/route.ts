@@ -26,6 +26,14 @@ export const GET = apiHandler(async (request: NextRequest) => {
   }
 
   if (!row?.instagram_token) {
+    // If there's a user_token but no page_token, it's pending manual config
+    if (row?.instagram_user_token) {
+      return NextResponse.json({
+        connected: false,
+        pending: true,
+        expiresAt: row.token_expires_at ?? undefined,
+      });
+    }
     return NextResponse.json({ connected: false });
   }
 

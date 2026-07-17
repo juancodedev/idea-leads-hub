@@ -29,24 +29,36 @@ export function InstagramIntegration() {
   const [showManual, setShowManual] = React.useState(false);
   const [manualToken, setManualToken] = React.useState("");
   const [manualPageId, setManualPageId] = React.useState("212449262850750");
-  const [manualIgId, setManualIgId] = React.useState("");
+  const [manualIgId, setManualIgId] = React.useState("17841445859210403");
   const [isConfiguring, setIsConfiguring] = React.useState(false);
 
   React.useEffect(() => {
-    const code = searchParams.get("code");
-    const state = searchParams.get("state");
     const instagramParam = searchParams.get("instagram");
+    const step = searchParams.get("step") || "unknown";
 
-    if (code) {
-      exchangeCode(code, state);
+    if (instagramParam === "connected") {
+      toast.success("Instagram conectado correctamente");
+      window.history.replaceState({}, "", "/settings/profile");
+    } else if (instagramParam === "pending") {
+      toast.info("Inicio de sesión exitoso. Ahora completá la configuración manual con el Page Token.", {
+        duration: 8000,
+      });
+      window.history.replaceState({}, "", "/settings/profile");
+      setShowManual(true);
     } else if (instagramParam === "error") {
-      const step = searchParams.get("step") || "unknown";
       toast.error(`Error al conectar Instagram (${step}). Intentalo de nuevo.`);
       window.history.replaceState({}, "", "/settings/profile");
     }
 
     fetchStatus();
   }, []);
+
+  // Show manual config automatically when pending
+  React.useEffect(() => {
+    if (status && "pending" in status && status.pending) {
+      setShowManual(true);
+    }
+  }, [status]);
 
   async function exchangeCode(code: string, state: string | null) {
     setIsLoading(true);
@@ -113,7 +125,7 @@ export function InstagramIntegration() {
   }
 
   function handleConnect() {
-    window.location.href = "/api/instagram/ig-auth";
+    window.location.href = "/api/instagram/auth";
   }
 
   async function handleManualConfig() {

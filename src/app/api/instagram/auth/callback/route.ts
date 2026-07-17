@@ -179,8 +179,36 @@ export async function GET(request: NextRequest) {
         pagesCount: pages.length,
         pageIds: pages.map((p) => p.id),
       });
+
+      // Even without a Page Token, store the User Token (it's refreshable)
+      // so the user can use manual config to complete the setup.
+      const supabase = await createClient();
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (!authError && user) {
+        const authService = new InstagramAuthService(supabase);
+        const expiresAt = new Date(
+          Date.now() + (longLivedBody.expires_in ?? 5184000) * 1000
+        ).toISOString();
+
+        // Store just the User Token (no Page Token yet)
+        await authService.storeToken(user.id, {
+          token: "", // no Page Token yet
+          userToken: longLivedToken,
+          igId: "",
+          pageId: "",
+          expiresAt,
+        });
+      }
+
       return NextResponse.redirect(
-        new URL("/settings/profile?instagram=error&step=no_ig_account", appUrl),
+        new URL(
+          "/settings/profile?instagram=pending&step=no_ig_account",
+          appUrl
+        ),
         302
       );
     }
