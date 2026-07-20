@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
   const supabase = createClient<Database>(supabaseUrl, serviceRoleKey);
   const activityRepo = new SupabaseActivityRepository(supabase);
 
-  // Find lead by Instagram-scoped sender ID
+  // Find or auto-create lead by Instagram-scoped sender ID
   type LeadRow = Database["public"]["Tables"]["leads"]["Row"];
   const { data: leads } = (await supabase
     .from("leads")
@@ -83,7 +83,27 @@ export async function POST(request: NextRequest) {
     .eq("instagram_scoped_id", parsed.senderId)
     .limit(1)) as unknown as { data: Pick<LeadRow, "id">[] | null };
 
-  const leadId = leads?.[0]?.id ?? null;
+  let leadId = leads?.[0]?.id ?? null;
+
+  // Auto-create lead for unknown senders so the ID is never lost
+  if (!leadId) {
+    const { data: newLead } = await supabase
+      .from("leads")
+      .insert({
+        instagram_scoped_id: parsed.senderId,
+        name: `Instagram: ${parsed.senderId}`,
+        status: "new",
+      })
+      .select("id")
+      .single()
+      .throwOnError();
+
+    leadId = newLead?.id ?? null;
+    logger.info("Auto-created lead from Instagram webhook", {
+      senderId: parsed.senderId,
+      leadId,
+    });
+  }
 
   try {
     await activityRepo.create({
