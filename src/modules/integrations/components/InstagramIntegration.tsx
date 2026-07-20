@@ -36,6 +36,14 @@ export function InstagramIntegration() {
   React.useEffect(() => {
     const instagramParam = searchParams.get("instagram");
     const step = searchParams.get("step") || "unknown";
+    const code = searchParams.get("code");
+    const state = searchParams.get("state");
+
+    // Handle Instagram Business Login OAuth callback (code in URL)
+    if (code) {
+      exchangeCode(code, state);
+      return;
+    }
 
     if (instagramParam === "connected") {
       toast.success("Instagram conectado correctamente");

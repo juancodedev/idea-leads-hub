@@ -36,12 +36,13 @@ export const GET = apiHandler(async (request: NextRequest) => {
   });
 
   const params = new URLSearchParams({
+    force_reauth: "true",
     client_id: instagramAppId,
     redirect_uri: `${appUrl}/settings/profile`,
-    scope:
-      "instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_manage_insights",
-    state,
     response_type: "code",
+    scope:
+      "instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_content_publish,instagram_business_manage_insights",
+    state,
   });
 
   return NextResponse.redirect(
