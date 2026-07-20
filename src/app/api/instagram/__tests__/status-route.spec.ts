@@ -29,12 +29,13 @@ describe("GET /api/instagram/status", () => {
     jest.clearAllMocks();
   });
 
-  it("should return connected=false when token is null", async () => {
+  it("should return connected=false and authType null when token is null", async () => {
     mockMaybeSingle.mockResolvedValue({
       data: {
         instagram_token: null,
         instagram_ig_id: null,
         token_expires_at: null,
+        auth_type: null,
       },
       error: null,
     });
@@ -47,14 +48,16 @@ describe("GET /api/instagram/status", () => {
 
     expect(response.status).toBe(200);
     expect(body.connected).toBe(false);
+    expect(body.authType).toBeNull();
   });
 
-  it("should return connected=true with details when token exists", async () => {
+  it("should return connected=true with details and authType when token exists", async () => {
     mockMaybeSingle.mockResolvedValue({
       data: {
         instagram_token: "valid-token",
         instagram_ig_id: "ig-123",
         token_expires_at: "2026-09-15T00:00:00.000Z",
+        auth_type: "instagram_business_login",
       },
       error: null,
     });
@@ -69,6 +72,29 @@ describe("GET /api/instagram/status", () => {
     expect(body.connected).toBe(true);
     expect(body.igId).toBe("ig-123");
     expect(body.expiresAt).toBe("2026-09-15T00:00:00.000Z");
+    expect(body.authType).toBe("instagram_business_login");
+  });
+
+  it("should return authType facebook when auth_type is null (legacy)", async () => {
+    mockMaybeSingle.mockResolvedValue({
+      data: {
+        instagram_token: "valid-token",
+        instagram_ig_id: "ig-123",
+        token_expires_at: null,
+        auth_type: null,
+      },
+      error: null,
+    });
+
+    const request = new NextRequest(
+      new URL("http://localhost:3000/api/instagram/status")
+    );
+    const response = await GET(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.connected).toBe(true);
+    expect(body.authType).toBe("facebook");
   });
 
   it("should return connected=false when no row exists", async () => {

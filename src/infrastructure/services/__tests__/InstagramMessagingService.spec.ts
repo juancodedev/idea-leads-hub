@@ -40,7 +40,7 @@ describe("InstagramMessagingService", () => {
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
       expect(mockFetch).toHaveBeenCalledWith(
-        `https://graph.facebook.com/v21.0/${igId}/messages?access_token=${pageAccessToken}`,
+        `https://graph.facebook.com/v25.0/${igId}/messages?access_token=${pageAccessToken}`,
         expect.objectContaining({
           method: "POST",
           headers: {
@@ -48,8 +48,6 @@ describe("InstagramMessagingService", () => {
           },
           body: JSON.stringify({
             recipient: { id: recipientIgSid },
-            messaging_type: "MESSAGE_TAG",
-            tag: "CONFIRMED_EVENT_UPDATE",
             message: { text },
           }),
         })
@@ -67,6 +65,84 @@ describe("InstagramMessagingService", () => {
       await expect(
         service.sendDM(igId, recipientIgSid, text, pageAccessToken)
       ).rejects.toThrow("Failed to send Instagram DM");
+    });
+  });
+
+  describe("sendDMViaInstagramLogin", () => {
+    const igId = "ig-123456";
+    const recipientIgSid = "recipient-ig-sid-789";
+    const text = "Hello from Instagram Business Login!";
+    const instagramUserToken = "IGUserToken123";
+
+    it("should POST to graph.instagram.com with Bearer auth and return messageId", async () => {
+      const expectedMessageId = "mocked-ig-message-id-456";
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          message_id: expectedMessageId,
+        }),
+      } as Response);
+
+      const result = await service.sendDMViaInstagramLogin(
+        igId,
+        recipientIgSid,
+        text,
+        instagramUserToken
+      );
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockFetch).toHaveBeenCalledWith(
+        `https://graph.instagram.com/v25.0/${igId}/messages`,
+        expect.objectContaining({
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${instagramUserToken}`,
+          },
+          body: JSON.stringify({
+            recipient: { id: recipientIgSid },
+            message: { text },
+          }),
+        })
+      );
+      expect(result).toEqual({ messageId: expectedMessageId });
+    });
+
+    it("should throw when Instagram API returns non-ok", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        statusText: "Bad Request",
+        json: async () => ({
+          error: { message: "Application does not have capability" },
+        }),
+      } as Response);
+
+      await expect(
+        service.sendDMViaInstagramLogin(igId, recipientIgSid, text, instagramUserToken)
+      ).rejects.toThrow("Failed to send Instagram DM via Business Login");
+    });
+
+    it("should throw with HTTP status when error body has no message", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        statusText: "Forbidden",
+        json: async () => ({}),
+      } as Response);
+
+      await expect(
+        service.sendDMViaInstagramLogin(igId, recipientIgSid, text, instagramUserToken)
+      ).rejects.toThrow("Failed to send Instagram DM via Business Login");
+    });
+
+    it("should handle network errors gracefully", async () => {
+      mockFetch.mockRejectedValue(new Error("Network failure"));
+
+      await expect(
+        service.sendDMViaInstagramLogin(igId, recipientIgSid, text, instagramUserToken)
+      ).rejects.toThrow("Network failure");
     });
   });
 

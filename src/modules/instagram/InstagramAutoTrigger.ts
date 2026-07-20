@@ -34,26 +34,34 @@ export class InstagramAutoTrigger {
     }
 
     try {
-      const { token, igId } = await authService.getToken(lead.userId);
+      const tokenData = await authService.getToken(lead.userId);
+      const { igId, authType } = tokenData;
 
       // TODO: Check 24h conversation window before sending.
       // Meta's messaging policy requires an active user-initiated conversation
       // within the last 24 hours for MESSAGE_TAG sends. If outside the window
       // we need to fall back to a HANDOVER_PROTOCOL or ICE_BREAKER message.
       // For now, always attempt the send and log when it's outside the window.
-      if (!igId || !token) {
+      if (!igId || !tokenData.token) {
         console.info(
           `[InstagramAutoTrigger] Cannot send DM for lead ${lead.id}: missing token or IG ID (outside 24h window check placeholder)`
         );
         return false;
       }
 
-      const result = await messagingService.sendDM(
-        igId,
-        lead.instagramScopedId,
-        template,
-        token
-      );
+      const result = authType === "instagram_business_login"
+        ? await messagingService.sendDMViaInstagramLogin(
+            igId,
+            lead.instagramScopedId,
+            template,
+            tokenData.userToken
+          )
+        : await messagingService.sendDM(
+            igId,
+            lead.instagramScopedId,
+            template,
+            tokenData.token
+          );
 
       console.info(
         `[InstagramAutoTrigger] Auto DM sent for lead ${lead.id} (status → ${newStatus}): ${result.messageId}`

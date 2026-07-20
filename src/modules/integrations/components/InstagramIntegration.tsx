@@ -19,6 +19,7 @@ interface InstagramStatus {
   connected: boolean;
   igId?: string;
   expiresAt?: string;
+  authType?: string | null;
 }
 
 export function InstagramIntegration() {
@@ -125,7 +126,7 @@ export function InstagramIntegration() {
   }
 
   function handleConnect() {
-    window.location.href = "/api/instagram/auth";
+    window.location.href = "/api/instagram/ig-auth";
   }
 
   async function handleManualConfig() {
@@ -219,6 +220,16 @@ export function InstagramIntegration() {
               <p className="text-sm text-muted-foreground">
                 ID de Instagram:{" "}
                 <span className="font-mono">{status.igId}</span>
+              </p>
+            )}
+            {status.authType && (
+              <p className="text-sm text-muted-foreground">
+                Tipo de autenticación:{" "}
+                <span className="font-mono">
+                  {status.authType === "instagram_business_login"
+                    ? "Instagram Business Login"
+                    : "Facebook Login"}
+                </span>
               </p>
             )}
             {status.expiresAt && (

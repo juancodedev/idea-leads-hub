@@ -128,6 +128,49 @@ export class InstagramMessagingService {
   }
 
   /**
+   * Send a DM via Instagram Business Login API (graph.instagram.com).
+   * Uses Authorization: Bearer header instead of access_token query param.
+   *
+   * NOTE: Does NOT support self-messaging (igId === recipientIgSid) — that
+   * is a Facebook Graph API quirk not present in the Instagram Graph API.
+   */
+  async sendDMViaInstagramLogin(
+    igId: string,
+    recipientIgSid: string,
+    text: string,
+    instagramUserToken: string
+  ): Promise<SendDMResult> {
+    const url = `https://graph.instagram.com/v25.0/${igId}/messages`;
+
+    const payload = { recipient: { id: recipientIgSid }, message: { text } };
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${instagramUserToken}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      let errorDetail: string;
+      try {
+        const errorBody = (await response.json()) as {
+          error?: { message?: string; code?: number; type?: string };
+        };
+        errorDetail = errorBody?.error?.message || response.statusText;
+      } catch {
+        errorDetail = response.statusText || `HTTP ${response.status}`;
+      }
+      throw new Error(`Failed to send Instagram DM via Business Login: ${errorDetail}`);
+    }
+
+    const body = (await response.json()) as { message_id: string };
+    return { messageId: body.message_id };
+  }
+
+  /**
    * Verify Meta webhook HMAC-SHA256 signature.
    * Compares the expected signature (computed from payload + app secret)
    * against the `X-Hub-Signature-256` header value.

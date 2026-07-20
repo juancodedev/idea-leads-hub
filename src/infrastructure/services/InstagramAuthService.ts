@@ -10,6 +10,8 @@ export interface TokenResult {
   userToken: string;
   igId: string;
   pageId: string;
+  /** Auth type discriminator: 'facebook' | 'instagram_business_login' | null */
+  authType: string | null;
 }
 
 export interface StoreTokenData {
@@ -20,6 +22,8 @@ export interface StoreTokenData {
   igId: string;
   pageId: string;
   expiresAt: string;
+  /** Auth type discriminator: 'facebook' | 'instagram_business_login' */
+  authType?: string;
 }
 
 export class InstagramAuthService {
@@ -50,6 +54,7 @@ export class InstagramAuthService {
       userToken: row.instagram_user_token ?? "",
       igId: row.instagram_ig_id ?? "",
       pageId: row.instagram_page_id ?? "",
+      authType: row.auth_type ?? null,
     };
   }
 
@@ -58,7 +63,7 @@ export class InstagramAuthService {
    * Saves both the Page Access Token and the User Access Token.
    */
   async storeToken(userId: string, tokenData: StoreTokenData): Promise<void> {
-    const { error } = await (this.supabase
+      const { error } = await (this.supabase
       .from("user_secrets") as any)
       .upsert(
         {
@@ -68,6 +73,7 @@ export class InstagramAuthService {
           instagram_ig_id: tokenData.igId,
           instagram_page_id: tokenData.pageId,
           token_expires_at: tokenData.expiresAt,
+          auth_type: tokenData.authType ?? null,
         },
         { onConflict: "user_id" }
       );
@@ -138,6 +144,7 @@ export class InstagramAuthService {
       userToken: refreshedUserToken,
       igId: current.igId,
       pageId: current.pageId,
+      authType: current.authType,
     };
 
     await this.storeToken(userId, {
@@ -146,6 +153,59 @@ export class InstagramAuthService {
       igId: current.igId,
       pageId: current.pageId,
       expiresAt,
+      authType: current.authType ?? undefined,
+    });
+
+    return result;
+  }
+
+  /**
+   * Refresh an Instagram Business Login token via graph.instagram.com.
+   * Calls GET /refresh_access_token?grant_type=ig_refresh_token and stores the result.
+   * Does NOT overwrite stored token on failure.
+   */
+  async refreshInstagramToken(userId: string): Promise<TokenResult> {
+    const current = await this.getToken(userId).catch(() => null);
+
+    if (!current?.userToken) {
+      throw new Error("No existing Instagram token to refresh");
+    }
+
+    const url = `https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${current.userToken}`;
+
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(
+        "Failed to refresh Instagram token: " + response.statusText
+      );
+    }
+
+    const body = (await response.json()) as {
+      access_token: string;
+      expires_in: number;
+    };
+
+    const refreshedToken = body.access_token;
+    const expiresAt = new Date(
+      Date.now() + (body.expires_in || 5184000) * 1000
+    ).toISOString();
+
+    // Store both token and userToken — for Instagram Business Login they are the same
+    const result: TokenResult = {
+      token: refreshedToken,
+      userToken: refreshedToken,
+      igId: current.igId,
+      pageId: current.pageId,
+      authType: current.authType,
+    };
+
+    await this.storeToken(userId, {
+      token: refreshedToken,
+      userToken: refreshedToken,
+      igId: current.igId,
+      pageId: current.pageId,
+      expiresAt,
+      authType: current.authType ?? undefined,
     });
 
     return result;

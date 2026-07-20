@@ -35,8 +35,19 @@ describe("InstagramAuthService", () => {
     instagram_ig_id: "ig-123456",
     instagram_page_id: "page-789",
     token_expires_at: "2026-12-31T23:59:59Z",
+    auth_type: "instagram_business_login",
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
+  };
+
+  const mockFacebookRow = {
+    ...mockRow,
+    auth_type: null,
+  };
+
+  const mockRowWithNullAuth = {
+    ...mockRow,
+    auth_type: null,
   };
 
   beforeEach(() => {
@@ -57,7 +68,7 @@ describe("InstagramAuthService", () => {
   });
 
   describe("getToken", () => {
-    it("should query user_secrets and return token, igId, and pageId", async () => {
+    it("should query user_secrets and return token, igId, pageId, and authType", async () => {
       mockMaybeSingle.mockResolvedValue({ data: mockRow, error: null });
 
       const result = await service.getToken(userId);
@@ -70,7 +81,16 @@ describe("InstagramAuthService", () => {
         userToken: "EAATestUserToken456",
         igId: "ig-123456",
         pageId: "page-789",
+        authType: "instagram_business_login",
       });
+    });
+
+    it("should return authType null when row has no auth_type", async () => {
+      mockMaybeSingle.mockResolvedValue({ data: mockFacebookRow, error: null });
+
+      const result = await service.getToken(userId);
+
+      expect(result.authType).toBeNull();
     });
 
     it("should throw when no token found for user", async () => {
@@ -102,6 +122,11 @@ describe("InstagramAuthService", () => {
       expiresAt: "2026-12-31T23:59:59Z",
     };
 
+    const tokenDataWithAuthType = {
+      ...tokenData,
+      authType: "instagram_business_login",
+    };
+
     it("should upsert token data into user_secrets", async () => {
       mockUpsert.mockResolvedValue({ data: null, error: null });
 
@@ -116,7 +141,21 @@ describe("InstagramAuthService", () => {
           instagram_ig_id: tokenData.igId,
           instagram_page_id: tokenData.pageId,
           token_expires_at: tokenData.expiresAt,
+          auth_type: null,
         },
+        { onConflict: "user_id" }
+      );
+    });
+
+    it("should store auth_type when provided", async () => {
+      mockUpsert.mockResolvedValue({ data: null, error: null });
+
+      await service.storeToken(userId, tokenDataWithAuthType);
+
+      expect(mockUpsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          auth_type: "instagram_business_login",
+        }),
         { onConflict: "user_id" }
       );
     });
@@ -187,6 +226,72 @@ describe("InstagramAuthService", () => {
       await expect(service.refreshToken(userId)).rejects.toThrow(
         "No existing user token to refresh"
       );
+    });
+  });
+
+  describe("refreshInstagramToken", () => {
+    beforeEach(() => {
+      mockMaybeSingle.mockResolvedValue({ data: mockRow, error: null });
+    });
+
+    const newToken = "IGNewLongLivedToken789";
+
+    it("should refresh token via graph.instagram.com and store result", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          access_token: newToken,
+          expires_in: 5184000, // 60 days
+        }),
+      } as Response);
+
+      mockUpsert.mockResolvedValue({ data: null, error: null });
+
+      const result = await service.refreshInstagramToken(userId);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("graph.instagram.com/refresh_access_token")
+      );
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("grant_type=ig_refresh_token")
+      );
+      // Should use current userToken in the request
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining(mockRow.instagram_user_token)
+      );
+      expect(mockUpsert).toHaveBeenCalled();
+      expect(result.token).toBe(newToken);
+      expect(result.userToken).toBe(newToken);
+      expect(result.authType).toBe("instagram_business_login");
+    });
+
+    it("should throw when graph.instagram.com returns non-ok", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        statusText: "Bad Request",
+      } as Response);
+
+      await expect(service.refreshInstagramToken(userId)).rejects.toThrow(
+        "Failed to refresh Instagram token"
+      );
+    });
+
+    it("should throw when no existing token to refresh", async () => {
+      mockMaybeSingle.mockResolvedValue({ data: null, error: null });
+
+      await expect(service.refreshInstagramToken(userId)).rejects.toThrow(
+        "No existing Instagram token to refresh"
+      );
+    });
+
+    it("should NOT overwrite stored token when fetch fails", async () => {
+      mockFetch.mockRejectedValue(new Error("Network error"));
+
+      await expect(service.refreshInstagramToken(userId)).rejects.toThrow();
+
+      // upsert should NOT have been called since the fetch failed
+      expect(mockUpsert).not.toHaveBeenCalled();
     });
   });
 });

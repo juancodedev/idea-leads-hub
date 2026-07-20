@@ -82,11 +82,37 @@ export const POST = apiHandler(async (request: NextRequest) => {
       token_type?: string;
     };
 
-    const accessToken = tokenData.access_token;
+    const shortLivedToken = tokenData.access_token;
     const igUserId = String(tokenData.user_id);
-    const expiresAt = new Date(Date.now() + 5184000 * 1000).toISOString(); // ~60 days for Business Login
 
-    // Step 2: Store the token
+    // Step 2: Exchange short-lived token for long-lived (60d) token
+    // GET graph.instagram.com/access_token?grant_type=ig_exchange_token
+    const longLivedUrl = `https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${instagramAppSecret}&access_token=${shortLivedToken}`;
+    const longLivedRes = await fetch(longLivedUrl);
+
+    if (!longLivedRes.ok) {
+      const errText = await longLivedRes.text();
+      logger.error("Instagram long-lived token exchange failed", {
+        status: longLivedRes.status,
+        body: errText,
+      });
+      return NextResponse.json(
+        { error: "Error al obtener token de larga duración", detail: errText },
+        { status: 502 }
+      );
+    }
+
+    const longLivedData = (await longLivedRes.json()) as {
+      access_token: string;
+      expires_in: number;
+    };
+
+    const accessToken = longLivedData.access_token;
+    const expiresAt = new Date(
+      Date.now() + (longLivedData.expires_in || 5184000) * 1000
+    ).toISOString();
+
+    // Step 3: Store the long-lived token with auth_type
     const authService = new InstagramAuthService(supabase);
     await authService.storeToken(user.id, {
       token: accessToken,
@@ -94,6 +120,7 @@ export const POST = apiHandler(async (request: NextRequest) => {
       igId: igUserId,
       pageId: igUserId, // Instagram Business Account ID (no Facebook Page)
       expiresAt,
+      authType: "instagram_business_login",
     });
 
     logger.info("Instagram connected via Instagram Business Login", { igUserId, permissions: tokenData.permissions });

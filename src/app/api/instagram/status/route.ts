@@ -12,7 +12,7 @@ export const GET = apiHandler(async (request: NextRequest) => {
 
   const { data, error } = await (supabase
     .from("user_secrets") as any)
-    .select("instagram_token, instagram_ig_id, token_expires_at")
+    .select("instagram_token, instagram_ig_id, token_expires_at, auth_type")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -32,14 +32,16 @@ export const GET = apiHandler(async (request: NextRequest) => {
         connected: false,
         pending: true,
         expiresAt: row.token_expires_at ?? undefined,
+        authType: row.auth_type ?? "facebook",
       });
     }
-    return NextResponse.json({ connected: false });
+    return NextResponse.json({ connected: false, authType: null });
   }
 
   return NextResponse.json({
     connected: true,
     igId: row.instagram_ig_id ?? undefined,
     expiresAt: row.token_expires_at ?? undefined,
+    authType: row.auth_type ?? "facebook",
   });
 });

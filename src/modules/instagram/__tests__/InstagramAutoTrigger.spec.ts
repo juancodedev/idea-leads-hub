@@ -5,6 +5,7 @@ import { InstagramMessagingService } from "@/infrastructure/services/InstagramMe
 
 const mockGetToken = jest.fn();
 const mockSendDM = jest.fn();
+const mockSendDMViaInstagramLogin = jest.fn();
 
 const mockAuthService = {
   getToken: mockGetToken,
@@ -12,6 +13,7 @@ const mockAuthService = {
 
 const mockMessagingService = {
   sendDM: mockSendDM,
+  sendDMViaInstagramLogin: mockSendDMViaInstagramLogin,
 } as unknown as InstagramMessagingService;
 
 const baseLead: Lead = {
@@ -80,6 +82,41 @@ describe("InstagramAutoTrigger", () => {
     expect(result).toBe(false);
     expect(mockGetToken).not.toHaveBeenCalled();
     expect(mockSendDM).not.toHaveBeenCalled();
+  });
+
+  it("returns true and calls sendDMViaInstagramLogin when authType is instagram_business_login", async () => {
+    const lead: Lead = {
+      ...baseLead,
+      instagramScopedId: "ig-scoped-789",
+    };
+
+    mockGetToken.mockResolvedValue({
+      token: "page-token-abc",
+      userToken: "ig-user-token-xyz",
+      igId: "ig-account-456",
+      pageId: "page-111",
+      authType: "instagram_business_login",
+    });
+    mockSendDMViaInstagramLogin.mockResolvedValue({ messageId: "msg-ig-001" });
+
+    const result = await trigger.maybeSendAutoDm(
+      lead,
+      "Interesado",
+      mockAuthService,
+      mockMessagingService
+    );
+
+    expect(result).toBe(true);
+    expect(mockGetToken).toHaveBeenCalledWith("user-123");
+    // Should NOT call the old sendDM
+    expect(mockSendDM).not.toHaveBeenCalled();
+    // Should call sendDMViaInstagramLogin with userToken
+    expect(mockSendDMViaInstagramLogin).toHaveBeenCalledWith(
+      "ig-account-456",
+      "ig-scoped-789",
+      expect.stringContaining("Gracias"),
+      "ig-user-token-xyz"
+    );
   });
 
   it("returns false for non-configured transition", async () => {

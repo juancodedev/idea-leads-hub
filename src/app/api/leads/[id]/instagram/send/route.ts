@@ -40,6 +40,19 @@ export const POST = apiHandler(
     let recipientId = lead.instagramScopedId;
 
     if (!recipientId && lead.instagramHandle) {
+      // Instagram Business Login tokens DO NOT work with graph.facebook.com
+      // Business Discovery API, so skip resolution for that auth type.
+      if (tokenData.authType === "instagram_business_login") {
+        return NextResponse.json(
+          {
+            error:
+              "Instagram Business Login no soporta resolución de handles. Agregá manualmente el Instagram ID numérico del lead.",
+            needsManualId: true,
+          },
+          { status: 400 }
+        );
+      }
+
       try {
         // Resolve via Business Discovery API and cache it
         recipientId = await messagingService.resolveHandleToUserId(
@@ -72,20 +85,30 @@ export const POST = apiHandler(
       );
     }
 
-    // Send the DM via Meta API
+    // Send the DM via the correct API path based on auth type
     let result: SendDMResult;
     try {
-      result = await messagingService.sendDM(
-        tokenData.igId,
-        recipientId,
-        text,
-        tokenData.token
-      );
+      if (tokenData.authType === "instagram_business_login") {
+        result = await messagingService.sendDMViaInstagramLogin(
+          tokenData.igId,
+          recipientId,
+          text,
+          tokenData.userToken
+        );
+      } else {
+        result = await messagingService.sendDM(
+          tokenData.igId,
+          recipientId,
+          text,
+          tokenData.token
+        );
+      }
     } catch (sendError: any) {
       logger.error("Instagram send failed", {
         error: sendError.message,
         igId: tokenData.igId,
         recipientId,
+        authType: tokenData.authType,
         tokenPrefix: tokenData.token?.substring(0, 8),
       });
       return NextResponse.json(
