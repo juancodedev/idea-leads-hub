@@ -18,7 +18,7 @@ export function IdeaCard({ idea, onClick }: IdeaCardProps) {
       className="cursor-pointer hover:shadow-md transition-shadow" 
       onClick={() => onClick?.(idea.id)}
     >
-      <CardHeader className="pb-2">
+      <CardHeader className="pb-3">
         <div className="flex justify-between items-start gap-2">
           <CardTitle className="text-lg font-bold leading-tight">
             {idea.title}

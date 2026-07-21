@@ -3,6 +3,8 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Send, MessageCircle } from "lucide-react";
+import { Skeleton } from "@/ui/components/skeleton";
+import { EmptyState } from "@/ui/components/EmptyState";
 import { cn } from "@/lib/utils";
 import { Button } from "@/ui/components/button";
 import { Avatar, AvatarFallback } from "@/ui/components/avatar";
@@ -225,16 +227,11 @@ export default function MessagesPage() {
 
   if (!loading && conversations.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-        <MessageCircle className="h-16 w-16 text-muted-foreground/40 mb-4" />
-        <h2 className="text-xl font-semibold text-muted-foreground">
-          No hay conversaciones
-        </h2>
-        <p className="text-sm text-muted-foreground/70 mt-1 max-w-md">
-          Las conversaciones de Instagram aparecerán acá cuando recibas o
-          envíes mensajes a través de la plataforma.
-        </p>
-      </div>
+      <EmptyState
+        icon={MessageCircle}
+        title="No hay conversaciones"
+        description="Las conversaciones de Instagram aparecerán acá cuando recibas o envíes mensajes a través de la plataforma."
+      />
     );
   }
 
@@ -261,11 +258,11 @@ export default function MessagesPage() {
           {loading ? (
             <div className="p-4 space-y-4">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-3 animate-pulse">
-                  <div className="h-10 w-10 rounded-full bg-muted" />
+                <div key={i} className="flex items-center gap-3">
+                  <Skeleton className="h-10 w-10 rounded-full" />
                   <div className="flex-1 space-y-2">
-                    <div className="h-4 bg-muted rounded w-3/4" />
-                    <div className="h-3 bg-muted rounded w-1/2" />
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
                   </div>
                 </div>
               ))}

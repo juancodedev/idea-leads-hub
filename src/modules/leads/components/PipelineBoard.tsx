@@ -141,7 +141,7 @@ export function PipelineBoard({ initialLeads, stages }: { initialLeads: Lead[], 
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex h-[calc(100vh-12rem)] gap-4 overflow-x-auto pb-4">
+      <div className="flex h-[calc(100vh-8rem)] gap-4 overflow-x-auto pb-4">
         {stages.map((stage) => (
           <PipelineColumn 
             key={stage.id} 

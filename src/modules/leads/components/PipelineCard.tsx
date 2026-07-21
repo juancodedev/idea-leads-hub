@@ -37,7 +37,7 @@ export function PipelineCard({ lead, isOverlay }: PipelineCardProps) {
       <div
         ref={setNodeRef}
         style={style}
-        className="h-24 w-full rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50"
+        className="h-24 w-full rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/30"
       />
     );
   }
@@ -53,18 +53,18 @@ export function PipelineCard({ lead, isOverlay }: PipelineCardProps) {
         isOverlay && "rotate-3 scale-105 shadow-xl"
       )}
     >
-      <Card className="hover:border-slate-300 dark:hover:border-slate-600">
+      <Card className="hover:border-border">
         <CardContent className="p-4">
-          <h4 className="font-semibold text-slate-900 dark:text-slate-100">{lead.name}</h4>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{lead.company}</p>
+          <h4 className="font-semibold text-card-foreground">{lead.name}</h4>
+          <p className="mt-1 text-xs text-muted-foreground">{lead.company}</p>
           
           {lead.tags && lead.tags.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1">
               {lead.tags.slice(0, 3).map(tag => (
-                <div 
-                  key={tag.id} 
-                  className="h-1.5 w-6 rounded-full" 
-                  style={{ backgroundColor: tag.color }}
+                <div
+                  key={tag.id}
+                  className="h-1.5 w-6 rounded-full bg-[var(--tag-color)]"
+                  style={{ '--tag-color': tag.color } as React.CSSProperties}
                   title={tag.name}
                 />
               ))}
@@ -72,9 +72,9 @@ export function PipelineCard({ lead, isOverlay }: PipelineCardProps) {
             </div>
           )}
 
-          <div className="mt-3 flex items-center justify-between text-[10px] text-slate-400">
+          <div className="mt-3 flex items-center justify-between text-[10px] text-muted-foreground">
              <span>{new Intl.DateTimeFormat('es-ES', { month: 'short', day: 'numeric' }).format(new Date(lead.createdAt))}</span>
-             {lead.source && <span className="rounded bg-slate-100 px-1 dark:bg-slate-800">{lead.source}</span>}
+             {lead.source && <span className="rounded bg-muted px-1">{lead.source}</span>}
           </div>
         </CardContent>
       </Card>

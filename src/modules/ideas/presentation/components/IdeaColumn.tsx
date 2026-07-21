@@ -27,15 +27,15 @@ export function IdeaColumn({ status, label, ideas, onIdeaClick }: IdeaColumnProp
     <div 
       ref={setNodeRef}
       className={cn(
-        "flex flex-col w-80 min-w-[20rem] rounded-xl bg-muted/50 p-4 transition-colors",
+        "flex flex-col w-80 min-w-[20rem] rounded-lg bg-muted/50 p-4 border transition-colors",
         isOver && "bg-muted"
       )}
     >
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">
+        <h3 className="font-semibold text-sm text-muted-foreground">
           {label}
         </h3>
-        <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
+        <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
           {ideas.length}
         </span>
       </div>

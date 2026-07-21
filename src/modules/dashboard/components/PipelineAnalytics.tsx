@@ -33,13 +33,13 @@ export function PipelineAnalytics({ stages, leads }: PipelineAnalyticsProps) {
                   </div>
                   <span className="text-muted-foreground">{count} leads</span>
                 </div>
-                <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
                   <div 
                     className="h-full transition-all duration-500 ease-out" 
                     style={{ 
                       width: `${percentage}%`, 
                       backgroundColor: stage.color,
-                      opacity: 0.7 
+                      opacity: 0.8 
                     }} 
                   />
                 </div>

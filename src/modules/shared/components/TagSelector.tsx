@@ -86,13 +86,13 @@ export function TagSelector({ selectedTags, onAssign, onRemove }: TagSelectorPro
         <Badge
           key={tag.id}
           variant="secondary"
-          className="pl-2 pr-1 gap-1"
-          style={{ backgroundColor: `${tag.color}20`, color: tag.color, borderColor: tag.color }}
+          className="pl-2 pr-1 gap-1 bg-[var(--tag-bg)] text-[var(--tag-color)]"
+          style={{ '--tag-bg': `${tag.color}20`, '--tag-color': tag.color } as React.CSSProperties}
         >
           {tag.name}
           <button
             onClick={() => onRemove(tag.id)}
-            className="hover:bg-slate-200 rounded-full p-0.5 dark:hover:bg-slate-800"
+            className="hover:bg-muted rounded-full p-0.5"
           >
             <X className="h-3 w-3" />
           </button>
@@ -150,7 +150,7 @@ export function TagSelector({ selectedTags, onAssign, onRemove }: TagSelectorPro
                       >
                         <Check className={cn("h-4 w-4")} />
                       </div>
-                      <TagIcon className="mr-2 h-3 w-3" style={{ color: tag.color }} />
+                      <TagIcon className="mr-2 h-3 w-3 text-[var(--tag-color)]" style={{ '--tag-color': tag.color } as React.CSSProperties} />
                       <span>{tag.name}</span>
                     </CommandItem>
                   );
