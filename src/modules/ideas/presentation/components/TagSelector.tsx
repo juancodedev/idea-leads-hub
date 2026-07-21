@@ -42,7 +42,7 @@ export function TagSelector({ selectedTagIds, onChange }: TagSelectorProps) {
     try {
       const newTag = await repository.create({
         name: inputValue.trim(),
-        color: `#${Math.floor(Math.random() * 16777215).toString(16)}`
+        color: `#${Math.floor(Math.random() * 0x1000000).toString(16).padStart(6, '0')}`
       });
       setAllTags([...allTags, newTag]);
       onChange([...selectedTagIds, newTag.id]);

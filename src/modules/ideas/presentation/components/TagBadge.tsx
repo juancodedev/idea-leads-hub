@@ -14,11 +14,12 @@ export function TagBadge({ tag, onRemove, className }: TagBadgeProps) {
     <Badge
       variant="secondary"
       style={{ '--tag-bg': tag.color ? `${tag.color}20` : undefined, '--tag-color': tag.color || undefined } as React.CSSProperties}
-      className={cn("flex items-center gap-1 border bg-[var(--tag-bg)] text-[var(--tag-color)]", className)}
+      className={cn("flex items-center gap-1 border border-[var(--tag-color)] bg-[var(--tag-bg)] text-[var(--tag-color)]", className)}
     >
       {tag.name}
       {onRemove && (
         <button 
+          aria-label={"Remove " + tag.name}
           onClick={(e) => {
             e.stopPropagation();
             onRemove(tag.id);

@@ -91,6 +91,7 @@ export function TagSelector({ selectedTags, onAssign, onRemove }: TagSelectorPro
         >
           {tag.name}
           <button
+            aria-label={"Remove " + tag.name}
             onClick={() => onRemove(tag.id)}
             className="hover:bg-muted rounded-full p-0.5"
           >

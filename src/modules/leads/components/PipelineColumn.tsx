@@ -2,8 +2,10 @@
 
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { cn } from '@/lib/utils';
 import { PipelineStage } from '@/core/domain/Pipeline';
 import { PipelineCard } from './PipelineCard';
+import { EmptyState } from '@/ui/components/EmptyState';
 import { Lead } from '@/core/domain/Lead';
 
 interface PipelineColumnProps {
@@ -12,7 +14,7 @@ interface PipelineColumnProps {
 }
 
 export function PipelineColumn({ stage, leads }: PipelineColumnProps) {
-  const { setNodeRef } = useDroppable({
+  const { setNodeRef, isOver } = useDroppable({
     id: stage.id,
     data: {
       type: 'Column',
@@ -21,7 +23,7 @@ export function PipelineColumn({ stage, leads }: PipelineColumnProps) {
   });
 
   return (
-    <div className="flex w-80 flex-shrink-0 flex-col rounded-lg bg-muted/50 p-4 border">
+    <div className={cn("flex w-80 flex-shrink-0 flex-col rounded-lg bg-muted/50 p-4 border transition-colors", isOver && "bg-muted")}>
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="h-3 w-3 rounded-full bg-[var(--stage-color)]" style={{ '--stage-color': stage.color } as React.CSSProperties} />
@@ -33,11 +35,18 @@ export function PipelineColumn({ stage, leads }: PipelineColumnProps) {
       </div>
 
       <div ref={setNodeRef} className="flex flex-1 flex-col gap-3">
-        <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
-          {leads.map((lead) => (
-            <PipelineCard key={lead.id} lead={lead} />
-          ))}
-        </SortableContext>
+        {leads.length === 0 ? (
+          <EmptyState
+            title="Sin leads"
+            description="Arrastra leads aquí"
+          />
+        ) : (
+          <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
+            {leads.map((lead) => (
+              <PipelineCard key={lead.id} lead={lead} />
+            ))}
+          </SortableContext>
+        )}
       </div>
     </div>
   );

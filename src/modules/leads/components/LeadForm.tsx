@@ -59,9 +59,9 @@ export function LeadForm({ initialData }: LeadFormProps) {
     },
   });
 
-  // Diagnóstico de errores
+  // Diagnóstico de errores (solo en desarrollo)
   React.useEffect(() => {
-    if (Object.keys(form.formState.errors).length > 0) {
+    if (process.env.NODE_ENV === 'development' && Object.keys(form.formState.errors).length > 0) {
       console.log('Errores de validación:', form.formState.errors);
     }
   }, [form.formState.errors]);
