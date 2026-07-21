@@ -16,7 +16,7 @@ const UpdateLeadSchema = z.object({
   website: z.string().optional(),
   source: z.string().optional(),
   notes: z.string().optional(),
-  status: z.string().optional(),
+  status: z.enum(["Nuevo", "Contactado", "Interesado", "Propuesta", "Ganado", "Perdido"]).optional(),
   pipelineId: z.string().uuid().optional(),
   stageId: z.string().uuid().optional(),
   instagramHandle: z.string().optional(),

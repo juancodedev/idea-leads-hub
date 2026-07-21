@@ -87,16 +87,17 @@ export async function POST(request: NextRequest) {
 
   // Auto-create lead for unknown senders so the ID is never lost
   if (!leadId) {
-    const { data: newLead } = await supabase
-      .from("leads")
+    const result = await (supabase
+      .from("leads") as any)
       .insert({
         instagram_scoped_id: parsed.senderId,
         name: `Instagram: ${parsed.senderId}`,
         status: "new",
       })
       .select("id")
-      .single()
-      .throwOnError();
+      .single();
+
+    const newLead = result.data as { id: string } | null;
 
     leadId = newLead?.id ?? null;
     logger.info("Auto-created lead from Instagram webhook", {
