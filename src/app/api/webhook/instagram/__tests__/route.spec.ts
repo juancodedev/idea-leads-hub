@@ -20,10 +20,13 @@ jest.mock("@/infrastructure/services/InstagramMessagingService", () => ({
 // Mock @supabase/supabase-js createClient to return a fake supabase client
 // Values are defined inline because jest.mock() is hoisted before const init
 jest.mock("@supabase/supabase-js", () => {
+  const mockSingle = jest.fn().mockResolvedValue({ data: { id: "new-lead-id" }, error: null });
+  const mockInsertSelect = jest.fn().mockReturnValue({ single: mockSingle });
+  const mockInsert = jest.fn().mockReturnValue({ select: mockInsertSelect });
   const mockLimit = jest.fn().mockResolvedValue({ data: [], error: null });
   const mockEq = jest.fn().mockReturnValue({ limit: mockLimit });
   const mockSelect = jest.fn().mockReturnValue({ eq: mockEq });
-  const mockFrom = jest.fn().mockReturnValue({ select: mockSelect });
+  const mockFrom = jest.fn().mockReturnValue({ select: mockSelect, insert: mockInsert });
   return {
     createClient: jest.fn().mockReturnValue({ from: mockFrom }),
   };
