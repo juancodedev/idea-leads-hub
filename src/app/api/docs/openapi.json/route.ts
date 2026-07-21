@@ -1837,6 +1837,16 @@ const openapi = {
             enum: ["Nuevo", "Contactado", "Interesado", "Propuesta", "Ganado", "Perdido"],
             default: "Nuevo",
           },
+          instagramHandle: {
+            type: "string",
+            description: "Handle de Instagram (ej. @usuario)",
+            example: "@usuario",
+          },
+          instagramScopedId: {
+            type: "string",
+            description: "ID numérico de Instagram del lead (para enviar DMs)",
+            example: "17841445859210403",
+          },
         },
       },
       Lead: {
@@ -1855,6 +1865,8 @@ const openapi = {
           userId: { type: "string", format: "uuid" },
           pipelineId: { type: "string", format: "uuid", nullable: true },
           stageId: { type: "string", format: "uuid", nullable: true },
+          instagramHandle: { type: "string", nullable: true, description: "Handle de Instagram" },
+          instagramScopedId: { type: "string", nullable: true, description: "ID numérico de Instagram del lead" },
           createdAt: { type: "string", format: "date-time" },
           updatedAt: { type: "string", format: "date-time" },
         },
@@ -1870,8 +1882,11 @@ const openapi = {
           website: { type: "string", format: "uri", description: "Sitio web del lead" },
           source: { type: "string", description: "Origen" },
           notes: { type: "string", description: "Notas" },
+          status: { type: "string", description: "Estado del lead", enum: ["Nuevo", "Contactado", "Interesado", "Propuesta", "Ganado", "Perdido"] },
           pipelineId: { type: "string", format: "uuid", nullable: true, description: "ID del pipeline" },
           stageId: { type: "string", format: "uuid", nullable: true, description: "ID de la etapa" },
+          instagramHandle: { type: "string", description: "Handle de Instagram (ej. @usuario)" },
+          instagramScopedId: { type: "string", description: "ID numérico de Instagram del lead" },
         },
       },
       ChangeLeadStatusRequest: {
