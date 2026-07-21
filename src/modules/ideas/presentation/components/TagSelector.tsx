@@ -42,7 +42,7 @@ export function TagSelector({ selectedTagIds, onChange }: TagSelectorProps) {
     try {
       const newTag = await repository.create({
         name: inputValue.trim(),
-        color: `#${Math.floor(Math.random() * 16777215).toString(16)}`
+        color: `#${Math.floor(Math.random() * 0x1000000).toString(16).padStart(6, '0')}`
       });
       setAllTags([...allTags, newTag]);
       onChange([...selectedTagIds, newTag.id]);
@@ -95,12 +95,11 @@ export function TagSelector({ selectedTagIds, onChange }: TagSelectorProps) {
                     key={tagId}
                     onSelect={() => toggleTag(tagId)}
                     className="flex items-center justify-between cursor-pointer opacity-100! pointer-events-auto!"
-                    style={{ opacity: 1, pointerEvents: 'auto' }}
                   >
                     <div className="flex items-center gap-2">
                       <div
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: tag.color }}
+                        className="h-2 w-2 rounded-full bg-[var(--tag-color)]"
+                        style={{ '--tag-color': tag.color } as React.CSSProperties}
                       />
                       <span>{tag.name}</span>
                     </div>

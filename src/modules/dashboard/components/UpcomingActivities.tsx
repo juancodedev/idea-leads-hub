@@ -5,6 +5,7 @@ import { ActivityTypeIcon } from "@/modules/activities/presentation/components/A
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Card, CardContent, CardHeader, CardTitle } from "@/ui/components/card";
+import { EmptyState } from "@/ui/components/EmptyState";
 import { Bell, Calendar } from "lucide-react";
 
 interface UpcomingActivitiesProps {
@@ -14,16 +15,18 @@ interface UpcomingActivitiesProps {
 export function UpcomingActivities({ activities }: UpcomingActivitiesProps) {
   return (
     <Card className="shadow-sm">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
         <CardTitle className="text-base font-semibold">Próximas Actividades</CardTitle>
         <Calendar className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           {activities.length === 0 ? (
-            <p className="text-center py-8 text-sm text-muted-foreground">
-              No hay actividades pendientes para hoy.
-            </p>
+            <EmptyState
+              icon={Bell}
+              title="No hay actividades pendientes"
+              description="No hay actividades pendientes para hoy."
+            />
           ) : (
             activities.map((activity) => (
               <div key={activity.id} className="flex items-start gap-3 text-sm">

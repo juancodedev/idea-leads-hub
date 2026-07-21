@@ -39,7 +39,7 @@ export function IdeasByStatusChart({ ideas }: IdeasByStatusChartProps) {
                   <span>{config.label}</span>
                   <span className="text-muted-foreground">{count} ideas</span>
                 </div>
-                <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
                   <div 
                     className="h-full transition-all duration-500 ease-out" 
                     style={{ 

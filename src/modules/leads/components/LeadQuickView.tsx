@@ -47,14 +47,14 @@ export function LeadQuickView({ lead, stages, onUpdate }: LeadQuickViewProps) {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)]">
+    <div className="flex flex-col h-[calc(100vh-8rem)]">
       {/* Área con Scroll */}
       <div className="flex-1 overflow-y-auto pr-4 space-y-6">
         {/* Cabecera */}
         <div>
           <div className="flex items-center gap-2 mb-2">
             {stage && (
-              <Badge style={{ backgroundColor: `${stage.color}20`, color: stage.color, borderColor: stage.color }} variant="outline">
+              <Badge style={{ '--tag-bg': `${stage.color}20`, '--tag-color': stage.color } as React.CSSProperties} className="bg-[var(--tag-bg)] text-[var(--tag-color)] border-[var(--tag-color)]" variant="outline">
                 {stage.name}
               </Badge>
             )}
@@ -67,7 +67,7 @@ export function LeadQuickView({ lead, stages, onUpdate }: LeadQuickViewProps) {
         </div>
 
         {/* Contacto */}
-        <div className="grid gap-3 p-4 rounded-lg bg-slate-50 dark:bg-slate-900 border">
+        <div className="grid gap-3 p-4 rounded-lg bg-muted/50 border">
           <div className="flex items-center gap-3 text-sm">
             <Mail className="h-4 w-4 text-muted-foreground" />
             <span>{lead.email}</span>
@@ -128,7 +128,7 @@ export function LeadQuickView({ lead, stages, onUpdate }: LeadQuickViewProps) {
       </div>
 
       {/* Footer Fijo */}
-      <div className="pt-4 mt-4 border-t bg-white dark:bg-slate-950">
+      <div className="pt-4 mt-4 border-t bg-background">
         <Link href={`/leads/${lead.id}`} className="w-full">
           <Button className="w-full" variant="outline">
             <ExternalLink className="mr-2 h-4 w-4" /> Abrir Perfil Completo

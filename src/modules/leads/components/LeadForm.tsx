@@ -14,6 +14,13 @@ import {
 } from '@/ui/components/form';
 import { Input } from '@/ui/components/input';
 import { Textarea } from '@/ui/components/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/ui/components/select';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/infrastructure/database/client';
 import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLeadRepository';
@@ -52,9 +59,9 @@ export function LeadForm({ initialData }: LeadFormProps) {
     },
   });
 
-  // Diagnóstico de errores
+  // Diagnóstico de errores (solo en desarrollo)
   React.useEffect(() => {
-    if (Object.keys(form.formState.errors).length > 0) {
+    if (process.env.NODE_ENV === 'development' && Object.keys(form.formState.errors).length > 0) {
       console.log('Errores de validación:', form.formState.errors);
     }
   }, [form.formState.errors]);
@@ -145,19 +152,21 @@ export function LeadForm({ initialData }: LeadFormProps) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Estado</FormLabel>
-                <FormControl>
-                  <select
-                    {...field}
-                    className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-950 dark:ring-offset-slate-950 dark:focus-visible:ring-slate-300"
-                  >
-                    <option value="Nuevo">Nuevo</option>
-                    <option value="Contactado">Contactado</option>
-                    <option value="Interesado">Interesado</option>
-                    <option value="Propuesta">Propuesta</option>
-                    <option value="Ganado">Ganado</option>
-                    <option value="Perdido">Perdido</option>
-                  </select>
-                </FormControl>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar estado" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="Nuevo">Nuevo</SelectItem>
+                    <SelectItem value="Contactado">Contactado</SelectItem>
+                    <SelectItem value="Interesado">Interesado</SelectItem>
+                    <SelectItem value="Propuesta">Propuesta</SelectItem>
+                    <SelectItem value="Ganado">Ganado</SelectItem>
+                    <SelectItem value="Perdido">Perdido</SelectItem>
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}

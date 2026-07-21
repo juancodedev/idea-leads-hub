@@ -15,6 +15,15 @@ import {
 import { Input } from '@/ui/components/input';
 import { Button } from '@/ui/components/button';
 import { Badge } from '@/ui/components/badge';
+import { Skeleton } from '@/ui/components/skeleton';
+import { EmptyState } from '@/ui/components/EmptyState';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/ui/components/select';
 import {
   Search,
   Filter,
@@ -136,18 +145,18 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <div className="h-10 w-64 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
-          <div className="h-10 w-32 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-10 w-32" />
         </div>
-        <div className="rounded-md border border-slate-200 dark:border-slate-800">
+        <div className="rounded-md border">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="flex items-center space-x-4 border-b border-slate-100 p-4 dark:border-slate-800 last:border-0">
-              <div className="h-10 w-10 animate-pulse rounded-full bg-slate-200 dark:bg-slate-800" />
+            <div key={i} className="flex items-center space-x-4 border-b p-4 last:border-0">
+              <Skeleton className="h-10 w-10 rounded-full" />
               <div className="flex-1 space-y-2">
-                <div className="h-4 w-1/4 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
-                <div className="h-3 w-1/3 animate-pulse rounded bg-slate-100 dark:bg-slate-900" />
+                <Skeleton className="h-4 w-1/4" />
+                <Skeleton className="h-3 w-1/3" />
               </div>
-              <div className="h-8 w-24 animate-pulse rounded-md bg-slate-200 dark:bg-slate-800" />
+              <Skeleton className="h-8 w-24" />
             </div>
           ))}
         </div>
@@ -157,9 +166,11 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
 
   if (leads.length === 0) {
     return (
-      <div className="flex h-64 flex-col items-center justify-center rounded-lg border border-dashed text-center">
-        <p className="text-sm text-slate-500 dark:text-slate-400">No hay leads registrados aún.</p>
-      </div>
+      <EmptyState
+        icon={Search}
+        title="No hay leads registrados aún"
+        description="Los leads que crees aparecerán aquí."
+      />
     );
   }
 
@@ -177,34 +188,36 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
           />
         </div>
         <div className="flex items-center gap-2">
-          <select
-            value={selectedStage}
-            onChange={(e) => setSelectedStage(e.target.value)}
-            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-          >
-            <option value="all">Todas las etapas</option>
-            {stages.map(stage => (
-              <option key={stage.id} value={stage.id}>{stage.name}</option>
-            ))}
-          </select>
-          <select
-            value={selectedTag}
-            onChange={(e) => setSelectedTag(e.target.value)}
-            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-          >
-            <option value="all">Todas las etiquetas</option>
-            {allTags.map(tag => (
-              <option key={tag.id} value={tag.id}>{tag.name}</option>
-            ))}
-          </select>
+          <Select value={selectedStage} onValueChange={setSelectedStage}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Todas las etapas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas las etapas</SelectItem>
+              {stages.map(stage => (
+                <SelectItem key={stage.id} value={stage.id}>{stage.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={selectedTag} onValueChange={setSelectedTag}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Todas las etiquetas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas las etiquetas</SelectItem>
+              {allTags.map(tag => (
+                <SelectItem key={tag.id} value={tag.id}>{tag.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
       {/* Tabla */}
-      <div className="rounded-md border bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
+      <div className="rounded-md border bg-card shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-slate-50/50 dark:bg-slate-800/50">
+            <TableRow className="bg-muted/50">
               <TableHead className="w-[250px]">Lead</TableHead>
               <TableHead>Empresa</TableHead>
               <TableHead>Etapa / Estado</TableHead>
@@ -219,7 +232,7 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
               return (
                 <TableRow
                   key={lead.id}
-                  className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
+                  className="hover:bg-muted/50 transition-colors cursor-pointer"
                   onClick={() => handleOpenQuickView(lead)}
                 >
                   <TableCell>
@@ -231,9 +244,9 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
                   <TableCell>{lead.company}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <div 
-                        className="h-2 w-2 rounded-full" 
-                        style={{ backgroundColor: stage?.color || '#cbd5e1' }} 
+                      <div
+                        className="h-2 w-2 rounded-full bg-[var(--tag-color)]"
+                        style={{ '--tag-color': stage?.color || '#cbd5e1' } as React.CSSProperties}
                       />
                       <span className="text-sm font-medium">{lead.status}</span>
                     </div>
@@ -243,8 +256,8 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
                       {lead.tags?.map(tag => (
                         <div
                           key={tag.id}
-                          className="h-2 w-2 rounded-full"
-                          style={{ backgroundColor: tag.color }}
+                          className="h-2 w-2 rounded-full bg-[var(--tag-color)]"
+                          style={{ '--tag-color': tag.color } as React.CSSProperties}
                           title={tag.name}
                         />
                       ))}
