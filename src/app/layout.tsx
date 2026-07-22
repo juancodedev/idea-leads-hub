@@ -3,6 +3,7 @@ import "./globals.css";
 import { Toaster } from "sonner";
 import { ErrorBoundary } from "@/ui/components/ErrorBoundary";
 import { Providers } from "@/ui/providers/QueryProvider";
+import { RepositoryProvider } from "@/ui/providers/RepositoryProvider";
 
 export const metadata: Metadata = {
   title: "Idea Leads Hub - Personal CRM",
@@ -19,7 +20,9 @@ export default function RootLayout({
       <body className="antialiased font-sans">
         <ErrorBoundary>
           <Providers>
-            {children}
+            <RepositoryProvider>
+              {children}
+            </RepositoryProvider>
           </Providers>
         </ErrorBoundary>
         <Toaster position="top-right" />
