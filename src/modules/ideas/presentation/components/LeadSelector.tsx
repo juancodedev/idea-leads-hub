@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Lead } from "@/core/domain/Lead";
-import { createClient } from "@/infrastructure/database/client";
-import { SupabaseLeadRepository } from "@/infrastructure/repositories/SupabaseLeadRepository";
+import { useLeadRepository } from "@/ui/providers/RepositoryProvider";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/components/popover";
 import { Button, buttonVariants } from "@/ui/components/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/ui/components/command";
@@ -19,11 +18,11 @@ export function LeadSelector({ selectedLeadId, onChange }: LeadSelectorProps) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [open, setOpen] = useState(false);
 
+  const repository = useLeadRepository();
+
   useEffect(() => {
-    const supabase = createClient();
-    const repository = new SupabaseLeadRepository(supabase);
     repository.getAll().then(setLeads);
-  }, []);
+  }, [repository]);
 
   const selectedLead = leads.find((l) => l.id === selectedLeadId);
 

@@ -26,8 +26,7 @@ import { PipelineColumn } from './PipelineColumn';
 import { PipelineCard } from './PipelineCard';
 import { LeadPopup } from './LeadPopup';
 import { useLeadsStore } from '../store/useLeadsStore';
-import { createClient } from '@/infrastructure/database/client';
-import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLeadRepository';
+import { useLeadRepository } from '@/ui/providers/RepositoryProvider';
 import { toast } from 'sonner';
 
 export function PipelineBoard({ initialLeads, stages }: { initialLeads: Lead[], stages: PipelineStage[] }) {
@@ -36,8 +35,7 @@ export function PipelineBoard({ initialLeads, stages }: { initialLeads: Lead[], 
   const [selectedLeadId, setSelectedLeadId] = React.useState<string | null>(null);
   const selectedLead = leads.find((l) => l.id === selectedLeadId);
   
-  const supabase = createClient();
-  const repository = new SupabaseLeadRepository(supabase);
+  const repository = useLeadRepository();
 
   useEffect(() => {
     setLeads(initialLeads);

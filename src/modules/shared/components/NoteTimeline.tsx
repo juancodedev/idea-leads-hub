@@ -6,8 +6,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { MessageSquare, Trash2 } from 'lucide-react';
 import { Button } from '@/ui/components/button';
-import { createClient } from '@/infrastructure/database/client';
-import { SupabaseNoteRepository } from '@/infrastructure/repositories/SupabaseNoteRepository';
+import { useNoteRepository } from '@/ui/providers/RepositoryProvider';
 import { toast } from 'sonner';
 
 interface NoteTimelineProps {
@@ -16,8 +15,7 @@ interface NoteTimelineProps {
 }
 
 export function NoteTimeline({ notes, onNoteDeleted }: NoteTimelineProps) {
-  const supabase = createClient();
-  const repository = new SupabaseNoteRepository(supabase);
+  const repository = useNoteRepository();
 
   const handleDelete = async (id: string) => {
     try {

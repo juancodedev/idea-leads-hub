@@ -24,9 +24,7 @@ import {
   SelectValue,
 } from '@/ui/components/select';
 import { Loader2 } from 'lucide-react';
-import { createClient } from '@/infrastructure/database/client';
-import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLeadRepository';
-import { SupabaseNoteRepository } from '@/infrastructure/repositories/SupabaseNoteRepository';
+import { useLeadRepository, useNoteRepository } from '@/ui/providers/RepositoryProvider';
 import { useLeadsStore } from '../store/useLeadsStore';
 import { NoteForm } from '@/modules/shared/components/NoteForm';
 import { NoteTimeline } from '@/modules/shared/components/NoteTimeline';
@@ -43,9 +41,8 @@ export interface LeadPopupProps {
 
 export function LeadPopup({ lead, stages, open, onOpenChange, onLeadUpdated }: LeadPopupProps) {
   const { updateLead } = useLeadsStore();
-  const supabase = createClient();
-  const leadRepository = new SupabaseLeadRepository(supabase);
-  const noteRepository = new SupabaseNoteRepository(supabase);
+  const leadRepository = useLeadRepository();
+  const noteRepository = useNoteRepository();
 
   const [notes, setNotes] = useState<Note[]>([]);
   const [isNotesLoading, setIsNotesLoading] = useState(false);

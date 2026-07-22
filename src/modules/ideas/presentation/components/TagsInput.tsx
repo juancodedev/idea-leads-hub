@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Tag } from "@/core/domain/Tag";
-import { createClient } from "@/infrastructure/database/client";
-import { SupabaseTagRepository } from "@/infrastructure/repositories/SupabaseTagRepository";
+import { useTagRepository } from "@/ui/providers/RepositoryProvider";
 import { TagBadge } from "./TagBadge";
 import { TagSelector } from "./TagSelector";
 
@@ -14,13 +13,12 @@ interface TagsInputProps {
 
 export function TagsInput({ value, onChange }: TagsInputProps) {
   const [tags, setTags] = useState<Tag[]>([]);
-  const supabase = createClient();
-  const repository = new SupabaseTagRepository(supabase);
+  const repository = useTagRepository();
 
   useEffect(() => {
     // Fetch all tags to display names in badges
     repository.getAll().then(setTags);
-  }, []);
+  }, [repository]);
 
   const selectedTags = tags.filter(t => value.includes(t.id));
 

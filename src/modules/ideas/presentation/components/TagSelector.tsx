@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Tag } from "@/core/domain/Tag";
-import { createClient } from "@/infrastructure/database/client";
-import { SupabaseTagRepository } from "@/infrastructure/repositories/SupabaseTagRepository";
+import { useTagRepository } from "@/ui/providers/RepositoryProvider";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/components/popover";
 import { Button, buttonVariants } from "@/ui/components/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/ui/components/command";
@@ -21,12 +20,11 @@ export function TagSelector({ selectedTagIds, onChange }: TagSelectorProps) {
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
 
-  const supabase = createClient();
-  const repository = new SupabaseTagRepository(supabase);
+  const repository = useTagRepository();
 
   useEffect(() => {
     repository.getAll().then(setAllTags);
-  }, []);
+  }, [repository]);
 
   const toggleTag = (tagId: string) => {
     const isSelected = selectedTagIds.includes(tagId);
