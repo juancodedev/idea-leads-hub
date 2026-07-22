@@ -58,6 +58,8 @@ export function LeadPopup({ lead, stages, open, onOpenChange, onLeadUpdated }: L
       phone: lead.phone || '',
       address: lead.address || '',
       website: lead.website || '',
+      instagramHandle: lead.instagramHandle || '',
+      instagramScopedId: lead.instagramScopedId || '',
       status: lead.status,
       source: lead.source || '',
       notes: lead.notes || '',
@@ -88,6 +90,8 @@ export function LeadPopup({ lead, stages, open, onOpenChange, onLeadUpdated }: L
           phone: lead.phone || '',
           address: lead.address || '',
           website: lead.website || '',
+          instagramHandle: lead.instagramHandle || '',
+          instagramScopedId: lead.instagramScopedId || '',
           status: lead.status,
           source: lead.source || '',
           notes: lead.notes || '',
@@ -108,6 +112,8 @@ export function LeadPopup({ lead, stages, open, onOpenChange, onLeadUpdated }: L
         phone: values.phone || undefined,
         address: values.address || undefined,
         website: values.website || undefined,
+        instagramHandle: values.instagramHandle || undefined,
+        instagramScopedId: values.instagramScopedId || undefined,
         source: values.source || undefined,
         notes: values.notes || undefined,
         pipelineId: values.pipelineId || undefined,
@@ -164,6 +170,14 @@ export function LeadPopup({ lead, stages, open, onOpenChange, onLeadUpdated }: L
                 <div className="space-y-2">
                   <Label htmlFor="address">Dirección</Label>
                   <Input id="address" {...form.register('address')} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="instagramHandle">Instagram</Label>
+                  <Input id="instagramHandle" placeholder="@usuario o https://instagram.com/..." {...form.register('instagramHandle')} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="instagramScopedId">Instagram ID (numérico)</Label>
+                  <Input id="instagramScopedId" placeholder="Ej: 17841405822304715" {...form.register('instagramScopedId')} />
                 </div>
               </div>
 
