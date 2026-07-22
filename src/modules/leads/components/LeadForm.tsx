@@ -22,8 +22,7 @@ import {
   SelectValue,
 } from '@/ui/components/select';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/infrastructure/database/client';
-import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLeadRepository';
+import { useLeadRepository } from '@/ui/providers/RepositoryProvider';
 import { Lead } from '@/core/domain/Lead';
 import { toast } from 'sonner';
 import React from 'react';
@@ -37,8 +36,7 @@ interface LeadFormProps {
 export function LeadForm({ initialData }: LeadFormProps) {
   const router = useRouter();
   const { leads, setLeads } = useLeadsStore();
-  const supabase = createClient();
-  const repository = new SupabaseLeadRepository(supabase);
+  const repository = useLeadRepository();
 
   const form = useForm<LeadFormValues>({
     resolver: zodResolver(LeadSchema),

@@ -57,8 +57,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { LeadQuickView } from './LeadQuickView';
-import { createClient } from '@/infrastructure/database/client';
-import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLeadRepository';
+import { useLeadRepository } from '@/ui/providers/RepositoryProvider';
 import { useLeadsStore } from '../store/useLeadsStore';
 
 interface LeadsTableProps {
@@ -77,6 +76,7 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
   const [deleteConfirmId, setDeleteConfirmId] = React.useState<string | null>(null);
 
   const router = useRouter();
+  const leadRepository = useLeadRepository();
 
   // Sincronizar leads iniciales con el store si es necesario
   React.useEffect(() => {
@@ -100,9 +100,7 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
     if (!deleteConfirmId) return;
 
     try {
-      const supabase = createClient();
-      const repository = new SupabaseLeadRepository(supabase);
-      await repository.delete(deleteConfirmId);
+      await leadRepository.delete(deleteConfirmId);
       removeLead(deleteConfirmId);
     } catch (error) {
       console.error('Error deleting lead:', error);
@@ -112,10 +110,8 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
   };
 
   const refreshLead = async (leadId: string) => {
-    const supabase = createClient();
-    const repository = new SupabaseLeadRepository(supabase);
     try {
-      const updatedLead = await repository.getById(leadId);
+      const updatedLead = await leadRepository.getById(leadId);
       if (updatedLead) {
         updateLead(updatedLead);
       }

@@ -3,8 +3,7 @@
 import * as React from 'react';
 import { Button } from '@/ui/components/button';
 import { Textarea } from '@/ui/components/textarea';
-import { createClient } from '@/infrastructure/database/client';
-import { SupabaseNoteRepository } from '@/infrastructure/repositories/SupabaseNoteRepository';
+import { useNoteRepository } from '@/ui/providers/RepositoryProvider';
 import { toast } from 'sonner';
 
 interface NoteFormProps {
@@ -17,8 +16,7 @@ export function NoteForm({ entityId, entityType, onNoteCreated }: NoteFormProps)
   const [content, setContent] = React.useState('');
   const [loading, setLoading] = React.useState(false);
 
-  const supabase = createClient();
-  const repository = new SupabaseNoteRepository(supabase);
+  const repository = useNoteRepository();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

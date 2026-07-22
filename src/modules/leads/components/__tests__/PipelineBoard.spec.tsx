@@ -11,11 +11,12 @@
  */
 
 import React from "react";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { screen, fireEvent } from "@testing-library/react";
 import { PipelineBoard } from "../PipelineBoard";
 import { Lead } from "@/core/domain/Lead";
 import { PipelineStage } from "@/core/domain/Pipeline";
 import { useLeadsStore } from "../../store/useLeadsStore";
+import { renderWithProviders, createMockRepositories } from "@/lib/test-utils";
 
 // ---------- Mock next/navigation ----------
 jest.mock("next/navigation", () => ({
@@ -81,18 +82,6 @@ jest.mock("@dnd-kit/sortable", () => {
 
 jest.mock("@dnd-kit/utilities", () => ({
   CSS: { Translate: { toString: () => "translate(0px, 0px)" } },
-}));
-
-// ---------- Mock SupabaseLeadRepository ----------
-jest.mock("@/infrastructure/repositories/SupabaseLeadRepository", () => ({
-  SupabaseLeadRepository: jest.fn().mockImplementation(() => ({
-    update: jest.fn(),
-  })),
-}));
-
-// ---------- Mock database client ----------
-jest.mock("@/infrastructure/database/client", () => ({
-  createClient: jest.fn(() => ({})),
 }));
 
 // ---------- Mock sonner toast ----------
@@ -182,7 +171,7 @@ describe("PipelineBoard — LeadPopup wiring", () => {
     const stages = [createStage()];
 
     useLeadsStore.setState({ leads: [lead], isLoading: false });
-    render(<PipelineBoard initialLeads={[lead]} stages={stages} />);
+    renderWithProviders(<PipelineBoard initialLeads={[lead]} stages={stages} />);
 
     // Click the card (find by lead name)
     const card = screen.getByText("Juan Pérez").closest("[data-testid]") || screen.getByText("Juan Pérez");
@@ -199,7 +188,7 @@ describe("PipelineBoard — LeadPopup wiring", () => {
     const stages = [createStage()];
 
     useLeadsStore.setState({ leads: [lead], isLoading: false });
-    render(<PipelineBoard initialLeads={[lead]} stages={stages} />);
+    renderWithProviders(<PipelineBoard initialLeads={[lead]} stages={stages} />);
 
     // Open popup by clicking the card
     fireEvent.click(screen.getByText("Juan Pérez"));
@@ -217,7 +206,7 @@ describe("PipelineBoard — LeadPopup wiring", () => {
     const stages = [createStage()];
 
     useLeadsStore.setState({ leads: [lead], isLoading: false });
-    render(<PipelineBoard initialLeads={[lead]} stages={stages} />);
+    renderWithProviders(<PipelineBoard initialLeads={[lead]} stages={stages} />);
 
     // Open popup
     fireEvent.click(screen.getByText("Juan Pérez"));
@@ -240,7 +229,7 @@ describe("PipelineBoard — LeadPopup wiring", () => {
     const stages = [createStage()];
 
     useLeadsStore.setState({ leads: [lead], isLoading: false });
-    render(<PipelineBoard initialLeads={[lead]} stages={stages} />);
+    renderWithProviders(<PipelineBoard initialLeads={[lead]} stages={stages} />);
 
     // No popup on initial render
     expect(screen.queryByTestId("lead-popup")).not.toBeInTheDocument();
@@ -252,7 +241,7 @@ describe("PipelineBoard — LeadPopup wiring", () => {
     const stages = [createStage(), createStage({ id: "stage-2", name: "Contactado", position: 1 })];
 
     useLeadsStore.setState({ leads: [lead1, lead2], isLoading: false });
-    render(<PipelineBoard initialLeads={[lead1, lead2]} stages={stages} />);
+    renderWithProviders(<PipelineBoard initialLeads={[lead1, lead2]} stages={stages} />);
 
     // Click Bob's card
     fireEvent.click(screen.getByText("Bob"));
@@ -267,7 +256,7 @@ describe("PipelineBoard — LeadPopup wiring", () => {
     const stages = [createStage()];
 
     useLeadsStore.setState({ leads: [lead], isLoading: false });
-    render(<PipelineBoard initialLeads={[lead]} stages={stages} />);
+    renderWithProviders(<PipelineBoard initialLeads={[lead]} stages={stages} />);
 
     // Open then close popup
     fireEvent.click(screen.getByText("Juan Pérez"));

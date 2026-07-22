@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Lead } from "@/core/domain/Lead";
-import { createClient } from "@/infrastructure/database/client";
-import { SupabaseLeadRepository } from "@/infrastructure/repositories/SupabaseLeadRepository";
+import { useLeadRepository } from "@/ui/providers/RepositoryProvider";
 import { Card, CardContent, CardHeader, CardTitle } from "@/ui/components/card";
 import { User, Building, Mail, Phone, ExternalLink } from "lucide-react";
 import Link from "next/link";
@@ -17,15 +16,15 @@ export function RelatedLeadCard({ leadId }: RelatedLeadCardProps) {
   const [lead, setLead] = useState<Lead | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const supabase = createClient();
-  const repository = new SupabaseLeadRepository(supabase);
+  const repository = useLeadRepository();
 
   useEffect(() => {
     setIsLoading(true);
     repository.getById(leadId)
       .then(setLead)
+      .catch((error) => console.error("Error fetching related lead:", error))
       .finally(() => setIsLoading(false));
-  }, [leadId]);
+  }, [leadId, repository]);
 
   if (isLoading) {
     return <Skeleton className="h-[120px] w-full" />;

@@ -12,10 +12,11 @@
  */
 
 import React from "react";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { screen, waitFor, fireEvent } from "@testing-library/react";
 import { LeadPopup } from "../LeadPopup";
 import { Lead } from "@/core/domain/Lead";
 import { PipelineStage } from "@/core/domain/Pipeline";
+import { renderWithProviders, createMockRepositories } from "@/lib/test-utils";
 
 // --- Mock Sheet to avoid Radix FocusScope render loop in tests ---
 jest.mock("@/ui/components/sheet", () => ({
@@ -31,26 +32,6 @@ jest.mock("../../store/useLeadsStore", () => ({
   useLeadsStore: () => ({
     updateLead: mockUpdateLead,
   }),
-}));
-
-// --- Mock SupabaseLeadRepository ---
-const mockUpdate = jest.fn();
-jest.mock("@/infrastructure/repositories/SupabaseLeadRepository", () => ({
-  SupabaseLeadRepository: jest.fn().mockImplementation(() => ({
-    update: mockUpdate,
-  })),
-}));
-
-// --- Mock SupabaseNoteRepository ---
-jest.mock("@/infrastructure/repositories/SupabaseNoteRepository", () => ({
-  SupabaseNoteRepository: jest.fn().mockImplementation(() => ({
-    getForEntity: jest.fn().mockResolvedValue([]),
-  })),
-}));
-
-// --- Mock database client ---
-jest.mock("@/infrastructure/database/client", () => ({
-  createClient: jest.fn(() => ({})),
 }));
 
 // --- Mock sonner toast ---
@@ -105,76 +86,84 @@ const stages: PipelineStage[] = [
 const onOpenChange = jest.fn();
 const onLeadUpdated = jest.fn();
 
+let repos: ReturnType<typeof createMockRepositories>;
+
 beforeEach(() => {
   jest.clearAllMocks();
+  repos = createMockRepositories();
 });
 
 describe("LeadPopup", () => {
   it("should render lead name in title when open", () => {
-    render(
+    renderWithProviders(
       <LeadPopup
         lead={baseLead}
         stages={stages}
         open={true}
         onOpenChange={onOpenChange}
         onLeadUpdated={onLeadUpdated}
-      />
+      />,
+      { repos }
     );
 
     expect(screen.getByText("Juan Pérez")).toBeInTheDocument();
   });
 
   it("should not render content when closed", () => {
-    render(
+    renderWithProviders(
       <LeadPopup
         lead={baseLead}
         stages={stages}
         open={false}
         onOpenChange={onOpenChange}
         onLeadUpdated={onLeadUpdated}
-      />
+      />,
+      { repos }
     );
 
     expect(screen.queryByText("Juan Pérez")).not.toBeInTheDocument();
   });
 
   it("should render notes section when open", () => {
-    render(
+    renderWithProviders(
       <LeadPopup
         lead={baseLead}
         stages={stages}
         open={true}
         onOpenChange={onOpenChange}
         onLeadUpdated={onLeadUpdated}
-      />
+      />,
+      { repos }
     );
 
     expect(screen.getByText("Notas")).toBeInTheDocument();
   });
 
   it("should render activity history section when open", () => {
-    render(
+    renderWithProviders(
       <LeadPopup
         lead={baseLead}
         stages={stages}
         open={true}
         onOpenChange={onOpenChange}
         onLeadUpdated={onLeadUpdated}
-      />
+      />,
+      { repos }
     );
 
     expect(screen.getByTestId("activities-section")).toBeInTheDocument();
   });
 
   it("should call onOpenChange(false) when Cancelar button is clicked", async () => {
-    render(
+    renderWithProviders(
       <LeadPopup
         lead={baseLead}
         stages={stages}
         open={true}
         onOpenChange={onOpenChange}
         onLeadUpdated={onLeadUpdated}
-      />
+      />,
+      { repos }
     );
 
     const cancelButton = screen.getByRole("button", { name: /cancelar/i });
@@ -184,16 +173,17 @@ describe("LeadPopup", () => {
   });
 
   it("should show error toast on save failure and keep popup open", async () => {
-    mockUpdate.mockRejectedValueOnce(new Error("DB error"));
+    (repos.lead.update as jest.Mock).mockRejectedValueOnce(new Error("DB error"));
 
-    render(
+    renderWithProviders(
       <LeadPopup
         lead={baseLead}
         stages={stages}
         open={true}
         onOpenChange={onOpenChange}
         onLeadUpdated={onLeadUpdated}
-      />
+      />,
+      { repos }
     );
 
     const saveButton = screen.getByRole("button", { name: /guardar/i });

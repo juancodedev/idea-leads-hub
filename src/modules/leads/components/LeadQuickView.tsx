@@ -19,9 +19,7 @@ import {
 import { TagSelector } from '@/modules/shared/components/TagSelector';
 import { NoteTimeline } from '@/modules/shared/components/NoteTimeline';
 import { NoteForm } from '@/modules/shared/components/NoteForm';
-import { createClient } from '@/infrastructure/database/client';
-import { SupabaseTagRepository } from '@/infrastructure/repositories/SupabaseTagRepository';
-import { SupabaseNoteRepository } from '@/infrastructure/repositories/SupabaseNoteRepository';
+import { useTagRepository, useNoteRepository } from '@/ui/providers/RepositoryProvider';
 import Link from 'next/link';
 
 interface LeadQuickViewProps {
@@ -32,9 +30,8 @@ interface LeadQuickViewProps {
 
 export function LeadQuickView({ lead, stages, onUpdate }: LeadQuickViewProps) {
   const stage = stages.find(s => s.id === lead.stageId);
-  const supabase = createClient();
-  const tagRepo = new SupabaseTagRepository(supabase);
-  const noteRepo = new SupabaseNoteRepository(supabase);
+  const tagRepo = useTagRepository();
+  const noteRepo = useNoteRepository();
 
   const handleAssignTag = async (tag: Tag) => {
     await tagRepo.assignToEntity(tag.id, lead.id, 'lead');

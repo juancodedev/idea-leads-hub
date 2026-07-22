@@ -19,8 +19,7 @@ import {
 } from '@/ui/components/popover';
 import { cn } from '@/lib/utils';
 import { Tag } from '@/core/domain/Tag';
-import { createClient } from '@/infrastructure/database/client';
-import { SupabaseTagRepository } from '@/infrastructure/repositories/SupabaseTagRepository';
+import { useTagRepository } from '@/ui/providers/RepositoryProvider';
 import { toast } from 'sonner';
 
 interface TagSelectorProps {
@@ -35,21 +34,15 @@ export function TagSelector({ selectedTags, onAssign, onRemove }: TagSelectorPro
   const [allTags, setAllTags] = React.useState<Tag[]>([]);
   const [loading, setLoading] = React.useState(false);
 
-  const supabase = createClient();
-  const repository = React.useMemo(() => new SupabaseTagRepository(supabase), [supabase]);
-
-  const fetchTags = React.useCallback(async () => {
-    try {
-      const tags = await repository.getAll();
-      setAllTags(tags);
-    } catch (error) {
-      console.error('Error fetching tags:', error);
-    }
-  }, [repository]);
+  const repository = useTagRepository();
 
   React.useEffect(() => {
-    fetchTags();
-  }, [fetchTags]);
+    let mounted = true;
+    repository.getAll()
+      .then((tags) => { if (mounted) setAllTags(tags); })
+      .catch((error) => console.error('Error fetching tags:', error));
+    return () => { mounted = false; };
+  }, [repository]);
 
   const handleCreateTag = async () => {
     if (!inputValue) return;
@@ -57,7 +50,8 @@ export function TagSelector({ selectedTags, onAssign, onRemove }: TagSelectorPro
     try {
       const newTag = await repository.create({ name: inputValue });
       await onAssign(newTag);
-      await fetchTags();
+      const updatedTags = await repository.getAll();
+      setAllTags(updatedTags);
       setInputValue('');
       toast.success('Etiqueta creada y asignada');
     } catch (error: any) {

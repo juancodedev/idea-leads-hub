@@ -6,7 +6,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Checkbox } from "@/ui/components/checkbox";
 import { cn } from "@/lib/utils";
-import { activitiesModule } from "../../index";
+import { useActivityRepository } from "@/ui/providers/RepositoryProvider";
 import { toast } from "sonner";
 import { useState } from "react";
 
@@ -17,17 +17,21 @@ interface ActivityItemProps {
 
 export function ActivityItem({ activity, onUpdate }: ActivityItemProps) {
   const [isCompleting, setIsCompleting] = useState(false);
-  const module = activitiesModule();
+  const repository = useActivityRepository();
 
   const handleToggleComplete = async () => {
     if (activity.completed) return; // For now, only allow marking as complete
     
     setIsCompleting(true);
     try {
-      await module.completeActivity.execute(activity.id);
+      // Keep the existence check that CompleteActivity use case had
+      const existing = await repository.getById(activity.id);
+      if (!existing) throw new Error("Actividad no encontrada");
+      await repository.complete(activity.id);
       toast.success("Actividad completada");
       if (onUpdate) onUpdate();
     } catch (error) {
+      console.error("Error completing activity:", error);
       toast.error("Error al completar la actividad");
     } finally {
       setIsCompleting(false);

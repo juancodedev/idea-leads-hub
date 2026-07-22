@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Activity } from "../../domain/entities/Activity";
-import { activitiesModule } from "../../index";
+import { useActivityRepository } from "@/ui/providers/RepositoryProvider";
 import { ActivityList } from "./ActivityList";
 import { ActivityForm } from "../forms/ActivityForm";
 import { ActivitySchemaType } from "../../infrastructure/schemas/ActivitySchema";
@@ -22,23 +22,19 @@ export function LeadActivitiesSection({ leadId }: LeadActivitiesSectionProps) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const module = activitiesModule();
+  const activityRepository = useActivityRepository();
 
   const fetchActivities = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { createClient } = await import("@/infrastructure/database/client");
-      const { SupabaseActivityRepository } = await import("../../infrastructure/repositories/SupabaseActivityRepository");
-      const supabase = createClient();
-      const repository = new SupabaseActivityRepository(supabase);
-      const data = await repository.getForLead(leadId);
+      const data = await activityRepository.getForLead(leadId);
       setActivities(data);
     } catch (error) {
       console.error("Error fetching activities:", error);
     } finally {
       setIsLoading(false);
     }
-  }, [leadId]);
+  }, [leadId, activityRepository]);
 
   useEffect(() => {
     fetchActivities();
@@ -47,7 +43,7 @@ export function LeadActivitiesSection({ leadId }: LeadActivitiesSectionProps) {
   const handleSubmit = async (data: ActivitySchemaType) => {
     setIsSubmitting(true);
     try {
-      await module.createActivity.execute(data);
+      await activityRepository.create(data);
       toast.success("Actividad registrada");
       setIsFormOpen(false);
       fetchActivities();

@@ -7,9 +7,7 @@ import { Note } from '@/core/domain/Note';
 import { TagSelector } from '@/modules/shared/components/TagSelector';
 import { NoteForm } from '@/modules/shared/components/NoteForm';
 import { NoteTimeline } from '@/modules/shared/components/NoteTimeline';
-import { createClient } from '@/infrastructure/database/client';
-import { SupabaseTagRepository } from '@/infrastructure/repositories/SupabaseTagRepository';
-import { SupabaseNoteRepository } from '@/infrastructure/repositories/SupabaseNoteRepository';
+import { useTagRepository, useNoteRepository } from '@/ui/providers/RepositoryProvider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/components/tabs';
 import { MessageSquare, History, Lightbulb, MessageCircle } from 'lucide-react';
 import { LeadActivitiesSection } from '@/modules/activities/presentation/components/LeadActivitiesSection';
@@ -26,32 +24,31 @@ export function LeadWorkspace({ lead }: LeadWorkspaceProps) {
   const [notes, setNotes] = React.useState<Note[]>([]);
   const [loading, setLoading] = React.useState(true);
 
-  const supabaseRef = React.useRef(createClient());
-  const tagRepositoryRef = React.useRef(new SupabaseTagRepository(supabaseRef.current));
-  const noteRepositoryRef = React.useRef(new SupabaseNoteRepository(supabaseRef.current));
+  const tagRepository = useTagRepository();
+  const noteRepository = useNoteRepository();
 
   const fetchNotes = React.useCallback(async () => {
     try {
-      const data = await noteRepositoryRef.current.getForEntity(lead.id, 'lead');
+      const data = await noteRepository.getForEntity(lead.id, 'lead');
       setNotes(data);
     } catch (error) {
       console.error('Error fetching notes:', error);
     } finally {
       setLoading(false);
     }
-  }, [lead.id]);
+  }, [lead.id, noteRepository, setNotes, setLoading]);
 
   React.useEffect(() => {
     fetchNotes();
   }, [fetchNotes]);
 
   const handleAssignTag = async (tag: Tag) => {
-    await tagRepositoryRef.current.assignToEntity(tag.id, lead.id, 'lead');
+    await tagRepository.assignToEntity(tag.id, lead.id, 'lead');
     setTags((prev) => [...prev, tag]);
   };
 
   const handleRemoveTag = async (tagId: string) => {
-    await tagRepositoryRef.current.removeFromEntity(tagId, lead.id, 'lead');
+    await tagRepository.removeFromEntity(tagId, lead.id, 'lead');
     setTags((prev) => prev.filter((t) => t.id !== tagId));
   };
 
