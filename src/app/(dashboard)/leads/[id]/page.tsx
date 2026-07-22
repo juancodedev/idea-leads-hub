@@ -5,7 +5,7 @@ import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLe
 import { notFound } from 'next/navigation';
 import { Button } from '@/ui/components/button';
 import Link from 'next/link';
-import { Edit2, Phone, Mail, Building, Globe, MapPin, Calendar, ChevronLeft, Instagram } from 'lucide-react';
+import { Edit2, Phone, Mail, Building, Globe, MapPin, Calendar, ChevronLeft, Instagram, User, Linkedin, DollarSign } from 'lucide-react';
 import { DashboardLayout } from '@/ui/layouts/DashboardLayout';
 import { LeadWorkspace } from '@/modules/leads/components/LeadWorkspace';
 
@@ -106,10 +106,36 @@ export default async function LeadDetailsPage({ params }: LeadDetailsPageProps) 
                     <span className="text-sm">{lead.address}</span>
                   </div>
                 )}
+                {lead.jobTitle && (
+                  <div className="flex items-center gap-3">
+                    <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="text-sm">{lead.jobTitle}</span>
+                  </div>
+                )}
+                {lead.linkedinUrl && (
+                  <div className="flex items-center gap-3 overflow-hidden">
+                    <Linkedin className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <a href={lead.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline truncate">
+                      {lead.linkedinUrl}
+                    </a>
+                  </div>
+                )}
                 {lead.source && (
                   <div className="flex items-center gap-3">
                     <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="text-sm">{lead.source}</span>
+                  </div>
+                )}
+                {lead.estimatedValue != null && (
+                  <div className="flex items-center gap-3">
+                    <DollarSign className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="text-sm font-medium">${lead.estimatedValue.toLocaleString()}</span>
+                  </div>
+                )}
+                {lead.nextFollowUp && (
+                  <div className="flex items-center gap-3">
+                    <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="text-sm">Próximo: {new Date(lead.nextFollowUp).toLocaleDateString()}</span>
                   </div>
                 )}
                 <div className="flex items-center gap-3">

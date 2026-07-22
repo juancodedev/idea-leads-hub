@@ -20,6 +20,13 @@ export const LeadSchema = z.object({
   stageId: z.preprocess((val) => val === '' ? undefined : val, z.string().uuid().optional()),
   instagramHandle: z.string().optional(),
   instagramScopedId: z.string().optional(),
+  jobTitle: z.string().optional(),
+  linkedinUrl: z.string().url('URL inválida').optional().or(z.literal('')),
+  estimatedValue: z.preprocess(
+    (val) => (val === '' || val === undefined ? undefined : Number(val)),
+    z.number().positive('El valor debe ser positivo').optional()
+  ),
+  nextFollowUp: z.string().optional(),
 });
 
 /**
@@ -43,6 +50,10 @@ export const ApiCreateLeadSchema = z.object({
 
   instagramHandle: z.string().optional(),
   instagramScopedId: z.string().optional(),
+  jobTitle: z.string().optional(),
+  linkedinUrl: z.string().optional(),
+  estimatedValue: z.number().optional(),
+  nextFollowUp: z.string().optional(),
 
   // Spanish fields (deprecated — kept for backward compat)
   empresa: z.string().min(1, 'La empresa es obligatoria').optional(),
