@@ -6,17 +6,17 @@ Estandarizar el desarrollo local y el despliegue del CRM Personal para asegurar 
 
 ## Baseline
 
-- **Framework**: Next.js 14+ (App Router)
+- **Framework**: Next.js 15 (App Router)
 - **Lenguaje**: TypeScript (Strict mode)
 - **Estilos**: Tailwind CSS + shadcn/ui
 - **Base de Datos & Auth**: Supabase
-- **Gestor de Paquetes**: npm o pnpm
+- **Gestor de Paquetes**: pnpm
 
 ## Desarrollo Local
 
 1. **Instalar dependencias**:
    ```bash
-   npm install
+   pnpm install
    ```
 
 2. **Configurar variables de entorno**:
@@ -30,7 +30,7 @@ Estandarizar el desarrollo local y el despliegue del CRM Personal para asegurar 
 
 3. **Iniciar el servidor de desarrollo**:
    ```bash
-   npm run dev
+   pnpm dev
    ```
    La aplicación estará disponible en `http://localhost:3000`.
 
@@ -58,11 +58,13 @@ El proyecto sigue una **Arquitectura Hexagonal** para garantizar el desacoplamie
 El proyecto está preparado para ejecutarse en el Edge de Cloudflare:
 
 - Las variables de entorno deben configurarse en el panel de Cloudflare Pages.
-- El build command recomendado es `npm run build`.
+- El build command recomendado es `pnpm build` (ver `package.json`).
 - El output directory es `.next`.
 
 ## Calidad de Código
 
-- **Linting**: `npm run lint`
+- **Testing**: `pnpm test` (Jest + React Testing Library)
+- **Type checking**: `npx tsc --noEmit`
+- **Linting**: `pnpm lint`
 - **Formatting**: Prettier se utiliza para mantener la consistencia.
 - **Hooks**: Husky y lint-staged están configurados para ejecutar validaciones antes de cada commit.

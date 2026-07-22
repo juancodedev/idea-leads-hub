@@ -5,13 +5,13 @@ Idea Leads Hub es un CRM personal diseñado para gestionar leads e ideas de nego
 ## 🚀 Características Principales
 
 -   **Gestión de Leads**: Registro y seguimiento detallado de prospectos.
--   **Pipeline de Ventas**: Visualización del estado de tus leads en un tablero Kanban.
--   **Gestión de Ideas**: Repositorio para capturar y validar ideas de negocio, vinculándolas a leads si es necesario.
+-   **Pipeline de Ventas**: Tablero Kanban para leads con drag & drop entre columnas y popup inline para editar, cambiar estado, agregar notas y ver historial de actividades.
+-   **Gestión de Ideas**: Tablero Kanban para ideas con drag & drop entre estados (cross-column y reorden intra-columna), persistencia con error rollback.
 -   **Seguimiento de Actividades**: Registro de llamadas, correos, reuniones, tareas e Instagram DMs.
--   **Integración con Instagram**: Envío y recepción de mensajes DM vía Meta API, timeline de conversaciones por lead y auto-DM en transiciones de estado.
+-   **Integración con Instagram**: Envío y recepción de mensajes DM vía Meta API, timeline de conversaciones por lead, auto-DM en transiciones de estado, y handle clickeable en la ficha del lead.
 -   **API REST Completa**: ~35 endpoints para todas las entidades, con autenticación JWT, rate limiting y logging estructurado.
 -   **Documentación Interactiva**: Documentación de la API integrada con Swagger UI (OpenAPI 3.0).
--   **203 Tests Automatizados**: Tests unitarios con Jest + React Testing Library.
+-   **257 Tests Automatizados**: Tests unitarios y de integración con Jest + React Testing Library.
 
 ## 🏗️ Arquitectura
 
@@ -40,8 +40,8 @@ Para más detalles, consulta la [Guía de Arquitectura](./docs/architecture.md).
 -   **Estilos**: Tailwind CSS + shadcn/ui
 -   **Validación**: Zod
 -   **Estado**: Zustand + React Query (@tanstack/react-query)
--   **Drag & Drop**: @dnd-kit (Kanban pipeline)
--   **Testing**: Jest + React Testing Library (203 tests)
+-   **Drag & Drop**: @dnd-kit (Pipeline de leads + Board de ideas)
+-   **Testing**: Jest + React Testing Library (257 tests)
 -   **CI/CD**: GitHub Actions (type-check, lint, tests en cada PR)
 
 ## 📋 Requisitos Previos
@@ -214,12 +214,14 @@ npx tsc --noEmit
 npx eslint .
 ```
 
-Actualmente **203 tests** pasando en 39 suites, incluyendo:
+Actualmente **257 tests** pasando en 46 suites, incluyendo:
 - Tests de casos de uso (CreateLead, CreateIdea, CreateActivity, etc.)
 - Tests de API routes (Profile, Tags, Notes, Ideas, Activities, Pipeline, Leads, Instagram)
 - Tests de servicios (InstagramAuthService, InstagramMessagingService)
-- Tests de componentes (ActivityItem, ActivityTypeIcon, InstagramSendDialog)
+- Tests de componentes (ActivityItem, ActivityTypeIcon, InstagramSendDialog, LeadPopup, IdeaCard)
 - Tests de integración de Instagram OAuth (auth, callback, status routes)
+- Tests de drag & drop (IdeasBoard handleDragOver, PipelineBoard popup, PipelineCard sortable)
+- Tests de accesibilidad (CommandMenu DialogTitle sr-only)
 - Tests de BaseRepository y error classes
 
 ## 🔄 CI/CD

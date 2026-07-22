@@ -3,7 +3,7 @@
 Este archivo es la fuente de verdad para cualquier agente de IA que trabaje en **Idea Leads Hub**. Contiene la estructura, arquitectura y reglas críticas del sistema. **Debe actualizarse después de cualquier cambio estructural significativo.**
 
 ## 📌 Resumen del Proyecto
-CRM Personal para la gestión de leads, ideas de negocio y actividades, construido con Next.js 16 (App Router), Supabase y Arquitectura Hexagonal. Optimizado para despliegue en Cloudflare Pages (Edge Runtime).
+CRM Personal para la gestión de leads, ideas de negocio y actividades, construido con Next.js 15 (App Router), Supabase y Arquitectura Hexagonal. Optimizado para despliegue en Cloudflare Pages (Edge Runtime).
 
 ## 🏗️ Arquitectura (Hexagonal + Clean Architecture)
 
@@ -43,9 +43,19 @@ CRM Personal para la gestión de leads, ideas de negocio y actividades, construi
 - `src/ui/layouts/DashboardLayout.tsx`: Layout principal con sidebar y visibilidad de usuario.
 - `src/modules/shared/presentation/components/ProfileForm.tsx`: Gestión de perfil de usuario.
 
+### Kanban Boards (Drag & Drop)
+- **PipelineBoard** (`src/modules/leads/components/PipelineBoard.tsx`): Kanban de leads con drag & drop cross-column vía @dnd-kit. Al clickear una tarjeta abre `LeadPopup.tsx` (Sheet) con formulario editable, stage selector, notas e historial de actividades.
+- **IdeasBoard** (`src/modules/ideas/presentation/components/IdeasBoard.tsx`): Kanban de ideas con `useSortable` en cada card, `handleDragOver` para movimiento cross-column y `arrayMove` para reorden intra-columna. Persistencia vía `MoveIdeaStatus` use case con error rollback.
+
+### Lead Management
+- `src/modules/leads/components/LeadPopup.tsx`: Sheet lateral con react-hook-form para editar leads, cambiar estado, agregar notas y ver actividad. Se abre al clickear una tarjeta en PipelineBoard.
+
+### Instagram
+- `src/app/(dashboard)/leads/[id]/page.tsx`: Muestra `@{instagramHandle}` como link clickeable a `https://instagram.com/{handle}` + scoped ID cuando el lead tiene datos de Instagram.
+
 ## ⚠️ Reglas Críticas para Agentes
 
-1. **Edge Runtime**: Todos los API routes y páginas dinámicas deben incluir `export const runtime = 'edge'`.
+1. **Edge Runtime**: Los API routes y páginas del dashboard deben incluir `export const runtime = 'edge'`.
 2. **Next.js 16+ en Cloudflare**: Usar `middleware.ts` para conservar Edge Runtime; evitar `proxy.ts` porque Next.js 16 lo ejecuta en Node.js runtime. No agregar `export const runtime = "edge"` al middleware: Next.js 16.2 lo rechaza durante el build.
 3. **Async Cookies**: El cliente de base de datos de servidor debe ser `async` debido a `cookies()` en Next.js 15+.
 4. **Validación**: Siempre validar entradas externas con Zod usando esquemas estrictos (`.strict()`).
