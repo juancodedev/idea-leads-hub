@@ -9,9 +9,10 @@ import { cn } from '@/lib/utils';
 interface PipelineCardProps {
   lead: Lead;
   isOverlay?: boolean;
+  onClick?: (id: string) => void;
 }
 
-export function PipelineCard({ lead, isOverlay }: PipelineCardProps) {
+export function PipelineCard({ lead, isOverlay, onClick }: PipelineCardProps) {
   const {
     attributes,
     listeners,
@@ -52,6 +53,7 @@ export function PipelineCard({ lead, isOverlay }: PipelineCardProps) {
         "cursor-grab active:cursor-grabbing",
         isOverlay && "rotate-3 scale-105 shadow-xl"
       )}
+      onClick={() => onClick?.(lead.id)}
     >
       <Card className="hover:border-border">
         <CardContent className="p-4">

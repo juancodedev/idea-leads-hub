@@ -5,7 +5,7 @@ import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLe
 import { notFound } from 'next/navigation';
 import { Button } from '@/ui/components/button';
 import Link from 'next/link';
-import { Edit2, Phone, Mail, Building, Globe, MapPin, Calendar, ChevronLeft } from 'lucide-react';
+import { Edit2, Phone, Mail, Building, Globe, MapPin, Calendar, ChevronLeft, Instagram } from 'lucide-react';
 import { DashboardLayout } from '@/ui/layouts/DashboardLayout';
 import { LeadWorkspace } from '@/modules/leads/components/LeadWorkspace';
 
@@ -74,6 +74,26 @@ export default async function LeadDetailsPage({ params }: LeadDetailsPageProps) 
                     <a href={lead.website} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline truncate">
                       {lead.website}
                     </a>
+                  </div>
+                )}
+                {lead.instagramHandle && (
+                  <div className="flex items-center gap-3">
+                    <Instagram className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="flex flex-col">
+                      <a
+                        href={`https://instagram.com/${lead.instagramHandle}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-primary hover:underline"
+                      >
+                        @{lead.instagramHandle}
+                      </a>
+                      {lead.instagramScopedId && (
+                        <span className="text-xs text-muted-foreground">
+                          ID: {lead.instagramScopedId}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 )}
                 <div className="flex items-center gap-3">
