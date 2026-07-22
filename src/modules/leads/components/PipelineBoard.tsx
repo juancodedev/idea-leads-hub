@@ -24,6 +24,7 @@ import { Lead } from '@/core/domain/Lead';
 import { PipelineStage } from '@/core/domain/Pipeline';
 import { PipelineColumn } from './PipelineColumn';
 import { PipelineCard } from './PipelineCard';
+import { LeadPopup } from './LeadPopup';
 import { useLeadsStore } from '../store/useLeadsStore';
 import { createClient } from '@/infrastructure/database/client';
 import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLeadRepository';
@@ -32,6 +33,8 @@ import { toast } from 'sonner';
 export function PipelineBoard({ initialLeads, stages }: { initialLeads: Lead[], stages: PipelineStage[] }) {
   const { leads, setLeads, updateLead, updateLeadStage } = useLeadsStore();
   const [activeLead, setActiveLead] = React.useState<Lead | null>(null);
+  const [selectedLeadId, setSelectedLeadId] = React.useState<string | null>(null);
+  const selectedLead = leads.find((l) => l.id === selectedLeadId);
   
   const supabase = createClient();
   const repository = new SupabaseLeadRepository(supabase);
@@ -147,6 +150,7 @@ export function PipelineBoard({ initialLeads, stages }: { initialLeads: Lead[], 
             key={stage.id} 
             stage={stage} 
             leads={leads.filter((l) => l.stageId === stage.id)} 
+            onCardClick={setSelectedLeadId}
           />
         ))}
         {stages.length === 0 && (
@@ -167,6 +171,19 @@ export function PipelineBoard({ initialLeads, stages }: { initialLeads: Lead[], 
       }}>
         {activeLead ? <PipelineCard lead={activeLead} isOverlay /> : null}
       </DragOverlay>
+
+      {selectedLead && (
+        <LeadPopup
+          lead={selectedLead}
+          stages={stages}
+          open={!!selectedLead}
+          onOpenChange={(open) => !open && setSelectedLeadId(null)}
+          onLeadUpdated={(updated) => {
+            updateLead(updated);
+            setSelectedLeadId(null);
+          }}
+        />
+      )}
     </DndContext>
   );
 }
