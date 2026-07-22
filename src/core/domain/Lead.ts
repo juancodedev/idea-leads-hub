@@ -19,6 +19,10 @@ export interface Lead {
   stageId?: string;
   instagramHandle?: string;
   instagramScopedId?: string;
+  jobTitle?: string;
+  linkedinUrl?: string;
+  estimatedValue?: number;
+  nextFollowUp?: string;
   tags?: Tag[];
   notes_data?: Note[];
   createdAt: string;
@@ -39,6 +43,10 @@ export interface CreateLeadDTO {
   stageId?: string;
   instagramHandle?: string;
   instagramScopedId?: string;
+  jobTitle?: string;
+  linkedinUrl?: string;
+  estimatedValue?: number;
+  nextFollowUp?: string;
 }
 
 export interface UpdateLeadDTO extends Partial<CreateLeadDTO> {

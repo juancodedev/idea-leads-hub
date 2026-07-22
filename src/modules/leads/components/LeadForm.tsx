@@ -49,6 +49,10 @@ export function LeadForm({ initialData }: LeadFormProps) {
       website: initialData?.website || '',
       instagramHandle: initialData?.instagramHandle || '',
       instagramScopedId: initialData?.instagramScopedId || '',
+      jobTitle: initialData?.jobTitle || '',
+      linkedinUrl: initialData?.linkedinUrl || '',
+      estimatedValue: initialData?.estimatedValue || undefined,
+      nextFollowUp: initialData?.nextFollowUp || '',
       status: initialData?.status || 'Nuevo',
       source: initialData?.source || '',
       notes: initialData?.notes || '',
@@ -216,6 +220,58 @@ export function LeadForm({ initialData }: LeadFormProps) {
                 <FormLabel>Instagram ID (numérico)</FormLabel>
                 <FormControl>
                   <Input placeholder="Ej: 17841405822304715" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="jobTitle"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Cargo</FormLabel>
+                <FormControl>
+                  <Input placeholder="CEO, Marketing Manager, etc." {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="linkedinUrl"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>LinkedIn</FormLabel>
+                <FormControl>
+                  <Input type="url" placeholder="https://linkedin.com/in/..." {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="estimatedValue"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Valor estimado ($)</FormLabel>
+                <FormControl>
+                  <Input type="number" min="0" step="0.01" placeholder="Ej: 50000" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="nextFollowUp"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Próximo seguimiento</FormLabel>
+                <FormControl>
+                  <Input type="date" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

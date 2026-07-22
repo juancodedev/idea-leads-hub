@@ -126,7 +126,9 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
         lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         lead.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
         lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (lead.website && lead.website.toLowerCase().includes(searchTerm.toLowerCase()));
+        (lead.website && lead.website.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (lead.jobTitle && lead.jobTitle.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (lead.phone && lead.phone.toLowerCase().includes(searchTerm.toLowerCase()));
 
       const matchesStage = selectedStage === 'all' || lead.stageId === selectedStage;
 
@@ -215,10 +217,11 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
           <TableHeader>
             <TableRow className="bg-muted/50">
               <TableHead className="w-[250px]">Lead</TableHead>
+              <TableHead>Contacto</TableHead>
               <TableHead>Empresa</TableHead>
               <TableHead>Etapa / Estado</TableHead>
               <TableHead>Etiquetas</TableHead>
-              <TableHead>Fecha</TableHead>
+              <TableHead className="text-right">Valor</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
@@ -235,6 +238,12 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
                     <div className="flex flex-col">
                       <span className="font-semibold">{lead.name}</span>
                       <span className="text-xs text-muted-foreground">{lead.email}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col text-xs text-muted-foreground">
+                      {lead.jobTitle && <span>{lead.jobTitle}</span>}
+                      {lead.phone && <span>{lead.phone}</span>}
                     </div>
                   </TableCell>
                   <TableCell>{lead.company}</TableCell>
@@ -259,8 +268,10 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
                       ))}
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-xs">
-                    {new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short' }).format(new Date(lead.createdAt))}
+                  <TableCell className="text-right text-xs font-medium">
+                    {lead.estimatedValue != null
+                      ? `$${lead.estimatedValue.toLocaleString()}`
+                      : '—'}
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>

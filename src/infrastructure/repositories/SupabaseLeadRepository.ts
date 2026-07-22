@@ -61,6 +61,10 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
         stage_id: lead.stageId ?? null,
         instagram_handle: lead.instagramHandle ?? null,
         instagram_scoped_id: lead.instagramScopedId ?? null,
+        job_title: lead.jobTitle ?? null,
+        linkedin_url: lead.linkedinUrl ?? null,
+        estimated_value: lead.estimatedValue ?? null,
+        next_follow_up: lead.nextFollowUp ?? null,
         user_id: userId
       }] as never)
       .select()
@@ -88,6 +92,10 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
     if (updates.stageId !== undefined) dbUpdates.stage_id = updates.stageId;
     if (updates.instagramHandle !== undefined) dbUpdates.instagram_handle = updates.instagramHandle;
     if (updates.instagramScopedId !== undefined) dbUpdates.instagram_scoped_id = updates.instagramScopedId;
+    if (updates.jobTitle !== undefined) dbUpdates.job_title = updates.jobTitle;
+    if (updates.linkedinUrl !== undefined) dbUpdates.linkedin_url = updates.linkedinUrl;
+    if (updates.estimatedValue !== undefined) dbUpdates.estimated_value = updates.estimatedValue;
+    if (updates.nextFollowUp !== undefined) dbUpdates.next_follow_up = updates.nextFollowUp;
 
     dbUpdates.updated_at = new Date().toISOString();
 
@@ -149,6 +157,10 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
       stageId: row.stage_id ?? undefined,
       instagramHandle: row.instagram_handle ?? undefined,
       instagramScopedId: row.instagram_scoped_id ?? undefined,
+      jobTitle: row.job_title ?? undefined,
+      linkedinUrl: row.linkedin_url ?? undefined,
+      estimatedValue: row.estimated_value ?? undefined,
+      nextFollowUp: row.next_follow_up ?? undefined,
       tags: entityTags ? entityTags.map(et => ({
         id: et.tags.id,
         name: et.tags.name,

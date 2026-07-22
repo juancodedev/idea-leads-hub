@@ -60,6 +60,10 @@ export function LeadPopup({ lead, stages, open, onOpenChange, onLeadUpdated }: L
       website: lead.website || '',
       instagramHandle: lead.instagramHandle || '',
       instagramScopedId: lead.instagramScopedId || '',
+      jobTitle: lead.jobTitle || '',
+      linkedinUrl: lead.linkedinUrl || '',
+      estimatedValue: lead.estimatedValue || undefined,
+      nextFollowUp: lead.nextFollowUp || '',
       status: lead.status,
       source: lead.source || '',
       notes: lead.notes || '',
@@ -92,6 +96,10 @@ export function LeadPopup({ lead, stages, open, onOpenChange, onLeadUpdated }: L
           website: lead.website || '',
           instagramHandle: lead.instagramHandle || '',
           instagramScopedId: lead.instagramScopedId || '',
+          jobTitle: lead.jobTitle || '',
+          linkedinUrl: lead.linkedinUrl || '',
+          estimatedValue: lead.estimatedValue || undefined,
+          nextFollowUp: lead.nextFollowUp || '',
           status: lead.status,
           source: lead.source || '',
           notes: lead.notes || '',
@@ -114,6 +122,10 @@ export function LeadPopup({ lead, stages, open, onOpenChange, onLeadUpdated }: L
         website: values.website || undefined,
         instagramHandle: values.instagramHandle || undefined,
         instagramScopedId: values.instagramScopedId || undefined,
+        jobTitle: values.jobTitle || undefined,
+        linkedinUrl: values.linkedinUrl || undefined,
+        estimatedValue: values.estimatedValue || undefined,
+        nextFollowUp: values.nextFollowUp || undefined,
         source: values.source || undefined,
         notes: values.notes || undefined,
         pipelineId: values.pipelineId || undefined,
@@ -178,6 +190,22 @@ export function LeadPopup({ lead, stages, open, onOpenChange, onLeadUpdated }: L
                 <div className="space-y-2">
                   <Label htmlFor="instagramScopedId">Instagram ID (numérico)</Label>
                   <Input id="instagramScopedId" placeholder="Ej: 17841405822304715" {...form.register('instagramScopedId')} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="jobTitle">Cargo</Label>
+                  <Input id="jobTitle" placeholder="CEO, Marketing Manager..." {...form.register('jobTitle')} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="linkedinUrl">LinkedIn</Label>
+                  <Input id="linkedinUrl" type="url" placeholder="https://linkedin.com/in/..." {...form.register('linkedinUrl')} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="estimatedValue">Valor estimado ($)</Label>
+                  <Input id="estimatedValue" type="number" min="0" step="0.01" placeholder="Ej: 50000" {...form.register('estimatedValue')} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="nextFollowUp">Próximo seguimiento</Label>
+                  <Input id="nextFollowUp" type="date" {...form.register('nextFollowUp')} />
                 </div>
               </div>
 

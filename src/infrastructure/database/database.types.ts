@@ -58,6 +58,10 @@ export interface Database {
           stage_id: string | null;
           instagram_handle: string | null;
           instagram_scoped_id: string | null;
+          job_title: string | null;
+          linkedin_url: string | null;
+          estimated_value: number | null;
+          next_follow_up: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -77,6 +81,10 @@ export interface Database {
           stage_id?: string | null;
           instagram_handle?: string | null;
           instagram_scoped_id?: string | null;
+          job_title?: string | null;
+          linkedin_url?: string | null;
+          estimated_value?: number | null;
+          next_follow_up?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -96,6 +104,10 @@ export interface Database {
           stage_id?: string | null;
           instagram_handle?: string | null;
           instagram_scoped_id?: string | null;
+          job_title?: string | null;
+          linkedin_url?: string | null;
+          estimated_value?: number | null;
+          next_follow_up?: string | null;
           created_at?: string;
           updated_at?: string;
         };
