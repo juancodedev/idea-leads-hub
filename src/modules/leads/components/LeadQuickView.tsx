@@ -14,7 +14,10 @@ import {
   Calendar,
   Globe,
   MapPin,
-  Tag as TagIcon
+  Tag as TagIcon,
+  User,
+  Linkedin,
+  DollarSign,
 } from 'lucide-react';
 import { TagSelector } from '@/modules/shared/components/TagSelector';
 import { NoteTimeline } from '@/modules/shared/components/NoteTimeline';
@@ -87,6 +90,32 @@ export function LeadQuickView({ lead, stages, onUpdate }: LeadQuickViewProps) {
             <div className="flex items-center gap-3 text-sm">
               <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
               <span>{lead.address}</span>
+            </div>
+          )}
+          {lead.jobTitle && (
+            <div className="flex items-center gap-3 text-sm">
+              <User className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span>{lead.jobTitle}</span>
+            </div>
+          )}
+          {lead.linkedinUrl && (
+            <div className="flex items-center gap-3 text-sm">
+              <Linkedin className="h-4 w-4 text-muted-foreground shrink-0" />
+              <a href={lead.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate text-sm">
+                {lead.linkedinUrl}
+              </a>
+            </div>
+          )}
+          {lead.estimatedValue != null && (
+            <div className="flex items-center gap-3 text-sm">
+              <DollarSign className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="font-medium">${lead.estimatedValue.toLocaleString()}</span>
+            </div>
+          )}
+          {lead.nextFollowUp && (
+            <div className="flex items-center gap-3 text-sm">
+              <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span>Próximo contacto: {new Date(lead.nextFollowUp).toLocaleDateString()}</span>
             </div>
           )}
           <div className="flex items-center gap-3 text-sm">
