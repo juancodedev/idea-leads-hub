@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { InstagramMessagingService } from "@/infrastructure/services/InstagramMessagingService";
-import { SupabaseLeadRepository } from "@/infrastructure/repositories/SupabaseLeadRepository";
-import { SupabaseActivityRepository } from "@/modules/activities/infrastructure/repositories/SupabaseActivityRepository";
 import { ActivityType } from "@/modules/activities/domain/enums/ActivityType";
 import { Database } from "@/infrastructure/database/database.types";
 import { logger } from "@/lib/logger";
@@ -81,7 +79,6 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createClient<Database>(supabaseUrl, serviceRoleKey);
-  const activityRepo = new SupabaseActivityRepository(supabase);
 
   // Find or auto-create lead by Instagram-scoped sender ID
   type LeadRow = Database["public"]["Tables"]["leads"]["Row"];
@@ -115,21 +112,29 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await activityRepo.create({
-      type: ActivityType.INSTAGRAM_MESSAGE,
-      title: `Instagram DM from ${parsed.senderId}`,
-      description: parsed.text,
-      leadId: leadId ?? undefined,
-      attachments: [
-        {
-          name: "instagram_message",
-          url: "",
-          path: "",
-          size: 0,
-          type: "instagram/message",
-        },
-      ],
-    });
+    // Direct insert with service role key — repository requireUser() won't
+    // work in webhook context because there's no authenticated user session.
+    const { error: activityError } = await supabase
+      .from("activities")
+      .insert({
+        type: ActivityType.INSTAGRAM_MESSAGE,
+        title: `Instagram DM from ${parsed.senderId}`,
+        description: parsed.text,
+        lead_id: leadId ?? undefined,
+        attachments: [
+          {
+            name: "instagram_message",
+            url: "",
+            path: "",
+            size: 0,
+            type: "instagram/message",
+          },
+        ],
+      } as never);
+
+    if (activityError) {
+      logger.error("Failed to insert activity from webhook", { error: activityError });
+    }
   } catch (error) {
     logger.error("Failed to create activity from webhook", { error });
     // Still return 200 to Meta (acknowledge receipt)
