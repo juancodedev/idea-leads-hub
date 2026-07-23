@@ -240,6 +240,38 @@ describe("InstagramMessagingService", () => {
       expect(result).toBeNull();
     });
 
+    it("should parse Instagram Graph API v25.0 changes format", () => {
+      const payload = {
+        entry: [
+          {
+            id: "ig-page-1",
+            time: 1721084400,
+            changes: [
+              {
+                field: "messages",
+                value: {
+                  sender: { id: "sender-ig-555" },
+                  recipient: { id: "ig-page-1" },
+                  timestamp: "1721084400",
+                  message: {
+                    mid: "msg-id-v25-777",
+                    text: "Hola desde Instagram",
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = service.parseIncomingMessage(payload);
+
+      expect(result).not.toBeNull();
+      expect(result!.senderId).toBe("sender-ig-555");
+      expect(result!.messageId).toBe("msg-id-v25-777");
+      expect(result!.text).toBe("Hola desde Instagram");
+    });
+
     it("should return null for payload without text message", () => {
       const payload = {
         entry: [

@@ -223,9 +223,21 @@ export class InstagramMessagingService {
 
   /**
    * Parse an incoming Meta webhook message payload.
+   * Supports two formats:
+   *   - Legacy: entry[].messaging[].message.text
+   *   - Instagram Graph API v25.0+: entry[].changes[].value.message.text
    * Returns null if the payload is not a text message.
    */
   parseIncomingMessage(payload: unknown): ParsedMessage | null {
+    type ChangePayload = {
+      value: {
+        sender?: { id?: string };
+        recipient?: { id?: string };
+        message?: { mid?: string; text?: string };
+        timestamp?: number;
+      };
+    };
+
     const data = payload as {
       entry?: Array<{
         messaging?: Array<{
@@ -233,25 +245,46 @@ export class InstagramMessagingService {
           message?: { mid?: string; text?: string };
           timestamp?: number;
         }>;
+        changes?: ChangePayload[];
       }>;
     };
 
-    const messaging = data?.entry?.[0]?.messaging?.[0];
-    if (!messaging) return null;
+    const entry = data?.entry?.[0];
+    if (!entry) return null;
 
-    const text = messaging.message?.text;
-    if (!text) return null;
+    // Try legacy format: entry[].messaging[]
+    const legacyMsg = entry.messaging?.[0];
+    if (legacyMsg) {
+      const text = legacyMsg.message?.text;
+      if (!text) return null;
+      const senderId = legacyMsg.sender?.id;
+      const messageId = legacyMsg.message?.mid;
+      if (!senderId || !messageId) return null;
+      return {
+        senderId,
+        messageId,
+        text,
+        timestamp: legacyMsg.timestamp
+          ? new Date(legacyMsg.timestamp).toISOString()
+          : new Date().toISOString(),
+      };
+    }
 
-    const senderId = messaging.sender?.id;
-    const messageId = messaging.message?.mid;
+    // Try Instagram Graph API v25.0+ format: entry[].changes[].value
+    const change = entry.changes?.[0];
+    const msg = change?.value?.message;
+    if (!msg?.text) return null;
+
+    const senderId = change.value.sender?.id;
+    const messageId = msg.mid;
     if (!senderId || !messageId) return null;
 
     return {
       senderId,
       messageId,
-      text,
-      timestamp: messaging.timestamp
-        ? new Date(messaging.timestamp).toISOString()
+      text: msg.text,
+      timestamp: change.value.timestamp
+        ? new Date(Number(change.value.timestamp) * 1000).toISOString()
         : new Date().toISOString(),
     };
   }
