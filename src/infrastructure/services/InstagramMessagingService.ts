@@ -171,63 +171,97 @@ export class InstagramMessagingService {
   }
 
   /**
+   * Compute HMAC-SHA256 for a given secret and payload.
+   * Extracted into a helper to avoid redundancy between secret attempts.
+   */
+  private async computeHmac(secret: string, payload: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+    const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(payload));
+    return Array.from(new Uint8Array(sig))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  }
+
+  /**
+   * Constant-time hex comparison.
+   */
+  private constantTimeEqual(a: string, b: string): boolean {
+    if (a.length !== b.length) return false;
+    let mismatch = 0;
+    for (let i = 0; i < a.length; i++) {
+      mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    }
+    return mismatch === 0;
+  }
+
+  /**
    * Verify Meta webhook HMAC-SHA256 signature.
-   * Compares the expected signature (computed from payload + app secret)
-   * against the `X-Hub-Signature-256` header value.
+   * Tries META_APP_SECRET first, then falls back to INSTAGRAM_APP_SECRET.
+   * Meta signs Instagram webhooks with the Instagram App Secret in some
+   * configurations, so we try both.
    */
   async verifyMetaSignature(
     payload: string,
     signature: string
   ): Promise<boolean> {
-    const appSecret = process.env.META_APP_SECRET;
-    if (!appSecret) {
-      console.error("[verifyMetaSignature] META_APP_SECRET is not set");
-      return false;
-    }
-
     if (!signature.startsWith("sha256=")) {
-      console.error("[verifyMetaSignature] signature does not start with sha256=", signature.substring(0, 20));
+      console.error(
+        "[verifyMetaSignature] signature does not start with sha256=",
+        signature.substring(0, 20)
+      );
       return false;
     }
 
     const providedHex = signature.slice(7);
 
-    const encoder = new TextEncoder();
-    const key = await crypto.subtle.importKey(
-      "raw",
-      encoder.encode(appSecret),
-      { name: "HMAC", hash: "SHA-256" },
-      false,
-      ["sign"]
-    );
+    // Try secrets in order: META_APP_SECRET first, then INSTAGRAM_APP_SECRET
+    const secretsToTry: string[] = [];
+    const metaSecret = process.env.META_APP_SECRET;
+    const igSecret = process.env.INSTAGRAM_APP_SECRET;
 
-    const expectedSig = await crypto.subtle.sign(
-      "HMAC",
-      key,
-      encoder.encode(payload)
-    );
+    if (metaSecret) secretsToTry.push(metaSecret);
+    if (igSecret && igSecret !== metaSecret) secretsToTry.push(igSecret);
 
-    const expectedHex = Array.from(new Uint8Array(expectedSig))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-
-    // Constant-time comparison to prevent timing attacks
-    if (expectedHex.length !== providedHex.length) {
-      console.error("[verifyMetaSignature] length mismatch", { expected: expectedHex.length, provided: providedHex.length });
+    if (secretsToTry.length === 0) {
+      console.error("[verifyMetaSignature] No app secrets configured");
       return false;
     }
 
-    let mismatch = 0;
-    for (let i = 0; i < expectedHex.length; i++) {
-      mismatch |= expectedHex.charCodeAt(i) ^ providedHex.charCodeAt(i);
+    for (const secret of secretsToTry) {
+      const expectedHex = await this.computeHmac(secret, payload);
+
+      if (this.constantTimeEqual(expectedHex, providedHex)) {
+        // Log which secret worked for future diagnostics
+        const label =
+          secret === metaSecret
+            ? "META_APP_SECRET"
+            : "INSTAGRAM_APP_SECRET";
+        console.log(`[verifyMetaSignature] matched with ${label}`);
+        return true;
+      }
     }
-    if (mismatch !== 0) {
-      console.error("[verifyMetaSignature] HMAC mismatch", {
-        expectedPrefix: expectedHex.substring(0, 16),
-        providedPrefix: providedHex.substring(0, 16),
-      });
-    }
-    return mismatch === 0;
+
+    // None matched — log diagnostics
+    const expectedHex = metaSecret
+      ? await this.computeHmac(metaSecret, payload)
+      : "";
+    console.error("[verifyMetaSignature] HMAC mismatch with all secrets", {
+      expectedPrefix: expectedHex.substring(0, 16),
+      providedPrefix: providedHex.substring(0, 16),
+      bodyLength: payload.length,
+      bodyFirst100: payload.substring(0, 100),
+      bodyLast40: payload.substring(payload.length - 40),
+      metaSecretSet: !!metaSecret,
+      igSecretSet: !!igSecret,
+    });
+    return false;
   }
 
   /**
