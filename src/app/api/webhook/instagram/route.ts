@@ -56,7 +56,15 @@ export async function POST(request: NextRequest) {
   const parsed = messagingService.parseIncomingMessage(payload);
 
   if (!parsed) {
-    // Non-message events (e.g., mentions, comments) are ignored
+    // Log rejected payloads for debugging
+    console.log("[webhook] ignored payload keys:", Object.keys(payload));
+    if (payload.entry?.[0]) {
+      console.log("[webhook] entry[0] keys:", Object.keys(payload.entry[0]));
+      if (payload.entry[0].changes?.[0]) {
+        console.log("[webhook] changes[0].field:", payload.entry[0].changes[0].field);
+        console.log("[webhook] changes[0].value keys:", Object.keys(payload.entry[0].changes[0].value || {}));
+      }
+    }
     return NextResponse.json({ status: "ignored" }, { status: 200 });
   }
 
