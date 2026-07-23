@@ -42,8 +42,30 @@ export async function POST(request: NextRequest) {
   );
 
   if (!isValid) {
+    // Debug: compute HMAC with both secrets inline and return details
+    const encoder = new TextEncoder();
+    const computePrefix = async (secret: string): Promise<string> => {
+      const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+      const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(rawBody));
+      const hex = Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, "0")).join("");
+      return hex.substring(0, 16);
+    };
+    const metaPrefix = process.env.META_APP_SECRET ? await computePrefix(process.env.META_APP_SECRET) : "N/A";
+    const igPrefix = process.env.INSTAGRAM_APP_SECRET ? await computePrefix(process.env.INSTAGRAM_APP_SECRET) : "N/A";
     return NextResponse.json(
-      { error: "Invalid signature" },
+      {
+        error: "Invalid signature",
+        debug: {
+          bodyLength: rawBody.length,
+          bodyFirst100: rawBody.substring(0, 100),
+          bodyLast50: rawBody.substring(rawBody.length - 50),
+          signature256: signature,
+          metaHmacPrefix: metaPrefix,
+          igHmacPrefix: igPrefix,
+          metaSecretSet: !!process.env.META_APP_SECRET,
+          igSecretSet: !!process.env.INSTAGRAM_APP_SECRET,
+        },
+      },
       { status: 403 }
     );
   }
