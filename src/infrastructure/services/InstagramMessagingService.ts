@@ -272,19 +272,19 @@ export class InstagramMessagingService {
 
     // Try Instagram Graph API v25.0+ format: entry[].changes[].value
     const change = entry.changes?.[0];
-    const msg = change?.value?.message;
-    if (!msg?.text) return null;
+    const value = change?.value;
+    if (!value?.message?.text) return null;
 
-    const senderId = change.value.sender?.id;
-    const messageId = msg.mid;
+    const senderId = value.sender?.id;
+    const messageId = value.message.mid;
     if (!senderId || !messageId) return null;
 
     return {
       senderId,
       messageId,
-      text: msg.text,
-      timestamp: change.value.timestamp
-        ? new Date(Number(change.value.timestamp) * 1000).toISOString()
+      text: value.message.text,
+      timestamp: value.timestamp
+        ? new Date(Number(value.timestamp) * 1000).toISOString()
         : new Date().toISOString(),
     };
   }
