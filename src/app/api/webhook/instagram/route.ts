@@ -80,6 +80,17 @@ export async function POST(request: NextRequest) {
 
   const supabase = createClient<Database>(supabaseUrl, serviceRoleKey);
 
+  // Find the user who owns the Instagram integration to associate activities.
+  // Webhook context has no auth session, so we look up the admin from user_secrets.
+  const { data: adminUserSecret } = await supabase
+    .from("user_secrets")
+    .select("user_id")
+    .not("instagram_ig_id", "is", null)
+    .limit(1)
+    .maybeSingle() as unknown as { data: { user_id: string } | null };
+
+  const adminUserId = adminUserSecret?.user_id ?? null;
+
   // Find or auto-create lead by Instagram-scoped sender ID
   type LeadRow = Database["public"]["Tables"]["leads"]["Row"];
   const { data: leads } = (await supabase
@@ -114,26 +125,31 @@ export async function POST(request: NextRequest) {
   try {
     // Direct insert with service role key — repository requireUser() won't
     // work in webhook context because there's no authenticated user session.
-    const { error: activityError } = await supabase
-      .from("activities")
-      .insert({
-        type: ActivityType.INSTAGRAM_MESSAGE,
-        title: `Instagram DM from ${parsed.senderId}`,
-        description: parsed.text,
-        lead_id: leadId ?? undefined,
-        attachments: [
-          {
-            name: "instagram_message",
-            url: "",
-            path: "",
-            size: 0,
-            type: "instagram/message",
-          },
-        ],
-      } as never);
+    if (!adminUserId) {
+      logger.error("No admin user with Instagram integration found — cannot create activity");
+    } else {
+      const { error: activityError } = await supabase
+        .from("activities")
+        .insert({
+          user_id: adminUserId,
+          type: ActivityType.INSTAGRAM_MESSAGE,
+          title: `Instagram DM from ${parsed.senderId}`,
+          description: parsed.text,
+          lead_id: leadId ?? undefined,
+          attachments: [
+            {
+              name: "instagram_message",
+              url: "",
+              path: "",
+              size: 0,
+              type: "instagram/message",
+            },
+          ],
+        } as never);
 
-    if (activityError) {
-      logger.error("Failed to insert activity from webhook", { error: activityError });
+      if (activityError) {
+        logger.error("Failed to insert activity from webhook", { error: activityError });
+      }
     }
   } catch (error) {
     logger.error("Failed to create activity from webhook", { error });
