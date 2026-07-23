@@ -181,10 +181,12 @@ export class InstagramMessagingService {
   ): Promise<boolean> {
     const appSecret = process.env.META_APP_SECRET;
     if (!appSecret) {
+      console.error("[verifyMetaSignature] META_APP_SECRET is not set");
       return false;
     }
 
     if (!signature.startsWith("sha256=")) {
+      console.error("[verifyMetaSignature] signature does not start with sha256=", signature.substring(0, 20));
       return false;
     }
 
@@ -211,12 +213,19 @@ export class InstagramMessagingService {
 
     // Constant-time comparison to prevent timing attacks
     if (expectedHex.length !== providedHex.length) {
+      console.error("[verifyMetaSignature] length mismatch", { expected: expectedHex.length, provided: providedHex.length });
       return false;
     }
 
     let mismatch = 0;
     for (let i = 0; i < expectedHex.length; i++) {
       mismatch |= expectedHex.charCodeAt(i) ^ providedHex.charCodeAt(i);
+    }
+    if (mismatch !== 0) {
+      console.error("[verifyMetaSignature] HMAC mismatch", {
+        expectedPrefix: expectedHex.substring(0, 16),
+        providedPrefix: providedHex.substring(0, 16),
+      });
     }
     return mismatch === 0;
   }
