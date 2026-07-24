@@ -7,9 +7,14 @@ export const runtime = "nodejs";
 
 interface ConversationResponse {
   conversations: Array<{
-    leadId: string;
+    /** Unique key — either the leadId if linked, or a temp id for unlinked */
+    id: string;
+    /** leadId when linked to a lead, null otherwise */
+    leadId: string | null;
     leadName: string;
     instagramHandle: string | null;
+    /** Instagram-scoped ID of the sender (for unlinked conversations) */
+    instagramScopedId: string | null;
     lastMessage: {
       text: string;
       timestamp: string;
@@ -17,6 +22,7 @@ interface ConversationResponse {
     };
     unreadCount: number;
     isConnected: boolean;
+    isLinked: boolean;
   }>;
 }
 
@@ -24,10 +30,16 @@ function getDirection(title: string): "inbound" | "outbound" {
   return title.startsWith("Instagram DM from") ? "inbound" : "outbound";
 }
 
+/** Extract sender ID from activity title like "Instagram DM from 12345" */
+function extractSenderId(title: string): string | null {
+  const match = title.match(/^Instagram DM from (\d+)/);
+  return match?.[1] ?? null;
+}
+
 export const GET = apiHandler(async (_request: NextRequest) => {
   const { supabase } = await withAuth(_request);
 
-  // Fetch all Instagram message activities with their lead data
+  // Fetch all Instagram message activities with their lead data (LEFT JOIN)
   const { data: activities, error } = await supabase
     .from("activities")
     .select(
@@ -38,7 +50,7 @@ export const GET = apiHandler(async (_request: NextRequest) => {
       description,
       completed,
       created_at,
-      lead:leads!inner(id, name, instagram_handle, instagram_scoped_id)
+      lead:leads(id, name, instagram_handle, instagram_scoped_id)
     `
     )
     .eq("type", ActivityType.INSTAGRAM_MESSAGE)
@@ -52,7 +64,7 @@ export const GET = apiHandler(async (_request: NextRequest) => {
     );
   }
 
-  // Group by lead_id and build conversation summaries
+  // Group by lead_id when available, or by sender ID for unlinked messages
   const conversationsMap = new Map<
     string,
     ConversationResponse["conversations"][0] & { _seen: Set<string> }
@@ -72,31 +84,55 @@ export const GET = apiHandler(async (_request: NextRequest) => {
       instagram_scoped_id: string | null;
     } | null;
   }>) {
-    if (!activity.lead_id || !activity.lead) continue;
+    // Determine group key
+    let groupKey: string;
+    let leadId: string | null;
+    let leadName: string;
+    let instagramHandle: string | null;
+    let instagramScopedId: string | null;
+    let isLinked: boolean;
 
-    if (!conversationsMap.has(activity.lead_id)) {
-      conversationsMap.set(activity.lead_id, {
-        leadId: activity.lead_id,
-        leadName: activity.lead.name,
-        instagramHandle: activity.lead.instagram_handle,
+    if (activity.lead_id && activity.lead) {
+      // Linked to an existing lead
+      groupKey = activity.lead_id;
+      leadId = activity.lead_id;
+      leadName = activity.lead.name;
+      instagramHandle = activity.lead.instagram_handle;
+      instagramScopedId = activity.lead.instagram_scoped_id;
+      isLinked = true;
+    } else {
+      // Unlinked — group by sender ID extracted from title
+      const senderId = extractSenderId(activity.title) ?? activity.id;
+      groupKey = `unlinked:${senderId}`;
+      leadId = null;
+      leadName = `Instagram: ${senderId}`;
+      instagramHandle = null;
+      instagramScopedId = senderId;
+      isLinked = false;
+    }
+
+    if (!conversationsMap.has(groupKey)) {
+      conversationsMap.set(groupKey, {
+        id: groupKey,
+        leadId,
+        leadName,
+        instagramHandle,
+        instagramScopedId,
         lastMessage: {
           text: activity.description || activity.title,
           timestamp: activity.created_at,
           direction: getDirection(activity.title),
         },
         unreadCount: 0,
-        isConnected: !!(
-          activity.lead.instagram_handle ||
-          activity.lead.instagram_scoped_id
-        ),
+        isConnected: !!instagramScopedId,
+        isLinked,
         _seen: new Set<string>(),
       });
     }
 
-    const entry = conversationsMap.get(activity.lead_id)!;
+    const entry = conversationsMap.get(groupKey)!;
 
     // Count unread only for messages we haven't counted yet
-    // (activities come ordered desc, first one is most recent = our lastMessage)
     if (!activity.completed && !entry._seen.has(activity.id)) {
       entry.unreadCount++;
       entry._seen.add(activity.id);

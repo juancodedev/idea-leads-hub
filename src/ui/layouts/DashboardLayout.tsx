@@ -23,6 +23,7 @@ import { Search } from "lucide-react";
 import { logoutAction } from "@/modules/shared/infrastructure/actions/authActions";
 import { getProfileData } from "@/modules/shared/infrastructure/actions/profileActions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/ui/components/avatar";
+import { useUnreadCount } from "@/modules/instagram/hooks/useUnreadCount";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -59,6 +60,16 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     await logoutAction();
   };
 
+  // ── Real-time unread badge for Instagram messages ────────────────
+  const { count: unreadCount, reset: resetUnread } = useUnreadCount(true);
+
+  // Reset badge count when visiting the messages page
+  React.useEffect(() => {
+    if (pathname.startsWith("/messages")) {
+      resetUnread();
+    }
+  }, [pathname, resetUnread]);
+
   return (
     <div className="min-h-screen bg-background">
       <CommandMenu />
@@ -93,13 +104,18 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                   href={item.href}
                   className={cn(
                     "flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors",
-                    isActive 
-                      ? "bg-primary text-primary-foreground" 
+                    isActive
+                      ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                   )}
                 >
                   <item.icon className="mr-3 h-5 w-5" />
-                  {item.name}
+                  <span className="flex-1">{item.name}</span>
+                  {item.name === "Mensajes" && unreadCount > 0 && (
+                    <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-red-500 text-[10px] font-bold text-white leading-none">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
                 </Link>
               );
             })}

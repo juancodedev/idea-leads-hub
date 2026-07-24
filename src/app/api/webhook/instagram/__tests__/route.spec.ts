@@ -17,20 +17,27 @@ jest.mock("@/infrastructure/services/InstagramMessagingService", () => ({
   })),
 }));
 
-// Mock @supabase/supabase-js createClient to return a fake supabase client
-// Values are defined inline because jest.mock() is hoisted before const init
+// Shared mock chain that supports deep chaining (eq, not, limit, etc.)
+// Each filter method returns a new object with all filter methods available,
+// so chaining .eq().eq().not().limit().maybeSingle() works.
 jest.mock("@supabase/supabase-js", () => {
-  const mockSingle = jest.fn().mockResolvedValue({ data: { id: "new-lead-id" }, error: null });
-  const mockInsertSelect = jest.fn().mockReturnValue({ single: mockSingle });
-  const mockInsert = jest.fn().mockReturnValue({ select: mockInsertSelect });
   const mockMaybeSingle = jest.fn().mockResolvedValue({ data: { user_id: "admin-user-1" }, error: null });
-  const mockLimit = jest.fn().mockReturnValue({ maybeSingle: mockMaybeSingle });
-  const mockNot = jest.fn().mockReturnValue({ limit: mockLimit });
-  const mockEq = jest.fn().mockReturnValue({ limit: mockLimit });
-  const mockSelect = jest.fn().mockReturnValue({ eq: mockEq, not: mockNot });
-  const mockFrom = jest.fn().mockReturnValue({ select: mockSelect, insert: mockInsert });
+
+  function chain(...keys: string[]): Record<string, jest.Mock> {
+    const c: Record<string, jest.Mock> = {};
+    const methods = ["eq", "not", "limit", "ilike", "order", "select", "single"];
+    for (const m of methods) {
+      c[m] = jest.fn((..._args: unknown[]) => c);
+    }
+    c.maybeSingle = mockMaybeSingle;
+    return c;
+  }
+
+  const mockSelect = jest.fn(() => chain());
+  const mockInsert = jest.fn(() => ({ select: mockSelect, single: jest.fn().mockResolvedValue({ data: { id: "new-lead-id" }, error: null }) }));
+  const mockFrom = jest.fn(() => ({ select: mockSelect, insert: mockInsert }));
   return {
-    createClient: jest.fn().mockReturnValue({ from: mockFrom }),
+    createClient: jest.fn(() => ({ from: mockFrom })),
   };
 });
 

@@ -186,7 +186,7 @@ export async function POST(request: NextRequest) {
 
   const adminUserId = adminUserSecret?.user_id ?? null;
 
-  // Find or auto-create lead by Instagram-scoped sender ID
+  // Find lead by Instagram-scoped sender ID
   type LeadRow = Database["public"]["Tables"]["leads"]["Row"];
   const { data: leads } = (await supabase
     .from("leads")
@@ -196,35 +196,21 @@ export async function POST(request: NextRequest) {
 
   let leadId = leads?.[0]?.id ?? null;
 
-  // Auto-create lead for unknown senders so the ID is never lost
-  if (!leadId && adminUserId) {
-    const result = await (supabase
-      .from("leads") as any)
-      .insert({
-        user_id: adminUserId,
-        instagram_scoped_id: parsed.senderId,
-        name: `Instagram: ${parsed.senderId}`,
-        company: "",
-        email: "",
-        status: "Nuevo",
-      })
-      .select("id")
-      .single();
+  // If no direct lead match, check if previous messages from this sender
+  // were already linked to a lead (e.g. outbound replies created the link).
+  if (!leadId) {
+    const { data: linkedActivity } = (await supabase
+      .from("activities")
+      .select("lead_id")
+      .eq("type", ActivityType.INSTAGRAM_MESSAGE)
+      .eq("title", `Instagram DM from ${parsed.senderId}`)
+      .not("lead_id", "is", null)
+      .limit(1)
+      .maybeSingle()) as unknown as { data: { lead_id: string } | null };
 
-    if (result.error) {
-      logger.error("Failed to auto-create lead from Instagram webhook", {
-        error: result.error,
-        senderId: parsed.senderId,
-      });
+    if (linkedActivity?.lead_id) {
+      leadId = linkedActivity.lead_id;
     }
-
-    const newLead = result.data as { id: string } | null;
-
-    leadId = newLead?.id ?? null;
-    logger.info("Auto-created lead from Instagram webhook", {
-      senderId: parsed.senderId,
-      leadId,
-    });
   }
 
   try {
