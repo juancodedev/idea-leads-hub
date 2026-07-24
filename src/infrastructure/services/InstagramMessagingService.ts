@@ -194,12 +194,13 @@ export class InstagramMessagingService {
       false,
       ["sign"]
     );
-    // slice() on an ArrayBufferLike returns a concrete ArrayBuffer,
-    // avoiding the Uint8Array<ArrayBufferLike> → BufferSource TS mismatch
+    // Cast through unknown: data.buffer is ArrayBufferLike (ArrayBuffer | SharedArrayBuffer),
+    // but crypto.subtle.sign expects BufferSource which is ArrayBufferView | ArrayBuffer.
+    // The slice returns a concrete ArrayBuffer, TypeScript just doesn't narrow it.
     const sig = await crypto.subtle.sign(
       "HMAC",
       key,
-      data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
+      data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer
     );
     return Array.from(new Uint8Array(sig))
       .map((b) => b.toString(16).padStart(2, "0"))
