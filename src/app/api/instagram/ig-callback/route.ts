@@ -112,20 +112,37 @@ export const POST = apiHandler(async (request: NextRequest) => {
       Date.now() + (longLivedData.expires_in || 5184000) * 1000
     ).toISOString();
 
-    // Step 3: Store the long-lived token with auth_type
+    // Step 3: Resolve the correct IG ID from /me (OAuth user_id can differ from API id)
+    const meRes = await fetch("https://graph.instagram.com/v25.0/me?fields=id", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    let resolvedIgId = igUserId;
+    if (meRes.ok) {
+      const meData = (await meRes.json()) as { id?: string };
+      if (meData?.id) {
+        resolvedIgId = meData.id;
+      }
+    } else {
+      logger.warn("Could not resolve IG ID from /me, falling back to OAuth user_id", {
+        igUserId,
+      });
+    }
+
+    // Step 4: Store the long-lived token with auth_type
     const authService = new InstagramAuthService(supabase);
     await authService.storeToken(user.id, {
       token: accessToken,
       userToken: accessToken,
-      igId: igUserId,
-      pageId: igUserId, // Instagram Business Account ID (no Facebook Page)
+      igId: resolvedIgId,
+      pageId: resolvedIgId, // Instagram Professional Account ID (no Facebook Page)
       expiresAt,
       authType: "instagram_business_login",
     });
 
-    logger.info("Instagram connected via Instagram Business Login", { igUserId, permissions: tokenData.permissions });
+    logger.info("Instagram connected via Instagram Business Login", { igUserId, resolvedIgId, permissions: tokenData.permissions });
 
-    return NextResponse.json({ success: true, igId: igUserId, expiresAt });
+    return NextResponse.json({ success: true, igId: resolvedIgId, expiresAt });
   } catch (err) {
     logger.error("Instagram callback error", { error: String(err) });
     return NextResponse.json(
