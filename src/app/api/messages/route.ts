@@ -48,7 +48,7 @@ export const GET = apiHandler(async (request: NextRequest) => {
       .select("*")
       .is("lead_id", null)
       .eq("type", ActivityType.INSTAGRAM_MESSAGE)
-      .ilike("title", `Instagram DM from ${senderId}`)
+      .or(`title.ilike.Instagram DM from ${senderId},title.ilike.Instagram DM to ${senderId}`)
       .order("created_at", { ascending: true });
 
     if (error) {
@@ -94,7 +94,7 @@ export const DELETE = apiHandler(async (request: NextRequest) => {
       .delete()
       .is("lead_id", null)
       .eq("type", ActivityType.INSTAGRAM_MESSAGE)
-      .ilike("title", `Instagram DM from ${senderId}`);
+      .or(`title.ilike.Instagram DM from ${senderId},title.ilike.Instagram DM to ${senderId}`);
   } else {
     return NextResponse.json({ error: 'Invalid key format — expected "lead:<id>" or "unlinked:<id>"' }, { status: 400 });
   }
@@ -147,7 +147,7 @@ export const PATCH = apiHandler(async (request: NextRequest) => {
     .update({ lead_id: leadId } as never)
     .is("lead_id", null)
     .eq("type", ActivityType.INSTAGRAM_MESSAGE)
-    .ilike("title", `Instagram DM from ${senderId}`);
+    .or(`title.ilike.Instagram DM from ${senderId},title.ilike.Instagram DM to ${senderId}`);
 
   if (updateError) {
     console.error("Error linking conversation:", updateError);
