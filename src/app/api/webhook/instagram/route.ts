@@ -204,6 +204,8 @@ export async function POST(request: NextRequest) {
         user_id: adminUserId,
         instagram_scoped_id: parsed.senderId,
         name: `Instagram: ${parsed.senderId}`,
+        company: "",
+        email: "",
         status: "new",
       })
       .select("id")
