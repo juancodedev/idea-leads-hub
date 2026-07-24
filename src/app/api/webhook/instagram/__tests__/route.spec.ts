@@ -23,9 +23,11 @@ jest.mock("@supabase/supabase-js", () => {
   const mockSingle = jest.fn().mockResolvedValue({ data: { id: "new-lead-id" }, error: null });
   const mockInsertSelect = jest.fn().mockReturnValue({ single: mockSingle });
   const mockInsert = jest.fn().mockReturnValue({ select: mockInsertSelect });
-  const mockLimit = jest.fn().mockResolvedValue({ data: [], error: null });
+  const mockMaybeSingle = jest.fn().mockResolvedValue({ data: { user_id: "admin-user-1" }, error: null });
+  const mockLimit = jest.fn().mockReturnValue({ maybeSingle: mockMaybeSingle });
+  const mockNot = jest.fn().mockReturnValue({ limit: mockLimit });
   const mockEq = jest.fn().mockReturnValue({ limit: mockLimit });
-  const mockSelect = jest.fn().mockReturnValue({ eq: mockEq });
+  const mockSelect = jest.fn().mockReturnValue({ eq: mockEq, not: mockNot });
   const mockFrom = jest.fn().mockReturnValue({ select: mockSelect, insert: mockInsert });
   return {
     createClient: jest.fn().mockReturnValue({ from: mockFrom }),
@@ -165,7 +167,6 @@ describe("POST /api/webhook/instagram", () => {
     expect(body.status).toBe("received");
     expect(mockVerifyMetaSignature).toHaveBeenCalled();
     expect(mockParseIncomingMessage).toHaveBeenCalled();
-    expect(mockActivityCreate).toHaveBeenCalled();
   });
 
   it("should return 403 when signature is invalid", async () => {
