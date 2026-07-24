@@ -95,7 +95,7 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
     if (updates.jobTitle !== undefined) dbUpdates.job_title = updates.jobTitle;
     if (updates.linkedinUrl !== undefined) dbUpdates.linkedin_url = updates.linkedinUrl;
     if (updates.estimatedValue !== undefined) dbUpdates.estimated_value = updates.estimatedValue;
-    if (updates.nextFollowUp !== undefined) dbUpdates.next_follow_up = updates.nextFollowUp;
+    if (updates.nextFollowUp !== undefined && updates.nextFollowUp !== '') dbUpdates.next_follow_up = updates.nextFollowUp;
 
     dbUpdates.updated_at = new Date().toISOString();
 
