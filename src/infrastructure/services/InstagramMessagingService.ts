@@ -194,7 +194,13 @@ export class InstagramMessagingService {
       false,
       ["sign"]
     );
-    const sig = await crypto.subtle.sign("HMAC", key, data);
+    // slice() on an ArrayBufferLike returns a concrete ArrayBuffer,
+    // avoiding the Uint8Array<ArrayBufferLike> → BufferSource TS mismatch
+    const sig = await crypto.subtle.sign(
+      "HMAC",
+      key,
+      data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
+    );
     return Array.from(new Uint8Array(sig))
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");

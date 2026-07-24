@@ -38,7 +38,11 @@ async function computeHmacHex(secret: string, data: ArrayBuffer): Promise<string
     false,
     ["sign"]
   );
-  const sig = await crypto.subtle.sign("HMAC", key, data);
+  const sig = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    data.slice(data.byteOffset, data.byteOffset + data.byteLength)
+  );
   return Array.from(new Uint8Array(sig))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
