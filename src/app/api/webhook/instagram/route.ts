@@ -28,6 +28,23 @@ export async function GET(request: NextRequest) {
 }
 
 /**
+ * Compute HMAC-SHA256 hex digest over raw bytes.
+ */
+async function computeHmacHex(secret: string, data: ArrayBuffer): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, data);
+  return Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/**
  * POST /api/webhook/instagram
  * Receive inbound Instagram messages from Meta.
  */
@@ -47,24 +64,42 @@ export async function POST(request: NextRequest) {
   );
 
   if (!isValid) {
-    // Log the failing body to audit_logs for debugging
-    try {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-      if (supabaseUrl && serviceRoleKey) {
-        const encoder = new TextEncoder();
-        const computeHex = async (secret: string): Promise<string> => {
-          const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-          const sig = await crypto.subtle.sign("HMAC", key, rawBytes);
-          return Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, "0")).join("");
-        };
-        const metaHex = process.env.META_APP_SECRET ? await computeHex(process.env.META_APP_SECRET) : "";
-        const igHex = process.env.INSTAGRAM_APP_SECRET ? await computeHex(process.env.INSTAGRAM_APP_SECRET) : "";
-        await (createClient<Database>(supabaseUrl, serviceRoleKey) as any)
-          .from("audit_logs")
-          .insert({
+    // Compute HMAC values for debugging
+    const metaHex = process.env.META_APP_SECRET
+      ? await computeHmacHex(process.env.META_APP_SECRET, rawBytes)
+      : "";
+    const igHex = process.env.INSTAGRAM_APP_SECRET
+      ? await computeHmacHex(process.env.INSTAGRAM_APP_SECRET, rawBytes)
+      : "";
+
+    // Log to Cloudflare observability (now enabled in wrangler.toml)
+    console.error("[webhook/hmac_mismatch]", JSON.stringify({
+      bodyLength: rawBytes.byteLength,
+      bodyFirst100: rawBody.substring(0, 100),
+      bodyLast40: rawBody.substring(rawBody.length - 40),
+      signature256: signature,
+      metaHmacPrefix: metaHex.substring(0, 16),
+      igHmacPrefix: igHex.substring(0, 16),
+      metaSecretSet: !!process.env.META_APP_SECRET,
+      igSecretSet: !!process.env.INSTAGRAM_APP_SECRET,
+    }));
+
+    // Persist debug data to audit_logs (raw fetch, bypasses supabase-js client issues)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (supabaseUrl && serviceRoleKey) {
+      try {
+        const res = await fetch(`${supabaseUrl}/rest/v1/audit_logs`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: serviceRoleKey,
+            Authorization: `Bearer ${serviceRoleKey}`,
+            Prefer: "return=minimal",
+          },
+          body: JSON.stringify({
             entity_type: "instagram_webhook",
-            entity_id: "debug",
+            entity_id: "hmac_mismatch_debug",
             action: "hmac_mismatch",
             changes: {
               body: rawBody.substring(0, 500),
@@ -75,13 +110,28 @@ export async function POST(request: NextRequest) {
               metaSecretSet: !!process.env.META_APP_SECRET,
               igSecretSet: !!process.env.INSTAGRAM_APP_SECRET,
             },
-          });
+          }),
+        });
+        if (!res.ok) {
+          console.error("[webhook] audit_logs insert failed", { status: res.status, statusText: res.statusText });
+        }
+      } catch (err) {
+        console.error("[webhook] audit_logs insert error", err);
       }
-    } catch {
-      // Best-effort logging, don't fail the response
     }
+
     return NextResponse.json(
-      { error: "Invalid signature" },
+      {
+        error: "Invalid signature",
+        debug: {
+          bodyLength: rawBytes.byteLength,
+          bodyFirst100: rawBody.substring(0, 100),
+          bodyLast40: rawBody.substring(rawBody.length - 40),
+          signature256: signature.substring(0, 30) + "...",
+          metaHmacPrefix: metaHex.substring(0, 16),
+          igHmacPrefix: igHex.substring(0, 16),
+        },
+      },
       { status: 403 }
     );
   }
