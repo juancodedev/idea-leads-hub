@@ -32,8 +32,12 @@ export async function GET(request: NextRequest) {
  * Receive inbound Instagram messages from Meta.
  */
 export async function POST(request: NextRequest) {
+  // Read raw bytes directly to avoid any encoding/transformation issues.
+  // Meta signs the EXACT bytes they send — any transformation (JSON parse/
+  // re-serialize, charset conversion) breaks the HMAC.
+  const rawBytes = await request.arrayBuffer();
+  const rawBody = new TextDecoder().decode(rawBytes);
   const signature = request.headers.get("X-Hub-Signature-256") || "";
-  const rawBody = await request.text();
 
   const messagingService = new InstagramMessagingService();
   const isValid = await messagingService.verifyMetaSignature(
@@ -42,30 +46,41 @@ export async function POST(request: NextRequest) {
   );
 
   if (!isValid) {
-    // Debug: compute HMAC with both secrets inline and return details
-    const encoder = new TextEncoder();
-    const computePrefix = async (secret: string): Promise<string> => {
-      const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-      const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(rawBody));
-      const hex = Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, "0")).join("");
-      return hex.substring(0, 16);
-    };
-    const metaPrefix = process.env.META_APP_SECRET ? await computePrefix(process.env.META_APP_SECRET) : "N/A";
-    const igPrefix = process.env.INSTAGRAM_APP_SECRET ? await computePrefix(process.env.INSTAGRAM_APP_SECRET) : "N/A";
+    // Log the failing body to audit_logs for debugging
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (supabaseUrl && serviceRoleKey) {
+        const encoder = new TextEncoder();
+        const computeHex = async (secret: string): Promise<string> => {
+          const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+          const sig = await crypto.subtle.sign("HMAC", key, rawBytes);
+          return Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, "0")).join("");
+        };
+        const metaHex = process.env.META_APP_SECRET ? await computeHex(process.env.META_APP_SECRET) : "";
+        const igHex = process.env.INSTAGRAM_APP_SECRET ? await computeHex(process.env.INSTAGRAM_APP_SECRET) : "";
+        await (createClient<Database>(supabaseUrl, serviceRoleKey) as any)
+          .from("audit_logs")
+          .insert({
+            entity_type: "instagram_webhook",
+            entity_id: "debug",
+            action: "hmac_mismatch",
+            changes: {
+              body: rawBody.substring(0, 500),
+              bodyLength: rawBytes.byteLength,
+              signature256: signature,
+              metaHmac: metaHex.substring(0, 16) + "...",
+              igHmac: igHex.substring(0, 16) + "...",
+              metaSecretSet: !!process.env.META_APP_SECRET,
+              igSecretSet: !!process.env.INSTAGRAM_APP_SECRET,
+            },
+          });
+      }
+    } catch {
+      // Best-effort logging, don't fail the response
+    }
     return NextResponse.json(
-      {
-        error: "Invalid signature",
-        debug: {
-          bodyLength: rawBody.length,
-          bodyFirst100: rawBody.substring(0, 100),
-          bodyLast50: rawBody.substring(rawBody.length - 50),
-          signature256: signature,
-          metaHmacPrefix: metaPrefix,
-          igHmacPrefix: igPrefix,
-          metaSecretSet: !!process.env.META_APP_SECRET,
-          igSecretSet: !!process.env.INSTAGRAM_APP_SECRET,
-        },
-      },
+      { error: "Invalid signature" },
       { status: 403 }
     );
   }
