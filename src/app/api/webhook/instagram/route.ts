@@ -186,7 +186,7 @@ export async function POST(request: NextRequest) {
 
   const adminUserId = adminUserSecret?.user_id ?? null;
 
-  // Find or auto-create lead by Instagram-scoped sender ID
+  // Find lead by Instagram-scoped sender ID
   type LeadRow = Database["public"]["Tables"]["leads"]["Row"];
   const { data: leads } = (await supabase
     .from("leads")
@@ -194,7 +194,24 @@ export async function POST(request: NextRequest) {
     .eq("instagram_scoped_id", parsed.senderId)
     .limit(1)) as unknown as { data: Pick<LeadRow, "id">[] | null };
 
-  const leadId = leads?.[0]?.id ?? null;
+  let leadId = leads?.[0]?.id ?? null;
+
+  // If no direct lead match, check if previous messages from this sender
+  // were already linked to a lead (e.g. outbound replies created the link).
+  if (!leadId) {
+    const { data: linkedActivity } = (await supabase
+      .from("activities")
+      .select("lead_id")
+      .eq("type", ActivityType.INSTAGRAM_MESSAGE)
+      .eq("title", `Instagram DM from ${parsed.senderId}`)
+      .not("lead_id", "is", null)
+      .limit(1)
+      .maybeSingle()) as unknown as { data: { lead_id: string } | null };
+
+    if (linkedActivity?.lead_id) {
+      leadId = linkedActivity.lead_id;
+    }
+  }
 
   try {
     // Direct insert with service role key — repository requireUser() won't
