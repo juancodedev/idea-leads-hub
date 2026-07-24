@@ -206,7 +206,7 @@ export async function POST(request: NextRequest) {
         name: `Instagram: ${parsed.senderId}`,
         company: "",
         email: "",
-        status: "new",
+        status: "Nuevo",
       })
       .select("id")
       .single();
