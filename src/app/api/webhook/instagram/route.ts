@@ -93,15 +93,22 @@ export async function POST(request: NextRequest) {
 
   if (!parsed) {
     // Log rejected payloads for debugging
-    console.log("[webhook] ignored payload keys:", Object.keys(payload));
-    if (payload.entry?.[0]) {
-      console.log("[webhook] entry[0] keys:", Object.keys(payload.entry[0]));
-      if (payload.entry[0].changes?.[0]) {
-        console.log("[webhook] changes[0].field:", payload.entry[0].changes[0].field);
-        console.log("[webhook] changes[0].value keys:", Object.keys(payload.entry[0].changes[0].value || {}));
-      }
+    const ignoredInfo: Record<string, unknown> = {
+      object: (payload as Record<string, unknown>)?.object,
+      entryKeys: payload.entry?.[0] ? Object.keys(payload.entry[0]) : [],
+    };
+    if (payload.entry?.[0]?.messaging?.[0]) {
+      ignoredInfo.eventType = "messaging";
+      ignoredInfo.messagingKeys = Object.keys(payload.entry[0].messaging[0]);
+      ignoredInfo.hasMessage = !!payload.entry[0].messaging[0].message;
     }
-    return NextResponse.json({ status: "ignored" }, { status: 200 });
+    if (payload.entry?.[0]?.changes?.[0]) {
+      ignoredInfo.eventType = "changes";
+      ignoredInfo.changesField = payload.entry[0].changes[0].field;
+      ignoredInfo.changesValueKeys = Object.keys(payload.entry[0].changes[0].value || {});
+    }
+    console.log("[webhook] ignored payload:", JSON.stringify(ignoredInfo));
+    return NextResponse.json({ status: "ignored", debug: ignoredInfo }, { status: 200 });
   }
 
   // Create admin Supabase client for webhook (no user session)
