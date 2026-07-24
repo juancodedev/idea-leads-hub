@@ -172,10 +172,21 @@ export class InstagramMessagingService {
 
   /**
    * Compute HMAC-SHA256 for a given secret and payload.
-   * Extracted into a helper to avoid redundancy between secret attempts.
+   * Uses Uint8Array or raw bytes so we sign the exact bytes Meta signed,
+   * avoiding any TextEncoder encoding differences.
    */
-  private async computeHmac(secret: string, payload: string): Promise<string> {
+  private async computeHmac(
+    secret: string,
+    payload: string | Uint8Array | ArrayBuffer
+  ): Promise<string> {
     const encoder = new TextEncoder();
+    const data: Uint8Array =
+      typeof payload === "string"
+        ? encoder.encode(payload)
+        : payload instanceof ArrayBuffer
+          ? new Uint8Array(payload)
+          : payload;
+
     const key = await crypto.subtle.importKey(
       "raw",
       encoder.encode(secret),
@@ -183,7 +194,7 @@ export class InstagramMessagingService {
       false,
       ["sign"]
     );
-    const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(payload));
+    const sig = await crypto.subtle.sign("HMAC", key, data);
     return Array.from(new Uint8Array(sig))
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
@@ -208,7 +219,7 @@ export class InstagramMessagingService {
    * configurations, so we try both.
    */
   async verifyMetaSignature(
-    payload: string,
+    payload: string | ArrayBuffer,
     signature: string
   ): Promise<boolean> {
     if (!signature.startsWith("sha256=")) {
@@ -252,12 +263,16 @@ export class InstagramMessagingService {
     const expectedHex = metaSecret
       ? await this.computeHmac(metaSecret, payload)
       : "";
+    const bodyStr =
+      payload instanceof ArrayBuffer
+        ? new TextDecoder().decode(payload)
+        : payload;
     console.error("[verifyMetaSignature] HMAC mismatch with all secrets", {
       expectedPrefix: expectedHex.substring(0, 16),
       providedPrefix: providedHex.substring(0, 16),
-      bodyLength: payload.length,
-      bodyFirst100: payload.substring(0, 100),
-      bodyLast40: payload.substring(payload.length - 40),
+      bodyLength: bodyStr.length,
+      bodyFirst100: bodyStr.substring(0, 100),
+      bodyLast40: bodyStr.substring(bodyStr.length - 40),
       metaSecretSet: !!metaSecret,
       igSecretSet: !!igSecret,
     });

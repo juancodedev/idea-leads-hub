@@ -40,8 +40,9 @@ export async function POST(request: NextRequest) {
   const signature = request.headers.get("X-Hub-Signature-256") || "";
 
   const messagingService = new InstagramMessagingService();
+  // Pass raw bytes directly — Meta signs the exact bytes, not a decoded string
   const isValid = await messagingService.verifyMetaSignature(
-    rawBody,
+    rawBytes,
     signature
   );
 
