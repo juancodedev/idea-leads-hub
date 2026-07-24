@@ -30,10 +30,12 @@ function getDirection(title: string): "inbound" | "outbound" {
   return title.startsWith("Instagram DM from") ? "inbound" : "outbound";
 }
 
-/** Extract sender ID from activity title like "Instagram DM from 12345" */
-function extractSenderId(title: string): string | null {
-  const match = title.match(/^Instagram DM from (\d+)/);
-  return match?.[1] ?? null;
+/** Extract counterparty Instagram ID from activity title — "from" for inbound, "to" for outbound */
+function extractCounterpartyId(title: string): string | null {
+  const fromMatch = title.match(/^Instagram DM from (\d+)/);
+  if (fromMatch) return fromMatch[1];
+  const toMatch = title.match(/^Instagram DM to (\d+)/);
+  return toMatch?.[1] ?? null;
 }
 
 export const GET = apiHandler(async (_request: NextRequest) => {
@@ -102,7 +104,7 @@ export const GET = apiHandler(async (_request: NextRequest) => {
       isLinked = true;
     } else {
       // Unlinked — group by sender ID extracted from title
-      const senderId = extractSenderId(activity.title) ?? activity.id;
+      const senderId = extractCounterpartyId(activity.title) ?? activity.id;
       groupKey = `unlinked:${senderId}`;
       leadId = null;
       leadName = `Instagram: ${senderId}`;

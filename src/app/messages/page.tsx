@@ -284,22 +284,39 @@ export default function MessagesPage() {
   /* ---------- send message ---------- */
 
   const handleSend = React.useCallback(async () => {
-    if (!selectedConv?.leadId || !messageText.trim()) return;
+    if (!messageText.trim()) return;
+    if (!selectedConv) return;
+    if (selectedConv.isLinked && !selectedConv.leadId) return;
+    if (!selectedConv.isLinked && !selectedConv.instagramScopedId) return;
 
     setSending(true);
     try {
-      const res = await fetch(
-        `/api/leads/${selectedConv.leadId}/instagram/send`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: messageText.trim() }),
-        }
-      );
+      let url: string;
+      let body: Record<string, string>;
+
+      if (selectedConv.isLinked && selectedConv.leadId) {
+        // Linked conversation — send via lead route
+        url = `/api/leads/${selectedConv.leadId}/instagram/send`;
+        body = { text: messageText.trim() };
+      } else {
+        // Unlinked conversation — send via recipient ID
+        url = `/api/instagram/send`;
+        body = { text: messageText.trim(), recipientId: selectedConv.instagramScopedId! };
+      }
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
 
       if (res.ok) {
         setMessageText("");
         fetchConversations();
+        // Refresh messages thread
+        if (!selectedConv.isLinked && selectedConv.id) {
+          fetchUnlinkedMessages(selectedConv.id);
+        }
         // Remount InstagramConversation on next render
         setSelectedId((prev) => {
           setTimeout(() => selectedConv && setSelectedId(selectedConv.id), 50);
@@ -321,9 +338,13 @@ export default function MessagesPage() {
 
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Enter" && !e.shiftKey && selectedConv?.isLinked && selectedConv.leadId) {
-        e.preventDefault();
-        handleSend();
+      if (e.key === "Enter" && !e.shiftKey && selectedConv) {
+        const canSend = (selectedConv.isLinked && selectedConv.leadId) ||
+          (!selectedConv.isLinked && selectedConv.instagramScopedId);
+        if (canSend) {
+          e.preventDefault();
+          handleSend();
+        }
       }
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -593,8 +614,8 @@ export default function MessagesPage() {
                   )}
                 </div>
 
-                {/* Send input — only for linked conversations */}
-                {selectedConv.isLinked && (
+                {/* Send input — linked or unlinked with known recipient */}
+                {(selectedConv.isLinked || selectedConv.instagramScopedId) && (
                   <div className="flex items-end gap-2 p-4 border-t shrink-0">
                     <textarea
                       value={messageText}
