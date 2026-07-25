@@ -6,6 +6,7 @@ function createMockRepositories(): Repositories {
   return {
     lead: {
       getAll: jest.fn().mockResolvedValue([]),
+      search: jest.fn().mockResolvedValue({ data: [], total: 0, page: 1, limit: 25, totalPages: 0 }),
       getById: jest.fn().mockResolvedValue(null),
       create: jest.fn(),
       update: jest.fn(),

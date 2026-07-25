@@ -10,6 +10,7 @@ describe('CreateLead Use Case', () => {
     mockLeadRepository = {
       create: jest.fn(),
       getAll: jest.fn(),
+      search: jest.fn(),
       getById: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),

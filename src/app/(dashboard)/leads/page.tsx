@@ -8,18 +8,35 @@ import { LeadsTable } from "@/modules/leads/components/LeadsTable";
 import { Button } from "@/ui/components/button";
 import { Plus } from "lucide-react";
 import Link from "next/link";
+import type { LeadSearchParams } from "@/core/ports/LeadRepository";
 
 // export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
-export default async function LeadsPage() {
+interface LeadsPageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function LeadsPage({ searchParams }: LeadsPageProps) {
+  const params = await searchParams;
   const supabase = await createClient();
   const leadRepo = new SupabaseLeadRepository(supabase);
   const pipelineRepo = new SupabasePipelineRepository(supabase);
   const tagRepo = new SupabaseTagRepository(supabase);
-  
-  const [leads, pipelines, tags] = await Promise.all([
-    leadRepo.getAll(),
+
+  const searchParamsInput: LeadSearchParams = {
+    query: typeof params.q === 'string' ? params.q : undefined,
+    status: typeof params.status === 'string' ? params.status : undefined,
+    source: typeof params.source === 'string' ? params.source : undefined,
+    sort: typeof params.sort === 'string' ? params.sort : undefined,
+    order: typeof params.order === 'string' && (params.order === 'asc' || params.order === 'desc')
+      ? params.order : undefined,
+    page: typeof params.page === 'string' ? parseInt(params.page, 10) || 1 : 1,
+    limit: 25,
+  };
+
+  const [{ data: leads, total, page, totalPages }, pipelines, tags] = await Promise.all([
+    leadRepo.search(searchParamsInput),
     pipelineRepo.getAll(),
     tagRepo.getAll()
   ]);
@@ -43,7 +60,15 @@ export default async function LeadsPage() {
           </Link>
         </div>
 
-        <LeadsTable leads={leads} stages={allStages} allTags={tags} />
+        <LeadsTable
+          leads={leads}
+          stages={allStages}
+          allTags={tags}
+          total={total}
+          page={page}
+          totalPages={totalPages}
+          searchParams={params as Record<string, string>}
+        />
       </div>
     </DashboardLayout>
   );

@@ -66,12 +66,17 @@ interface LeadsTableProps {
   leads: Lead[];
   stages: PipelineStage[];
   allTags: Tag[];
+  total: number;
+  page: number;
+  totalPages: number;
+  searchParams: Record<string, string>;
 }
 
-export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableProps) {
+export function LeadsTable({ leads: initialLeads, stages, allTags, total, page, totalPages, searchParams }: LeadsTableProps) {
   const {
     leads, setLeads, updateLead, removeLead, isLoading, setLoading,
     search, setSearch, statusFilter, setStatusFilter,
+    setFromSearchParams, page: storePage,
   } = useLeadsStore();
   const [selectedTag, setSelectedTag] = React.useState<string>('all');
   const [selectedLeadId, setSelectedLeadId] = React.useState<string | null>(null);
@@ -84,12 +89,10 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
   // Sync filter state with URL search params
   useSearchParamsSync();
 
-  // Sincronizar leads iniciales con el store si es necesario
+  // Sync leads from server (don't re-trigger on searchParams changes since we use useSearchParamsSync)
   React.useEffect(() => {
-    if (initialLeads && initialLeads.length > 0) {
-      setLeads(initialLeads);
-      setLoading(false);
-    }
+    setLeads(initialLeads);
+    setLoading(false);
   }, [initialLeads, setLeads, setLoading]);
 
   const selectedLead = React.useMemo(() =>
@@ -162,23 +165,11 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
     }
   };
 
+  // Apply client-side tag filter only (stages and search are server-side)
   const filteredLeads = React.useMemo(() => {
-    return leads.filter((lead) => {
-      const matchesSearch =
-        lead.name.toLowerCase().includes(search.toLowerCase()) ||
-        lead.company.toLowerCase().includes(search.toLowerCase()) ||
-        lead.email.toLowerCase().includes(search.toLowerCase()) ||
-        (lead.website && lead.website.toLowerCase().includes(search.toLowerCase())) ||
-        (lead.jobTitle && lead.jobTitle.toLowerCase().includes(search.toLowerCase())) ||
-        (lead.phone && lead.phone.toLowerCase().includes(search.toLowerCase()));
-
-      const matchesStage = statusFilter === 'all' || lead.stageId === statusFilter || lead.status === statusFilter;
-
-      const matchesTag = selectedTag === 'all' || lead.tags?.some(t => t.id === selectedTag);
-
-      return matchesSearch && matchesStage && matchesTag;
-    });
-  }, [leads, search, statusFilter, selectedTag]);
+    if (selectedTag === 'all') return leads;
+    return leads.filter((lead) => lead.tags?.some(t => t.id === selectedTag));
+  }, [leads, selectedTag]);
 
   // Skeleton de carga para la tabla
   if (isLoading) {
@@ -204,7 +195,9 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
     );
   }
 
-  if (leads.length === 0) {
+  const hasFilters = search || statusFilter !== 'all' || selectedTag !== 'all';
+
+  if (leads.length === 0 && !hasFilters) {
     return (
       <EmptyState
         icon={Search}
@@ -356,6 +349,41 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
           </div>
         )}
       </div>
+
+      {/* Paginación */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Mostrando página {page} de {totalPages} ({total} leads)
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => {
+                const params = new URLSearchParams(searchParams);
+                params.set('page', String(page - 1));
+                router.push(`/leads?${params.toString()}`);
+              }}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => {
+                const params = new URLSearchParams(searchParams);
+                params.set('page', String(page + 1));
+                router.push(`/leads?${params.toString()}`);
+              }}
+            >
+              Siguiente
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Diálogo de confirmación para eliminar */}
       <Dialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>

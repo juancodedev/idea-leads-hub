@@ -1,6 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Lead, CreateLeadDTO, UpdateLeadDTO } from "../../core/domain/Lead";
-import { LeadRepository } from "../../core/ports/LeadRepository";
+import { LeadRepository, LeadSearchParams, PaginatedResult } from "../../core/ports/LeadRepository";
 import { Database } from "../database/database.types";
 import { BaseRepository } from "./BaseRepository";
 
@@ -13,6 +13,16 @@ interface LeadWithJoins extends LeadRow {
   lead_tags?: Array<{ tags: TagRow }>;
   notes_data?: NoteRow[];
 }
+
+const SORT_FIELD_MAP: Record<string, string> = {
+  name: 'name',
+  company: 'company',
+  email: 'email',
+  status: 'status',
+  createdAt: 'created_at',
+  updatedAt: 'updated_at',
+  estimatedValue: 'estimated_value',
+};
 
 export class SupabaseLeadRepository extends BaseRepository implements LeadRepository {
   constructor(supabase: SupabaseClient<Database>) {
@@ -28,6 +38,61 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
     if (error) this.handleError(error);
     const rows = (data ?? []) as unknown as LeadWithJoins[];
     return rows.map(row => this.mapToDomain(row, row.lead_tags, row.notes_data));
+  }
+
+  async search(params?: LeadSearchParams): Promise<PaginatedResult<Lead>> {
+    const {
+      query,
+      status,
+      source,
+      sort = 'created_at',
+      order = 'desc',
+      page = 1,
+      limit = 25,
+    } = params || {};
+
+    let queryBuilder = this.supabase
+      .from('leads')
+      .select('*, lead_tags(tags(*)), notes_data:notes(*)', { count: 'exact' });
+
+    // Text search across name, company, email
+    if (query && query.trim()) {
+      const q = query.trim();
+      queryBuilder = queryBuilder.or(
+        `name.ilike.%${q}%,company.ilike.%${q}%,email.ilike.%${q}%`
+      );
+    }
+
+    // Status filter
+    if (status && status !== 'all') {
+      queryBuilder = queryBuilder.eq('status', status);
+    }
+
+    // Source filter
+    if (source && source !== 'all') {
+      queryBuilder = queryBuilder.eq('source', source);
+    }
+
+    // Map sort field to DB column
+    const sortField = SORT_FIELD_MAP[sort] || 'created_at';
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
+    const { data, error, count } = await queryBuilder
+      .order(sortField, { ascending: order === 'asc' })
+      .range(from, to);
+
+    if (error) this.handleError(error);
+    const rows = (data ?? []) as unknown as LeadWithJoins[];
+    const leads = rows.map(row => this.mapToDomain(row, row.lead_tags, row.notes_data));
+
+    return {
+      data: leads,
+      total: count ?? 0,
+      page,
+      limit,
+      totalPages: count ? Math.ceil(count / limit) : 0,
+    };
   }
 
   async getById(id: string): Promise<Lead | null> {
