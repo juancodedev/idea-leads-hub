@@ -59,6 +59,7 @@ import { useRouter } from 'next/navigation';
 import { LeadQuickView } from './LeadQuickView';
 import { useLeadRepository } from '@/ui/providers/RepositoryProvider';
 import { useLeadsStore } from '../store/useLeadsStore';
+import { useSearchParamsSync } from '../hooks/useSearchParamsSync';
 
 interface LeadsTableProps {
   leads: Lead[];
@@ -67,9 +68,10 @@ interface LeadsTableProps {
 }
 
 export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableProps) {
-  const { leads, setLeads, updateLead, removeLead, isLoading, setLoading } = useLeadsStore();
-  const [searchTerm, setSearchTerm] = React.useState('');
-  const [selectedStage, setSelectedStage] = React.useState<string>('all');
+  const {
+    leads, setLeads, updateLead, removeLead, isLoading, setLoading,
+    search, setSearch, statusFilter, setStatusFilter,
+  } = useLeadsStore();
   const [selectedTag, setSelectedTag] = React.useState<string>('all');
   const [selectedLeadId, setSelectedLeadId] = React.useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = React.useState(false);
@@ -77,6 +79,9 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
 
   const router = useRouter();
   const leadRepository = useLeadRepository();
+
+  // Sync filter state with URL search params
+  useSearchParamsSync();
 
   // Sincronizar leads iniciales con el store si es necesario
   React.useEffect(() => {
@@ -123,20 +128,20 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
   const filteredLeads = React.useMemo(() => {
     return leads.filter((lead) => {
       const matchesSearch =
-        lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        lead.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (lead.website && lead.website.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (lead.jobTitle && lead.jobTitle.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (lead.phone && lead.phone.toLowerCase().includes(searchTerm.toLowerCase()));
+        lead.name.toLowerCase().includes(search.toLowerCase()) ||
+        lead.company.toLowerCase().includes(search.toLowerCase()) ||
+        lead.email.toLowerCase().includes(search.toLowerCase()) ||
+        (lead.website && lead.website.toLowerCase().includes(search.toLowerCase())) ||
+        (lead.jobTitle && lead.jobTitle.toLowerCase().includes(search.toLowerCase())) ||
+        (lead.phone && lead.phone.toLowerCase().includes(search.toLowerCase()));
 
-      const matchesStage = selectedStage === 'all' || lead.stageId === selectedStage;
+      const matchesStage = statusFilter === 'all' || lead.stageId === statusFilter || lead.status === statusFilter;
 
       const matchesTag = selectedTag === 'all' || lead.tags?.some(t => t.id === selectedTag);
 
       return matchesSearch && matchesStage && matchesTag;
     });
-  }, [leads, searchTerm, selectedStage, selectedTag]);
+  }, [leads, search, statusFilter, selectedTag]);
 
   // Skeleton de carga para la tabla
   if (isLoading) {
@@ -180,13 +185,13 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Buscar por nombre, empresa o email..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             className="pl-10"
           />
         </div>
         <div className="flex items-center gap-2">
-          <Select value={selectedStage} onValueChange={setSelectedStage}>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Todas las etapas" />
             </SelectTrigger>

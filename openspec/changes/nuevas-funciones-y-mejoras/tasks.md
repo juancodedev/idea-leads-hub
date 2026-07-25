@@ -37,7 +37,7 @@
 
 ## Slice 2 — Daily Productivity (~400 lines)
 
-### T4. Implement search params for LeadsTable
+### T4. Implement search params for LeadsTable  [x]
 - **Files**:
   - `src/app/(dashboard)/leads/page.tsx`
   - `src/modules/leads/store/useLeadsStore.ts`
