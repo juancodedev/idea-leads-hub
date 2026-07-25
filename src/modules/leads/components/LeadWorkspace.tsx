@@ -4,16 +4,19 @@ import * as React from 'react';
 import { Lead } from '@/core/domain/Lead';
 import { Tag } from '@/core/domain/Tag';
 import { Note } from '@/core/domain/Note';
+import type { PipelineStage } from '@/core/domain/Pipeline';
 import { TagSelector } from '@/modules/shared/components/TagSelector';
 import { NoteForm } from '@/modules/shared/components/NoteForm';
 import { NoteTimeline } from '@/modules/shared/components/NoteTimeline';
-import { useTagRepository, useNoteRepository } from '@/ui/providers/RepositoryProvider';
+import { useTagRepository, useNoteRepository, usePipelineRepository, useLeadRepository } from '@/ui/providers/RepositoryProvider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/components/tabs';
 import { MessageSquare, History, Lightbulb, MessageCircle } from 'lucide-react';
 import { LeadActivitiesSection } from '@/modules/activities/presentation/components/LeadActivitiesSection';
 import { RelatedIdeasSection } from '@/modules/ideas/presentation/components/RelatedIdeasSection';
 import { InstagramSendDialog } from '@/modules/instagram/components/InstagramSendDialog';
 import { InstagramConversation } from '@/modules/instagram/components/InstagramConversation';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/select';
+import { toast } from 'sonner';
 
 interface LeadWorkspaceProps {
   lead: Lead;
@@ -22,10 +25,14 @@ interface LeadWorkspaceProps {
 export function LeadWorkspace({ lead }: LeadWorkspaceProps) {
   const [tags, setTags] = React.useState<Tag[]>(lead.tags || []);
   const [notes, setNotes] = React.useState<Note[]>([]);
+  const [stages, setStages] = React.useState<PipelineStage[]>([]);
+  const [currentStage, setCurrentStage] = React.useState(lead.status);
   const [loading, setLoading] = React.useState(true);
 
   const tagRepository = useTagRepository();
   const noteRepository = useNoteRepository();
+  const pipelineRepo = usePipelineRepository();
+  const leadRepo = useLeadRepository();
 
   const fetchNotes = React.useCallback(async () => {
     try {
@@ -42,6 +49,26 @@ export function LeadWorkspace({ lead }: LeadWorkspaceProps) {
     fetchNotes();
   }, [fetchNotes]);
 
+  // Fetch pipeline stages on mount
+  React.useEffect(() => {
+    async function loadStages() {
+      try {
+        if (lead.pipelineId) {
+          const data = await pipelineRepo.getStages(lead.pipelineId);
+          setStages(data);
+        } else {
+          const pipelines = await pipelineRepo.getAll();
+          if (pipelines.length > 0 && pipelines[0].stages) {
+            setStages(pipelines[0].stages);
+          }
+        }
+      } catch (err) {
+        console.error('Error loading stages:', err);
+      }
+    }
+    loadStages();
+  }, [lead.pipelineId, pipelineRepo]);
+
   const handleAssignTag = async (tag: Tag) => {
     await tagRepository.assignToEntity(tag.id, lead.id, 'lead');
     setTags((prev) => [...prev, tag]);
@@ -52,9 +79,21 @@ export function LeadWorkspace({ lead }: LeadWorkspaceProps) {
     setTags((prev) => prev.filter((t) => t.id !== tagId));
   };
 
+  const handleStageChange = async (stageName: string) => {
+    setCurrentStage(stageName);
+    try {
+      await leadRepo.updateStatus(lead.id, stageName);
+      toast.success(`Etapa cambiada a "${stageName}"`);
+    } catch (err) {
+      console.error('Error updating stage:', err);
+      toast.error('Error al cambiar la etapa');
+      setCurrentStage(lead.status); // revert on error
+    }
+  };
+
   return (
     <div className="grid gap-6 md:grid-cols-3">
-      {/* Columna Izquierda: Información y Tags */}
+      {/* Columna Izquierda: Tags y Etapa */}
       <div className="md:col-span-1 space-y-6">
         <div className="rounded-xl border bg-card p-6 shadow-sm">
           <h3 className="font-semibold mb-4 text-sm uppercase text-muted-foreground tracking-wider">Etiquetas</h3>
@@ -63,6 +102,32 @@ export function LeadWorkspace({ lead }: LeadWorkspaceProps) {
             onAssign={handleAssignTag} 
             onRemove={handleRemoveTag} 
           />
+        </div>
+
+        <div className="rounded-xl border bg-card p-6 shadow-sm">
+          <h3 className="font-semibold mb-4 text-sm uppercase text-muted-foreground tracking-wider">Etapa</h3>
+          {stages.length > 0 ? (
+            <Select value={currentStage} onValueChange={handleStageChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccionar etapa..." />
+              </SelectTrigger>
+              <SelectContent>
+                {stages.map((stage) => (
+                  <SelectItem key={stage.id} value={stage.name}>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="h-3 w-3 rounded-full shrink-0"
+                        style={{ backgroundColor: stage.color }}
+                      />
+                      <span>{stage.name}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <p className="text-sm text-muted-foreground">No hay etapas disponibles</p>
+          )}
         </div>
       </div>
 

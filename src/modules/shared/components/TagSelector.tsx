@@ -137,7 +137,6 @@ export function TagSelector({ selectedTags, onAssign, onRemove }: TagSelectorPro
                         setInputValue("");
                         toggleTag(tag);
                       }}
-                      className="opacity-100! pointer-events-auto!"
                     >
                       <div
                         className={cn(
