@@ -35,10 +35,40 @@ export const GET = apiHandler(async (request: NextRequest) => {
 
   const leadId = searchParams.get('leadId');
   const ideaId = searchParams.get('ideaId');
+  const unlinkedId = searchParams.get('unlinkedId');
+  const unreadOnly = searchParams.get('unread') === 'true';
+  const typeFilter = searchParams.get('type');
+
+  if (unlinkedId) {
+    // Fetch unlinked Instagram messages for a given sender/recipient ID
+    let query = supabase
+      .from('activities')
+      .select('id, completed, type')
+      .is('lead_id', null)
+      .or(
+        `title.ilike.Instagram DM from ${unlinkedId},title.ilike.Instagram DM to ${unlinkedId}`
+      );
+
+    if (unreadOnly) {
+      query = query.eq('completed', false);
+    }
+
+    if (typeFilter) {
+      query = query.eq('type', typeFilter);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      console.error('Error fetching unlinked activities:', error);
+      return NextResponse.json({ error: 'Error al cargar actividades' }, { status: 500 });
+    }
+
+    return NextResponse.json(data ?? [], { status: 200 });
+  }
 
   if (!leadId && !ideaId) {
     return NextResponse.json(
-      { error: 'leadId or ideaId query parameter is required' },
+      { error: 'leadId, ideaId, or unlinkedId query parameter is required' },
       { status: 400 }
     );
   }

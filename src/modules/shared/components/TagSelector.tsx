@@ -109,8 +109,9 @@ export function TagSelector({ selectedTags, onAssign, onRemove }: TagSelectorPro
         </PopoverTrigger>
         <PopoverContent className="w-[200px] p-0" align="start">
           <Command>
-            <CommandInput
-              placeholder="Buscar o crear..."
+            <CommandInput 
+              placeholder="Buscar o crear..." 
+              value={inputValue}
               onValueChange={setInputValue}
             />
             <CommandList>
@@ -132,7 +133,11 @@ export function TagSelector({ selectedTags, onAssign, onRemove }: TagSelectorPro
                     <CommandItem
                       key={tag.id}
                       value={tag.name}
-                      onSelect={() => toggleTag(tag)}
+                      onSelect={() => {
+                        setInputValue("");
+                        toggleTag(tag);
+                      }}
+                      className="opacity-100! pointer-events-auto!"
                     >
                       <div
                         className={cn(

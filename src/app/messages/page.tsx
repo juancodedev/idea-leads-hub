@@ -151,8 +151,9 @@ export default function MessagesPage() {
 
   const markAsRead = React.useCallback(
     async (conv: Conversation) => {
-      if (!conv.leadId || conv.unreadCount === 0) return;
+      if (conv.unreadCount === 0) return;
 
+      // Optimistic update
       setConversations((prev) =>
         prev.map((c) =>
           c.id === conv.id ? { ...c, unreadCount: 0 } : c
@@ -160,18 +161,31 @@ export default function MessagesPage() {
       );
 
       try {
-        const res = await fetch(`/api/activities?leadId=${conv.leadId}`);
-        if (!res.ok) return;
+        let activityIds: string[] = [];
 
-        const activities: Array<{ id: string; completed: boolean; type: string }> =
-          await res.json();
+        if (conv.isLinked && conv.leadId) {
+          const res = await fetch(`/api/activities?leadId=${conv.leadId}`);
+          if (!res.ok) return;
 
-        const unreadIds = activities
-          .filter((a) => !a.completed && a.type === "INSTAGRAM_MESSAGE")
-          .map((a) => a.id);
+          const activities: Array<{ id: string; completed: boolean; type: string }> =
+            await res.json();
+
+          activityIds = activities
+            .filter((a) => !a.completed && a.type === "INSTAGRAM_MESSAGE")
+            .map((a) => a.id);
+        } else if (!conv.isLinked && conv.instagramScopedId) {
+          // Unlinked — find unread messages by sender/recipient ID
+          const res = await fetch(
+            `/api/activities?type=INSTAGRAM_MESSAGE&unread=true&unlinkedId=${conv.instagramScopedId}`
+          );
+          if (!res.ok) return;
+
+          const activities: Array<{ id: string }> = await res.json();
+          activityIds = activities.map((a) => a.id);
+        }
 
         await Promise.all(
-          unreadIds.map((id) =>
+          activityIds.map((id) =>
             fetch(`/api/activities/${id}/read`, { method: "PATCH" })
           )
         );
@@ -198,7 +212,8 @@ export default function MessagesPage() {
         markAsRead(conv);
         setUnlinkedMessages([]);
       } else {
-        // Unlinked — fetch messages via our API
+        // Unlinked — mark as read and fetch messages
+        markAsRead(conv);
         fetchUnlinkedMessages(conv.id);
       }
     },
