@@ -15,7 +15,7 @@
 - **Dependencies**: none
 - **Risk**: baja — cambio mecánico
 
-### T2. Create Pipeline Management page
+### T2. Create Pipeline Management page  [x]
 - **Files**: 
   - `src/app/(dashboard)/pipeline/page.tsx` (nuevo)
   - `src/modules/pipeline/components/PipelineSettings.tsx` (nuevo)

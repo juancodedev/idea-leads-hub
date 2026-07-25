@@ -1,9 +1,12 @@
 import React from "react";
+import Link from "next/link";
 import { createClient } from "@/infrastructure/database/server";
 import { SupabaseLeadRepository } from "@/infrastructure/repositories/SupabaseLeadRepository";
 import { SupabasePipelineRepository } from "@/infrastructure/repositories/SupabasePipelineRepository";
 import { DashboardLayout } from "@/ui/layouts/DashboardLayout";
 import { PipelineBoard } from "@/modules/leads/components/PipelineBoard";
+import { Button } from "@/ui/components/button";
+import { Settings } from "lucide-react";
 
 // export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -33,6 +36,14 @@ export default async function PipelinePage() {
             <p className="text-muted-foreground">
               {activePipeline ? activePipeline.description : 'Visualiza y gestiona el estado de tus oportunidades.'}
             </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/pipeline/settings">
+                <Settings className="mr-2 h-4 w-4" />
+                Configuración
+              </Link>
+            </Button>
           </div>
         </div>
 
