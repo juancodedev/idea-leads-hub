@@ -22,8 +22,9 @@ import {
   SelectValue,
 } from '@/ui/components/select';
 import { useRouter } from 'next/navigation';
-import { useLeadRepository } from '@/ui/providers/RepositoryProvider';
+import { useLeadRepository, usePipelineRepository } from '@/ui/providers/RepositoryProvider';
 import { Lead } from '@/core/domain/Lead';
+import type { PipelineStage } from '@/core/domain/Pipeline';
 import { toast } from 'sonner';
 import React from 'react';
 
@@ -37,6 +38,27 @@ export function LeadForm({ initialData }: LeadFormProps) {
   const router = useRouter();
   const { leads, setLeads } = useLeadsStore();
   const repository = useLeadRepository();
+  const pipelineRepo = usePipelineRepository();
+  const [stages, setStages] = React.useState<PipelineStage[]>([]);
+
+  React.useEffect(() => {
+    async function loadStages() {
+      try {
+        if (initialData?.pipelineId) {
+          const data = await pipelineRepo.getStages(initialData.pipelineId);
+          setStages(data);
+        } else {
+          const pipelines = await pipelineRepo.getAll();
+          if (pipelines.length > 0 && pipelines[0].stages) {
+            setStages(pipelines[0].stages);
+          }
+        }
+      } catch (err) {
+        console.error('Error loading stages:', err);
+      }
+    }
+    loadStages();
+  }, [initialData?.pipelineId, pipelineRepo]);
 
   const form = useForm<LeadFormValues>({
     resolver: zodResolver(LeadSchema),
@@ -161,12 +183,22 @@ export function LeadForm({ initialData }: LeadFormProps) {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="Nuevo">Nuevo</SelectItem>
-                    <SelectItem value="Contactado">Contactado</SelectItem>
-                    <SelectItem value="Interesado">Interesado</SelectItem>
-                    <SelectItem value="Propuesta">Propuesta</SelectItem>
-                    <SelectItem value="Ganado">Ganado</SelectItem>
-                    <SelectItem value="Perdido">Perdido</SelectItem>
+                    {stages.length === 0 ? (
+                      <>
+                        <SelectItem value="Nuevo">Nuevo</SelectItem>
+                        <SelectItem value="Contactado">Contactado</SelectItem>
+                        <SelectItem value="Interesado">Interesado</SelectItem>
+                        <SelectItem value="Propuesta">Propuesta</SelectItem>
+                        <SelectItem value="Ganado">Ganado</SelectItem>
+                        <SelectItem value="Perdido">Perdido</SelectItem>
+                      </>
+                    ) : (
+                      stages.map((stage) => (
+                        <SelectItem key={stage.id} value={stage.name}>
+                          {stage.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
                 <FormMessage />
