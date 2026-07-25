@@ -28,6 +28,10 @@ export function LeadWorkspace({ lead }: LeadWorkspaceProps) {
   const [stages, setStages] = React.useState<PipelineStage[]>([]);
   const [currentStage, setCurrentStage] = React.useState(lead.status);
   const [loading, setLoading] = React.useState(true);
+  const [pipelines, setPipelines] = React.useState<Pipeline[]>([]);
+  const [selectedPipelineId, setSelectedPipelineId] = React.useState<string | null>(
+    lead.pipelineId ?? null
+  );
 
   const tagRepository = useTagRepository();
   const noteRepository = useNoteRepository();
@@ -49,25 +53,44 @@ export function LeadWorkspace({ lead }: LeadWorkspaceProps) {
     fetchNotes();
   }, [fetchNotes]);
 
-  // Fetch pipeline stages on mount
+  // Fetch pipelines and stages on mount
   React.useEffect(() => {
-    async function loadStages() {
+    async function loadPipelinesAndStages() {
       try {
-        if (lead.pipelineId) {
-          const data = await pipelineRepo.getStages(lead.pipelineId);
+        const allPipelines = await pipelineRepo.getAll();
+        setPipelines(allPipelines);
+
+        const pipelineId = lead.pipelineId || (allPipelines.length > 0 ? allPipelines[0].id : null);
+        if (pipelineId) {
+          setSelectedPipelineId(pipelineId);
+          const data = await pipelineRepo.getStages(pipelineId);
           setStages(data);
-        } else {
-          const pipelines = await pipelineRepo.getAll();
-          if (pipelines.length > 0 && pipelines[0].stages) {
-            setStages(pipelines[0].stages);
-          }
         }
       } catch (err) {
-        console.error('Error loading stages:', err);
+        console.error('Error loading pipelines and stages:', err);
       }
     }
-    loadStages();
+    loadPipelinesAndStages();
   }, [lead.pipelineId, pipelineRepo]);
+
+  // Handle pipeline change
+  const handlePipelineChange = async (newPipelineId: string) => {
+    setSelectedPipelineId(newPipelineId);
+    try {
+      const newStages = await pipelineRepo.getStages(newPipelineId);
+      setStages(newStages);
+
+      // Check if current stage exists in new pipeline
+      const stageExists = newStages.some(
+        (s) => s.id === lead.stageId || s.name === lead.status
+      );
+      if (!stageExists) {
+        toast.warning('El stage actual no existe en este pipeline. Seleccioná uno nuevo.');
+      }
+    } catch (err) {
+      console.error('Error loading stages for pipeline:', err);
+    }
+  };
 
   const handleAssignTag = async (tag: Tag) => {
     await tagRepository.assignToEntity(tag.id, lead.id, 'lead');
@@ -103,6 +126,36 @@ export function LeadWorkspace({ lead }: LeadWorkspaceProps) {
             onRemove={handleRemoveTag} 
           />
         </div>
+
+        {/* Pipeline Selector — only show when multiple pipelines */}
+        {pipelines.length > 1 && (
+          <div className="rounded-xl border bg-card p-6 shadow-sm">
+            <h3 className="font-semibold mb-4 text-sm uppercase text-muted-foreground tracking-wider">Pipeline</h3>
+            <Select
+              value={selectedPipelineId ?? undefined}
+              onValueChange={handlePipelineChange}
+            >
+              <SelectTrigger aria-label="Pipeline">
+                <SelectValue placeholder="Seleccionar pipeline..." />
+              </SelectTrigger>
+              <SelectContent>
+                {pipelines.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {/* Pipeline name display when only one pipeline */}
+        {pipelines.length === 1 && (
+          <div className="rounded-xl border bg-card p-6 shadow-sm">
+            <h3 className="font-semibold mb-4 text-sm uppercase text-muted-foreground tracking-wider">Pipeline</h3>
+            <p className="text-sm font-medium">{pipelines[0].name}</p>
+          </div>
+        )}
 
         <div className="rounded-xl border bg-card p-6 shadow-sm">
           <h3 className="font-semibold mb-4 text-sm uppercase text-muted-foreground tracking-wider">Etapa</h3>

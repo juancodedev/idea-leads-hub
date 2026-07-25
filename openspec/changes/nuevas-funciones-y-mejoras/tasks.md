@@ -27,7 +27,7 @@
 - **Dependencies**: T1 (para que forms funcionen bien al crear)
 - **Risk**: media — drag & drop y validación de eliminación
 
-### T3. Add Pipeline Selector to LeadWorkspace
+### T3. Add Pipeline Selector to LeadWorkspace  [x]
 - **Files**: `src/modules/leads/components/LeadWorkspace.tsx`
 - **Description**: Replace hardcoded `pipelines[0]` with a Select to choose pipeline
 - **Dependencies**: T2 (pipeline management debe existir para que el selector tenga sentido)
