@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/ui/components/button";
 
 import { CommandMenu } from "@/ui/components/CommandMenu";
+import { Breadcrumbs } from "@/ui/components/Breadcrumbs";
 import { Search } from "lucide-react";
 import { logoutAction } from "@/modules/shared/infrastructure/actions/authActions";
 import { getProfileData } from "@/modules/shared/infrastructure/actions/profileActions";
@@ -171,6 +172,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         </header>
 
         <main className="flex-1 p-4 lg:p-8">
+          <Breadcrumbs />
           {children}
         </main>
       </div>

@@ -4,6 +4,8 @@ import React, { useCallback } from 'react';
 import { ActivityItem } from '@/modules/activities/components/ActivityItem';
 import type { Activity } from '@/modules/activities/domain/entities/Activity';
 import { toggleActivityCompletion } from './actions';
+import { EmptyState } from '@/ui/components/EmptyState';
+import { CheckSquare } from 'lucide-react';
 
 interface ActivitiesListProps {
   activities: Activity[];
@@ -20,9 +22,11 @@ export function ActivitiesList({ activities }: ActivitiesListProps) {
 
   if (activities.length === 0) {
     return (
-      <div className="p-8 text-center text-muted-foreground">
-        No tienes actividades pendientes. ¡Buen trabajo!
-      </div>
+      <EmptyState
+        icon={CheckSquare}
+        title="No hay actividades pendientes"
+        description="¡Buen trabajo! Las actividades que crees aparecerán aquí."
+      />
     );
   }
 

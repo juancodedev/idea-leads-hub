@@ -5,6 +5,8 @@ import { Idea } from "../../domain/entities/Idea";
 import { IdeasBoard } from "../components/IdeasBoard";
 import { IdeasList } from "../components/IdeasList";
 import { IdeaFilters } from "../components/IdeaFilters";
+import { EmptyState } from "@/ui/components/EmptyState";
+import { Lightbulb } from "lucide-react";
 import { useIdeasStore } from "../../store/useIdeasStore";
 
 interface IdeasViewProps {
@@ -32,6 +34,8 @@ export function IdeasView({ initialIdeas }: IdeasViewProps) {
     return matchesSearch && isNotArchived;
   });
 
+  const hasNoIdeas = ideas.length === 0 && initialIdeas.length === 0 && !searchTerm;
+
   return (
     <div className="flex flex-col h-full">
       <div className="mb-6">
@@ -41,19 +45,37 @@ export function IdeasView({ initialIdeas }: IdeasViewProps) {
         </p>
       </div>
 
-      <IdeaFilters
-        viewMode={viewMode}
-        setViewMode={setViewMode}
-        onSearch={setSearchTerm}
-      />
+      {hasNoIdeas ? (
+        <EmptyState
+          icon={Lightbulb}
+          title="No hay ideas registradas aún"
+          description="Las ideas de negocio que crees aparecerán aquí."
+        />
+      ) : (
+        <>
+          <IdeaFilters
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            onSearch={setSearchTerm}
+          />
 
-      <div className="flex-1 overflow-hidden">
-        {viewMode === "board" ? (
-          <IdeasBoard initialIdeas={filteredIdeas} />
-        ) : (
-          <IdeasList ideas={filteredIdeas} />
-        )}
-      </div>
+          <div className="flex-1 overflow-hidden">
+            {filteredIdeas.length === 0 ? (
+              <EmptyState
+                icon={Lightbulb}
+                title="Sin resultados"
+                description="No se encontraron ideas que coincidan con tu búsqueda."
+              />
+            ) : (
+              viewMode === "board" ? (
+                <IdeasBoard initialIdeas={filteredIdeas} />
+              ) : (
+                <IdeasList ideas={filteredIdeas} />
+              )
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
