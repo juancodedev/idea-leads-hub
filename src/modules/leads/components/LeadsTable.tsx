@@ -57,6 +57,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { LeadQuickView } from './LeadQuickView';
+import { toast } from 'sonner';
 import { useLeadRepository } from '@/ui/providers/RepositoryProvider';
 import { useLeadsStore } from '../store/useLeadsStore';
 import { useSearchParamsSync } from '../hooks/useSearchParamsSync';
@@ -104,13 +105,49 @@ export function LeadsTable({ leads: initialLeads, stages, allTags }: LeadsTableP
   const handleDeleteConfirm = async () => {
     if (!deleteConfirmId) return;
 
+    // Save lead in memory for undo
+    const deletedLead = leads.find((l) => l.id === deleteConfirmId);
+    if (!deletedLead) return;
+
     try {
       await leadRepository.delete(deleteConfirmId);
       removeLead(deleteConfirmId);
+      setDeleteConfirmId(null);
+
+      toast('Lead eliminado', {
+        action: {
+          label: 'Deshacer',
+          onClick: async () => {
+            try {
+              await leadRepository.create({
+                name: deletedLead.name,
+                company: deletedLead.company || '',
+                email: deletedLead.email || '',
+                phone: deletedLead.phone || '',
+                address: deletedLead.address || '',
+                website: deletedLead.website || '',
+                instagramHandle: deletedLead.instagramHandle || '',
+                instagramScopedId: deletedLead.instagramScopedId || '',
+                jobTitle: deletedLead.jobTitle || '',
+                linkedinUrl: deletedLead.linkedinUrl || '',
+                estimatedValue: deletedLead.estimatedValue || undefined,
+                nextFollowUp: deletedLead.nextFollowUp || '',
+                status: deletedLead.status,
+                source: deletedLead.source || '',
+                notes: deletedLead.notes || '',
+                pipelineId: deletedLead.pipelineId || undefined,
+                stageId: deletedLead.stageId || undefined,
+              });
+              toast.success('Lead recuperado');
+            } catch {
+              toast.error('No se pudo recuperar el lead');
+            }
+          },
+        },
+      });
     } catch (error) {
       console.error('Error deleting lead:', error);
-    } finally {
-      setDeleteConfirmId(null);
+      toast.error('Error al eliminar el lead');
     }
   };
 
