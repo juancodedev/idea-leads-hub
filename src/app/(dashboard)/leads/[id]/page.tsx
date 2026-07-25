@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { Edit2, Phone, Mail, Building, Globe, MapPin, Calendar, ChevronLeft, Instagram, User, Linkedin, DollarSign } from 'lucide-react';
 import { DashboardLayout } from '@/ui/layouts/DashboardLayout';
 import { LeadWorkspace } from '@/modules/leads/components/LeadWorkspace';
+import { ScoreBadge } from '@/modules/leads/components/ScoreBadge';
 
 interface LeadDetailsPageProps {
   params: Promise<{
@@ -38,7 +39,10 @@ export default async function LeadDetailsPage({ params }: LeadDetailsPageProps) 
               </Link>
             </Button>
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">{lead.name}</h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-3xl font-bold tracking-tight">{lead.name}</h1>
+                <ScoreBadge lead={lead} showIcon size="md" />
+              </div>
               <p className="text-muted-foreground">{lead.company}</p>
             </div>
           </div>

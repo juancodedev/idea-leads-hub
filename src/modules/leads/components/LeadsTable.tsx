@@ -57,6 +57,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { LeadQuickView } from './LeadQuickView';
+import { ScoreBadge } from './ScoreBadge';
 import { toast } from 'sonner';
 import { useLeadRepository } from '@/ui/providers/RepositoryProvider';
 import { useLeadsStore } from '../store/useLeadsStore';
@@ -255,6 +256,7 @@ export function LeadsTable({ leads: initialLeads, stages, allTags, total, page, 
               <TableHead>Contacto</TableHead>
               <TableHead>Empresa</TableHead>
               <TableHead>Etapa / Estado</TableHead>
+              <TableHead>Score</TableHead>
               <TableHead>Etiquetas</TableHead>
               <TableHead className="text-right">Valor</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
@@ -283,13 +285,10 @@ export function LeadsTable({ leads: initialLeads, stages, allTags, total, page, 
                   </TableCell>
                   <TableCell>{lead.company}</TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="h-2 w-2 rounded-full bg-[var(--tag-color)]"
-                        style={{ '--tag-color': stage?.color || '#cbd5e1' } as React.CSSProperties}
-                      />
-                      <span className="text-sm font-medium">{lead.status}</span>
-                    </div>
+                    <span className="text-sm font-medium">{lead.status}</span>
+                  </TableCell>
+                  <TableCell>
+                    <ScoreBadge lead={lead} />
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
