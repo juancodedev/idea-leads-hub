@@ -79,21 +79,21 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
 
     // Map camelCase DTO to snake_case DB columns
     const dbUpdates: Record<string, unknown> = {};
-    if (updates.name) dbUpdates.name = updates.name;
-    if (updates.company !== undefined) dbUpdates.company = updates.company;
-    if (updates.email) dbUpdates.email = updates.email;
-    if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
-    if (updates.address !== undefined) dbUpdates.address = updates.address;
-    if (updates.website !== undefined) dbUpdates.website = updates.website;
-    if (updates.status) dbUpdates.status = updates.status;
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.company !== undefined) dbUpdates.company = updates.company || null;
+    if (updates.email !== undefined) dbUpdates.email = updates.email;
+    if (updates.phone !== undefined) dbUpdates.phone = updates.phone || null;
+    if (updates.address !== undefined) dbUpdates.address = updates.address || null;
+    if (updates.website !== undefined) dbUpdates.website = updates.website || null;
+    if (updates.status !== undefined) dbUpdates.status = updates.status;
     if (updates.source !== undefined) dbUpdates.source = updates.source;
-    if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+    if (updates.notes !== undefined) dbUpdates.notes = updates.notes || null;
     if (updates.pipelineId !== undefined) dbUpdates.pipeline_id = updates.pipelineId;
     if (updates.stageId !== undefined) dbUpdates.stage_id = updates.stageId;
-    if (updates.instagramHandle !== undefined) dbUpdates.instagram_handle = updates.instagramHandle;
-    if (updates.instagramScopedId !== undefined) dbUpdates.instagram_scoped_id = updates.instagramScopedId;
-    if (updates.jobTitle !== undefined) dbUpdates.job_title = updates.jobTitle;
-    if (updates.linkedinUrl !== undefined) dbUpdates.linkedin_url = updates.linkedinUrl;
+    if (updates.instagramHandle !== undefined) dbUpdates.instagram_handle = updates.instagramHandle || null;
+    if (updates.instagramScopedId !== undefined) dbUpdates.instagram_scoped_id = updates.instagramScopedId || null;
+    if (updates.jobTitle !== undefined) dbUpdates.job_title = updates.jobTitle || null;
+    if (updates.linkedinUrl !== undefined) dbUpdates.linkedin_url = updates.linkedinUrl || null;
     if (updates.estimatedValue !== undefined) dbUpdates.estimated_value = updates.estimatedValue;
     if (updates.nextFollowUp !== undefined && updates.nextFollowUp !== '') dbUpdates.next_follow_up = updates.nextFollowUp;
 
