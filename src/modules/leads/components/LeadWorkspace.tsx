@@ -4,7 +4,7 @@ import * as React from 'react';
 import { Lead } from '@/core/domain/Lead';
 import { Tag } from '@/core/domain/Tag';
 import { Note } from '@/core/domain/Note';
-import type { PipelineStage } from '@/core/domain/Pipeline';
+import type { Pipeline, PipelineStage } from '@/core/domain/Pipeline';
 import { TagSelector } from '@/modules/shared/components/TagSelector';
 import { NoteForm } from '@/modules/shared/components/NoteForm';
 import { NoteTimeline } from '@/modules/shared/components/NoteTimeline';

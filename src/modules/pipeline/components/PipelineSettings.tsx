@@ -58,9 +58,11 @@ export function PipelineSettings() {
   React.useEffect(() => {
     if (!selectedPipelineId) return;
 
+    const pipelineId = selectedPipelineId;
+
     async function loadStages() {
       try {
-        const data = await pipelineRepo.getStages(selectedPipelineId);
+        const data = await pipelineRepo.getStages(pipelineId);
         setStages(data);
       } catch (err) {
         toast.error('Error al cargar etapas');
