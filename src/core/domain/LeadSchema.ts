@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 // Lead status enum shared across schemas
-export const LeadStatusEnum = z.enum(['Nuevo', 'Contactado', 'Interesado', 'Propuesta', 'Ganado', 'Perdido']);
+export const LeadStatusEnum = z.string();
 
 /**
  * LeadSchema — Form/UI validation (English fields)

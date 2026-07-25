@@ -1,7 +1,7 @@
 import { Tag } from "./Tag";
 import { Note } from "./Note";
 
-export type LeadStatus = 'Nuevo' | 'Contactado' | 'Interesado' | 'Propuesta' | 'Ganado' | 'Perdido';
+export type LeadStatus = string;
 
 export interface Lead {
   id: string;

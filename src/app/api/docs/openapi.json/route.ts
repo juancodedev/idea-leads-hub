@@ -1050,7 +1050,7 @@ const openapi = {
             name: "status",
             in: "query",
             required: false,
-            schema: { type: "string", enum: ["Nuevo", "Contactado", "Interesado", "Propuesta", "Ganado", "Perdido"] },
+            schema: { type: "string", example: "Nuevo" },
             description: "Filtrar por estado",
           },
           {
@@ -1834,7 +1834,7 @@ const openapi = {
           },
           status: {
             type: "string",
-            enum: ["Nuevo", "Contactado", "Interesado", "Propuesta", "Ganado", "Perdido"],
+            example: "Nuevo",
             default: "Nuevo",
           },
           instagramHandle: {
@@ -1882,7 +1882,7 @@ const openapi = {
           phone: { type: "string", nullable: true },
           address: { type: "string", nullable: true, description: "Dirección del lead" },
           website: { type: "string", format: "uri", nullable: true, description: "Sitio web del lead" },
-          status: { type: "string", enum: ["Nuevo", "Contactado", "Interesado", "Propuesta", "Ganado", "Perdido"] },
+          status: { type: "string", example: "Nuevo" },
           source: { type: "string", nullable: true },
           notes: { type: "string", nullable: true },
           userId: { type: "string", format: "uuid" },
@@ -1909,7 +1909,7 @@ const openapi = {
           website: { type: "string", format: "uri", description: "Sitio web del lead" },
           source: { type: "string", description: "Origen" },
           notes: { type: "string", description: "Notas" },
-          status: { type: "string", description: "Estado del lead", enum: ["Nuevo", "Contactado", "Interesado", "Propuesta", "Ganado", "Perdido"] },
+          status: { type: "string", description: "Estado del lead", example: "Nuevo" },
           pipelineId: { type: "string", format: "uuid", nullable: true, description: "ID del pipeline" },
           stageId: { type: "string", format: "uuid", nullable: true, description: "ID de la etapa" },
           instagramHandle: { type: "string", description: "Handle de Instagram (ej. @usuario)" },
@@ -1926,7 +1926,7 @@ const openapi = {
         properties: {
           status: {
             type: "string",
-            enum: ["Nuevo", "Contactado", "Interesado", "Propuesta", "Ganado", "Perdido"],
+            example: "Nuevo",
             description: "Nuevo estado del lead",
           },
         },

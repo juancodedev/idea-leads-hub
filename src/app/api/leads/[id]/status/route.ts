@@ -10,10 +10,8 @@ import { InstagramAutoTrigger } from '@/modules/instagram/InstagramAutoTrigger';
 
 export const runtime = 'nodejs';
 
-const LeadStatusEnum = z.enum(['Nuevo', 'Contactado', 'Interesado', 'Propuesta', 'Ganado', 'Perdido']);
-
 const ChangeStatusSchema = z.object({
-  status: LeadStatusEnum,
+  status: z.string(),
 });
 
 export const PATCH = apiHandler(async (request: NextRequest, context: { params: Promise<{ id: string }> }) => {
