@@ -229,7 +229,7 @@ export function LeadsTable({ leads: initialLeads, stages, allTags, total, page, 
             <SelectContent>
               <SelectItem value="all">Todas las etapas</SelectItem>
               {stages.map(stage => (
-                <SelectItem key={stage.id} value={stage.id}>{stage.name}</SelectItem>
+                <SelectItem key={stage.id} value={stage.name}>{stage.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>

@@ -10,10 +10,6 @@ export interface SearchParamsInput {
   page: string | null;
 }
 
-const VALID_STATUSES = new Set([
-  'Nuevo', 'Contactado', 'Interesado', 'Propuesta', 'Ganado', 'Perdido',
-]);
-
 function sanitizeSearch(value: string): string {
   // Strip HTML tags and trim
   return value.replace(/<[^>]*>/g, '').trim();
@@ -87,7 +83,7 @@ export const useLeadsStore = create<LeadsState>((set) => ({
   setFromSearchParams: (params) =>
     set({
       search: params.q ? sanitizeSearch(params.q) : '',
-      statusFilter: params.status && VALID_STATUSES.has(params.status) ? params.status : 'all',
+      statusFilter: params.status ?? 'all',
       sourceFilter: params.source ?? 'all',
       sortField: params.sort ?? 'createdAt',
       sortOrder: params.order === 'asc' ? 'asc' : 'desc',

@@ -65,30 +65,24 @@ export const GET = apiHandler(async (request: NextRequest) => {
   const { supabase } = await withAuth(request);
   const { searchParams } = new URL(request.url);
 
-  const statusParam = searchParams.get('status');
-  const qParam = searchParams.get('q');
-
   const repo = new SupabaseLeadRepository(supabase);
-  let leads = await repo.getAll();
+  const result = await repo.search({
+    query: searchParams.get('q') ?? undefined,
+    status: searchParams.get('status') ?? undefined,
+    source: searchParams.get('source') ?? undefined,
+    sort: searchParams.get('sort') ?? undefined,
+    order: (searchParams.get('order') === 'asc' ? 'asc' : 'desc') as 'asc' | 'desc',
+    page: parseInt(searchParams.get('page') || '1', 10) || 1,
+    limit: parseInt(searchParams.get('limit') || '25', 10) || 25,
+  });
 
-  // Filter by status
-  if (statusParam) {
-    leads = leads.filter((lead) => lead.status === statusParam);
-  }
-
-  // Filter by search query (matches company, name, email, website)
-  if (qParam) {
-    const query = qParam.toLowerCase();
-    leads = leads.filter(
-      (lead) =>
-        lead.company.toLowerCase().includes(query) ||
-        lead.name.toLowerCase().includes(query) ||
-        lead.email.toLowerCase().includes(query) ||
-        (lead.website && lead.website.toLowerCase().includes(query))
-    );
-  }
-
-  return NextResponse.json(leads, { status: 200 });
+  return NextResponse.json({
+    data: result.data,
+    total: result.total,
+    page: result.page,
+    totalPages: result.totalPages,
+    limit: result.limit,
+  }, { status: 200 });
 });
 
 export const POST = apiHandler(async (request: NextRequest) => {

@@ -10,7 +10,7 @@ jest.mock("@/lib/api/with-auth", () => ({
   }),
 }));
 
-const mockGetAll = jest.fn();
+const mockSearch = jest.fn();
 const mockCreate = jest.fn();
 const mockGetById = jest.fn();
 const mockUpdate = jest.fn();
@@ -19,7 +19,7 @@ const mockUpdateStatus = jest.fn();
 
 jest.mock("@/infrastructure/repositories/SupabaseLeadRepository", () => ({
   SupabaseLeadRepository: jest.fn().mockImplementation(() => ({
-    getAll: mockGetAll,
+    search: mockSearch,
     create: mockCreate,
     getById: mockGetById,
     update: mockUpdate,
@@ -60,9 +60,9 @@ const mockLead = {
   updatedAt: "2024-01-01T00:00:00.000Z",
 };
 
-describe("GET /api/leads (new)", () => {
+describe("GET /api/leads", () => {
   beforeEach(() => {
-    mockGetAll.mockClear();
+    mockSearch.mockClear();
     mockCreate.mockClear();
     mockGetById.mockClear();
     mockUpdate.mockClear();
@@ -70,20 +70,36 @@ describe("GET /api/leads (new)", () => {
     mockUpdateStatus.mockClear();
   });
 
-  it("should return all leads", async () => {
-    mockGetAll.mockResolvedValue([mockLead]);
+  it("should return paginated leads via search()", async () => {
+    mockSearch.mockResolvedValue({
+      data: [mockLead],
+      total: 1,
+      page: 1,
+      totalPages: 1,
+      limit: 25,
+    });
 
     const request = new NextRequest(new URL("http://localhost:3000/api/leads"));
     const response = await GET(request);
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toHaveLength(1);
-    expect(body[0].company).toBe("Acme Inc");
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0].company).toBe("Acme Inc");
+    expect(body.total).toBe(1);
+    expect(body.page).toBe(1);
+    expect(body.totalPages).toBe(1);
+    expect(mockSearch).toHaveBeenCalled();
   });
 
-  it("should filter leads by status", async () => {
-    mockGetAll.mockResolvedValue([mockLead]);
+  it("should pass status filter to search()", async () => {
+    mockSearch.mockResolvedValue({
+      data: [mockLead],
+      total: 1,
+      page: 1,
+      totalPages: 1,
+      limit: 25,
+    });
 
     const request = new NextRequest(
       new URL("http://localhost:3000/api/leads?status=Nuevo")
@@ -92,27 +108,35 @@ describe("GET /api/leads (new)", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toHaveLength(1);
-    expect(body[0].status).toBe("Nuevo");
+    expect(mockSearch).toHaveBeenCalledWith(expect.objectContaining({ status: 'Nuevo' }));
+    expect(body.data[0].status).toBe("Nuevo");
   });
 
-  it("should filter leads by search query q", async () => {
-    const lead2 = { ...mockLead, id: "lead-2", name: "Jane Smith", company: "Beta Corp", email: "jane@beta.com", website: "https://beta-corp.io" };
-    mockGetAll.mockResolvedValue([mockLead, lead2]);
+  it("should pass search query q to search()", async () => {
+    mockSearch.mockResolvedValue({
+      data: [mockLead],
+      total: 1,
+      page: 1,
+      totalPages: 1,
+      limit: 25,
+    });
 
     const request = new NextRequest(
       new URL("http://localhost:3000/api/leads?q=acme")
     );
-    const response = await GET(request);
-    const body = await response.json();
+    await GET(request);
 
-    expect(response.status).toBe(200);
-    expect(body).toHaveLength(1);
-    expect(body[0].company).toBe("Acme Inc");
+    expect(mockSearch).toHaveBeenCalledWith(expect.objectContaining({ query: 'acme' }));
   });
 
-  it("should return empty array when no leads match search", async () => {
-    mockGetAll.mockResolvedValue([mockLead]);
+  it("should return paginated empty result when no leads match", async () => {
+    mockSearch.mockResolvedValue({
+      data: [],
+      total: 0,
+      page: 1,
+      totalPages: 0,
+      limit: 25,
+    });
 
     const request = new NextRequest(
       new URL("http://localhost:3000/api/leads?q=nonexistent")
@@ -121,14 +145,15 @@ describe("GET /api/leads (new)", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toEqual([]);
+    expect(body.data).toEqual([]);
+    expect(body.total).toBe(0);
   });
 });
 
 describe("POST /api/leads (existing backward compat)", () => {
   beforeEach(() => {
     mockCreate.mockClear();
-    mockGetAll.mockClear();
+    mockSearch.mockClear();
     mockGetById.mockClear();
     mockUpdate.mockClear();
     mockDelete.mockClear();

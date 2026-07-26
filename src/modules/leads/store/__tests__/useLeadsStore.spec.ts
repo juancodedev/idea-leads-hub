@@ -86,7 +86,7 @@ describe('useLeadsStore — searchParams sync', () => {
     expect(useLeadsStore.getState().statusFilter).toBe('all');
   });
 
-  it('should ignore invalid status filter values', () => {
+  it('should accept any status filter value (pipeline stages are dynamic)', () => {
     useLeadsStore.getState().setFromSearchParams({
       q: null,
       status: 'INVALID_STATUS_XYZ',
@@ -97,7 +97,8 @@ describe('useLeadsStore — searchParams sync', () => {
     });
 
     const state = useLeadsStore.getState();
-    expect(state.statusFilter).toBe('all'); // default
+    // Pipeline stages are dynamic — any value is valid
+    expect(state.statusFilter).toBe('INVALID_STATUS_XYZ');
   });
 
   it('should sanitize search input against XSS', () => {
