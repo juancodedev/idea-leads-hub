@@ -28,6 +28,10 @@ interface LeadSearchModalProps {
   onSelect: (lead: Lead) => void;
 }
 
+interface LeadSearchResponse {
+  data: Lead[];
+}
+
 export function LeadSearchModal({ open, onOpenChange, onSelect }: LeadSearchModalProps) {
   const [query, setQuery] = React.useState("");
   const [results, setResults] = React.useState<Lead[]>([]);
@@ -47,8 +51,10 @@ export function LeadSearchModal({ open, onOpenChange, onSelect }: LeadSearchModa
     try {
       const res = await fetch(`/api/leads?q=${encodeURIComponent(q)}`);
       if (res.ok) {
-        const data = await res.json();
-        setResults(data);
+        const data = (await res.json()) as LeadSearchResponse | Lead[];
+        setResults(Array.isArray(data) ? data : data.data ?? []);
+      } else {
+        setResults([]);
       }
     } catch {
       console.error("Failed to search leads");
