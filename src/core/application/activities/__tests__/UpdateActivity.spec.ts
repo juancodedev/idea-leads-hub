@@ -24,6 +24,7 @@ describe("UpdateActivity Use Case", () => {
       getForLead: jest.fn(),
       getForIdea: jest.fn(),
       getPending: jest.fn(),
+      search: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
       complete: jest.fn(),

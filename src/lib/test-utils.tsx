@@ -54,6 +54,7 @@ function createMockRepositories(): Repositories {
       getForLead: jest.fn().mockResolvedValue([]),
       getForIdea: jest.fn().mockResolvedValue([]),
       getPending: jest.fn().mockResolvedValue([]),
+      search: jest.fn().mockResolvedValue({ data: [], total: 0, page: 1, totalPages: 0 }),
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),

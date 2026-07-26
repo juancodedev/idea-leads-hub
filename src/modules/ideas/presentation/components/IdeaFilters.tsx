@@ -9,19 +9,22 @@ interface IdeaFiltersProps {
   viewMode: "board" | "list";
   setViewMode: (mode: "board" | "list") => void;
   onSearch: (term: string) => void;
+  children?: React.ReactNode;
 }
 
-export function IdeaFilters({ viewMode, setViewMode, onSearch }: IdeaFiltersProps) {
+export function IdeaFilters({ viewMode, setViewMode, onSearch, children }: IdeaFiltersProps) {
   return (
     <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-      <div className="relative flex-1 max-w-sm">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input 
-          placeholder="Buscar ideas..." 
-          className="pl-10"
-          onChange={(e) => onSearch(e.target.value)}
-        />
-      </div>
+      {children || (
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input 
+            placeholder="Buscar ideas..." 
+            className="pl-10"
+            onChange={(e) => onSearch(e.target.value)}
+          />
+        </div>
+      )}
 
       <div className="flex items-center gap-3">
         <div className="flex items-center rounded-lg border bg-background p-1">

@@ -1,6 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { Activity, CreateActivityDTO, UpdateActivityDTO } from "../../domain/entities/Activity";
-import { ActivityRepository } from "../../domain/repositories/ActivityRepository";
+import { ActivityRepository, ActivitySearchParams } from "../../domain/repositories/ActivityRepository";
+import { ActivityType } from "../../domain/enums/ActivityType";
 import { ActivityMapper } from "../mappers/ActivityMapper";
 import { BaseRepository } from "../../../../infrastructure/repositories/BaseRepository";
 import { Database } from "../../../../infrastructure/database/database.types";
@@ -53,6 +54,47 @@ export class SupabaseActivityRepository extends BaseRepository implements Activi
 
     if (error) this.handleError(error);
     return data.map(ActivityMapper.toDomain);
+  }
+
+  async search(params: ActivitySearchParams): Promise<{ data: Activity[]; total: number; page: number; totalPages: number }> {
+    let query = this.supabase
+      .from('activities')
+      .select('*', { count: 'exact' });
+
+    query = query.eq('user_id', params.userId);
+
+    if (params.query) {
+      query = query.ilike('title', `%${params.query}%`);
+    }
+
+    if (params.type) {
+      query = query.eq('type', params.type);
+    }
+
+    if (params.completed !== undefined) {
+      query = query.eq('completed', params.completed);
+    } else {
+      query = query.eq('completed', false);
+    }
+
+    const page = params.page || 1;
+    const limit = params.limit || 50;
+    const offset = (page - 1) * limit;
+
+    query = query
+      .order('due_date', { ascending: true })
+      .range(offset, offset + limit - 1);
+
+    const { data, error, count } = await query;
+
+    if (error) this.handleError(error);
+
+    return {
+      data: (data || []).map(ActivityMapper.toDomain),
+      total: count || 0,
+      page,
+      totalPages: Math.ceil((count || 0) / limit),
+    };
   }
 
   async create(activity: CreateActivityDTO): Promise<Activity> {
