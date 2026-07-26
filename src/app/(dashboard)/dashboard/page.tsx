@@ -6,6 +6,8 @@ import { SupabaseActivityRepository } from "@/modules/activities/infrastructure/
 import { SupabasePipelineRepository } from "@/infrastructure/repositories/SupabasePipelineRepository";
 import { DashboardStats } from "@/modules/dashboard/components/DashboardStats";
 import { PipelineAnalytics } from "@/modules/dashboard/components/PipelineAnalytics";
+import { PipelineValue } from "@/modules/dashboard/components/PipelineValue";
+import { SourceBreakdown } from "@/modules/dashboard/components/SourceBreakdown";
 import { UpcomingActivities } from "@/modules/dashboard/components/UpcomingActivities";
 import { IdeasByStatusChart } from "@/modules/dashboard/components/IdeasByStatusChart";
 import { DashboardLayout } from "@/ui/layouts/DashboardLayout";
@@ -67,6 +69,8 @@ export default async function DashboardPage() {
           </div>
           
           <div className="space-y-6">
+            <PipelineValue stages={stages} leads={leads} />
+            <SourceBreakdown leads={leads} />
             <UpcomingActivities activities={pendingActivities.slice(0, 5)} />
             
             <div className="rounded-xl border bg-card p-6 shadow-sm">

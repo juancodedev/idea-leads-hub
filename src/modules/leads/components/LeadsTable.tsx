@@ -247,8 +247,8 @@ export function LeadsTable({ leads: initialLeads, stages, allTags, total, page, 
         </div>
       </div>
 
-      {/* Tabla */}
-      <div className="rounded-md border bg-card shadow-sm overflow-hidden">
+      {/* Tabla - Desktop */}
+      <div className="hidden md:block rounded-md border bg-card shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
@@ -346,6 +346,63 @@ export function LeadsTable({ leads: initialLeads, stages, allTags, total, page, 
           <div className="py-12 text-center text-muted-foreground">
             No se encontraron leads que coincidan con los filtros.
           </div>
+        )}
+      </div>
+
+      {/* Mobile cards */}
+      <div className="block md:hidden space-y-3">
+        {filteredLeads.length === 0 ? (
+          <div className="py-12 text-center text-muted-foreground">
+            No se encontraron leads que coincidan con los filtros.
+          </div>
+        ) : (
+          filteredLeads.map((lead) => {
+            const stage = stages.find(s => s.id === lead.stageId);
+            return (
+              <div
+                key={lead.id}
+                className="rounded-lg border bg-card p-4 shadow-sm cursor-pointer active:bg-accent transition-colors"
+                onClick={() => handleOpenQuickView(lead)}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-sm truncate">{lead.name}</h3>
+                    <p className="text-xs text-muted-foreground truncate">{lead.email}</p>
+                  </div>
+                  <ScoreBadge lead={lead} />
+                </div>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  {lead.company && <span className="truncate">{lead.company}</span>}
+                  {lead.status && (
+                    <span className="inline-flex items-center gap-1">
+                      <span
+                        className="h-1.5 w-1.5 rounded-full inline-block"
+                        style={{ backgroundColor: stage?.color || '#cbd5e1' }}
+                      />
+                      {lead.status}
+                    </span>
+                  )}
+                  {lead.estimatedValue != null && (
+                    <span className="ml-auto font-medium">
+                      ${lead.estimatedValue.toLocaleString()}
+                    </span>
+                  )}
+                </div>
+                {lead.tags && lead.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {lead.tags.map(tag => (
+                      <span
+                        key={tag.id}
+                        className="inline-block h-1.5 w-1.5 rounded-full"
+                        style={{ backgroundColor: tag.color }}
+                        title={tag.name}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })
         )}
       </div>
 

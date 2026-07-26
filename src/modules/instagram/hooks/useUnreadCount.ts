@@ -5,6 +5,8 @@ import { createClient } from "@/infrastructure/database/client";
 
 const POLL_INTERVAL_MS = 30_000;
 
+let channelCounter = 0;
+
 /**
  * Returns the count of unread Instagram messages and a reset function.
  *
@@ -49,9 +51,14 @@ export function useUnreadCount(enabled = true) {
 
     const supabase = createClient();
 
+    // Unique channel name per mount avoids collisions with React Strict Mode
+    // (createBrowserClient caches the instance, so a reused name would return
+    //  the stale channel from the first mount and fail to add callbacks)
+    const channelName = `instagram-unread-${++channelCounter}`;
+
     // Try Realtime subscription
     const channel = supabase
-      .channel("instagram-unread")
+      .channel(channelName)
       .on(
         "postgres_changes",
         {

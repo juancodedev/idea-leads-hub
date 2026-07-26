@@ -68,7 +68,7 @@ export function ActivitiesList({ activities, searchParams }: ActivitiesListProps
   return (
     <div className="flex flex-col">
       {/* Filters */}
-      <div className="flex items-center gap-2 p-4 border-b">
+      <div className="flex flex-wrap items-center gap-2 p-4 border-b">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input

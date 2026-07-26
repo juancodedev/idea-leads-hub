@@ -23,6 +23,15 @@ jest.mock("@/infrastructure/repositories/SupabaseLeadRepository", () => ({
   })),
 }));
 
+const mockGetStages = jest.fn();
+
+jest.mock("@/infrastructure/repositories/SupabasePipelineRepository", () => ({
+  SupabasePipelineRepository: jest.fn().mockImplementation(() => ({
+    getStages: mockGetStages,
+    getAll: jest.fn(),
+  })),
+}));
+
 const mockMaybeSendAutoDm = jest.fn();
 
 jest.mock("@/modules/instagram/InstagramAutoTrigger", () => ({
@@ -60,6 +69,8 @@ const mockLead = {
   source: "Web",
   notes: "Interested",
   userId: "user-1",
+  pipelineId: "pipeline-1",
+  stageId: "stage-1",
   tags: [],
   createdAt: "2024-01-01T00:00:00.000Z",
   updatedAt: "2024-01-01T00:00:00.000Z",
@@ -76,6 +87,13 @@ describe("PATCH /api/leads/[id]/status", () => {
     mockUpdateStatus.mockClear();
     mockMaybeSendAutoDm.mockClear();
     mockMaybeSendAutoDm.mockResolvedValue(true);
+    mockGetStages.mockClear();
+    mockGetStages.mockResolvedValue([
+      { id: "stage-1", pipelineId: "pipeline-1", userId: "user-1", name: "Nuevo", position: 0, color: "#94a3b8", isClosed: false, isWon: false, createdAt: "2024-01-01T00:00:00.000Z" },
+      { id: "stage-2", pipelineId: "pipeline-1", userId: "user-1", name: "Contactado", position: 1, color: "#3b82f6", isClosed: false, isWon: false, createdAt: "2024-01-01T00:00:00.000Z" },
+      { id: "stage-3", pipelineId: "pipeline-1", userId: "user-1", name: "Interesado", position: 2, color: "#f59e0b", isClosed: false, isWon: false, createdAt: "2024-01-01T00:00:00.000Z" },
+      { id: "stage-4", pipelineId: "pipeline-1", userId: "user-1", name: "Ganado", position: 3, color: "#10b981", isClosed: true, isWon: true, createdAt: "2024-01-01T00:00:00.000Z" },
+    ]);
   });
 
   it("should change lead status and return 200", async () => {
