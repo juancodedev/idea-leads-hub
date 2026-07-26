@@ -10,12 +10,14 @@ import { NoteForm } from '@/modules/shared/components/NoteForm';
 import { NoteTimeline } from '@/modules/shared/components/NoteTimeline';
 import { useTagRepository, useNoteRepository, usePipelineRepository, useLeadRepository } from '@/ui/providers/RepositoryProvider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/components/tabs';
-import { MessageSquare, History, Lightbulb, MessageCircle } from 'lucide-react';
+import { MessageSquare, History, Lightbulb, MessageCircle, Mail } from 'lucide-react';
 import { LeadActivitiesSection } from '@/modules/activities/presentation/components/LeadActivitiesSection';
 import { RelatedIdeasSection } from '@/modules/ideas/presentation/components/RelatedIdeasSection';
 import { InstagramSendDialog } from '@/modules/instagram/components/InstagramSendDialog';
 import { InstagramConversation } from '@/modules/instagram/components/InstagramConversation';
 import { AuditLogTimeline } from '@/modules/shared/components/AuditLogTimeline';
+import { EmailComposeDialog } from '@/modules/leads/components/EmailComposeDialog';
+import { EmailTimeline } from '@/modules/leads/components/EmailTimeline';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/select';
 import { toast } from 'sonner';
 
@@ -33,6 +35,7 @@ export function LeadWorkspace({ lead }: LeadWorkspaceProps) {
   const [selectedPipelineId, setSelectedPipelineId] = React.useState<string | null>(
     lead.pipelineId ?? null
   );
+  const [emailRefreshKey, setEmailRefreshKey] = React.useState(0);
 
   const tagRepository = useTagRepository();
   const noteRepository = useNoteRepository();
@@ -188,7 +191,7 @@ export function LeadWorkspace({ lead }: LeadWorkspaceProps) {
       {/* Columna Derecha: Workspace con Tabs */}
       <div className="md:col-span-2">
         <Tabs defaultValue="notes" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="notes" className="gap-2">
               <MessageSquare className="h-4 w-4" />
               Notas
@@ -200,6 +203,10 @@ export function LeadWorkspace({ lead }: LeadWorkspaceProps) {
             <TabsTrigger value="history" className="gap-2">
               <History className="h-4 w-4" />
               Historial
+            </TabsTrigger>
+            <TabsTrigger value="email" className="gap-2">
+              <Mail className="h-4 w-4" />
+              Email
             </TabsTrigger>
             <TabsTrigger value="ideas" className="gap-2">
               <Lightbulb className="h-4 w-4" />
@@ -242,6 +249,23 @@ export function LeadWorkspace({ lead }: LeadWorkspaceProps) {
 
           <TabsContent value="history" className="space-y-6">
             <AuditLogTimeline parentId={lead.id} />
+          </TabsContent>
+
+          <TabsContent value="email" className="space-y-6">
+            <div className="rounded-xl border bg-card p-6 shadow-sm">
+              <h3 className="font-semibold mb-4">Enviar Email</h3>
+              <EmailComposeDialog
+                leadId={lead.id}
+                leadName={lead.name}
+                leadEmail={lead.email}
+                onSent={() => setEmailRefreshKey((k) => k + 1)}
+              />
+            </div>
+
+            <div className="rounded-xl border bg-card p-6 shadow-sm">
+              <h3 className="font-semibold mb-4">Historial de Emails</h3>
+              <EmailTimeline leadId={lead.id} refreshKey={emailRefreshKey} />
+            </div>
           </TabsContent>
 
           <TabsContent value="ideas" className="space-y-6">
