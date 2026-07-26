@@ -4,7 +4,7 @@ import { apiHandler } from '@/lib/api/api-handler';
 import { withAuth } from '@/lib/api/with-auth';
 import { NotFoundError } from '@/infrastructure/repositories/errors';
 import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLeadRepository';
-import { SupabasePipelineRepository } from '@/infrastructure/repositories/SupabasePipelineRepository';
+import { createAuditLog } from '@/modules/shared/infrastructure/actions/auditActions';
 import { InstagramAuthService } from '@/infrastructure/services/InstagramAuthService';
 import { InstagramMessagingService } from '@/infrastructure/services/InstagramMessagingService';
 import { InstagramAutoTrigger } from '@/modules/instagram/InstagramAutoTrigger';
@@ -49,6 +49,18 @@ export const PATCH = apiHandler(async (request: NextRequest, context: { params: 
 
   const lead = await repo.updateStatus(id, status);
 
+  // Audit log for status change (non-blocking, best-effort)
+  try {
+    await createAuditLogFromApi(supabase, {
+      entityType: 'LEAD',
+      entityId: id,
+      action: 'UPDATE',
+      changes: { status: { old: existing.status, new: status } },
+    });
+  } catch (err) {
+    console.error('Audit log failed:', err);
+  }
+
   // Fire-and-forget: auto-DM on status transition (non-blocking)
   try {
     const authService = new InstagramAuthService(supabase);
@@ -69,3 +81,19 @@ export const PATCH = apiHandler(async (request: NextRequest, context: { params: 
 
   return NextResponse.json(lead, { status: 200 });
 });
+
+async function createAuditLogFromApi(
+  supabase: any,
+  log: { entityType: string; entityId: string; action: string; changes: Record<string, any> }
+) {
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData?.user) return;
+
+  await supabase.from('audit_logs').insert({
+    entity_type: log.entityType,
+    entity_id: log.entityId,
+    action: log.action,
+    changes: log.changes,
+    user_id: userData.user.id,
+  });
+}

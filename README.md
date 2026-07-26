@@ -12,7 +12,9 @@ Idea Leads Hub es un CRM personal diseñado para gestionar leads e ideas de nego
 -   **Búsqueda Global**: CommandMenu (⌘K) con búsqueda de leads por nombre y accesos directos.
 -   **Paginación Server-Side**: Tabla de leads con paginación, filtros combinables y persistencia en URL.
 -   **Filtros en Actividades e Ideas**: Búsqueda por texto, filtro por tipo/estado con persistencia en URL.
--   **Loading States**: Skeletons en todas las rutas del dashboard (loading.tsx).
+- **Loading States**: Skeletons en todas las rutas del dashboard (loading.tsx).
+-   **Audit Log**: Historial de cambios con línea de tiempo en detalle de leads, ideas y actividades.
+-   **Identidad Visual**: Logo SVG, favicon, paleta de colores indigo/slate personalizada.
 -   **Integración con Instagram**: Envío y recepción de mensajes DM vía Meta API, timeline de conversaciones por lead, auto-DM en transiciones de estado, handle clickeable en la ficha del lead, lista de conversaciones agrupadas por lead (vinculadas y no vinculadas), página de mensajes dedicada con acciones de eliminar, vincular leads, y envío de mensajes a contactos sin lead asociado, badge de notificaciones no leídas en tiempo real.
 -   **API REST Completa**: ~35 endpoints para todas las entidades, con autenticación JWT, rate limiting y logging estructurado.
 -   **Documentación Interactiva**: Documentación de la API integrada con Swagger UI (OpenAPI 3.0).
