@@ -17,8 +17,8 @@ export default async function PipelinePage() {
   const pipelineRepo = new SupabasePipelineRepository(supabase);
   
   const [leads, pipelines] = await Promise.all([
-    leadRepo.getAll(),
-    pipelineRepo.getAll()
+    leadRepo.getAll().catch(() => []),
+    pipelineRepo.getAll().catch(() => [])
   ]);
 
   // Si no hay pipelines, mostramos un estado vacío o inicializamos (por ahora asumimos que existen o mostramos vacío)

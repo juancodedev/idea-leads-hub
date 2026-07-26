@@ -37,8 +37,8 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
 
   const [{ data: leads, total, page, totalPages }, pipelines, tags] = await Promise.all([
     leadRepo.search(searchParamsInput),
-    pipelineRepo.getAll(),
-    tagRepo.getAll()
+    pipelineRepo.getAll().catch(() => []),
+    tagRepo.getAll().catch(() => [])
   ]);
 
   const allStages = pipelines.flatMap(p => p.stages || []);

@@ -26,12 +26,12 @@ export default async function DashboardPage() {
   const activityRepo = new SupabaseActivityRepository(supabase);
   const pipelineRepo = new SupabasePipelineRepository(supabase);
 
-  // Fetch data in parallel
+  // Graceful data loading — transient errors show partial dashboard instead of crashing
   const [leads, ideas, pendingActivities, pipelines] = await Promise.all([
-    leadRepo.getAll(),
-    ideaRepo.getAll(),
-    activityRepo.getPending(user.id),
-    pipelineRepo.getAll(),
+    leadRepo.getAll().catch(() => []),
+    ideaRepo.getAll().catch(() => []),
+    activityRepo.getPending(user.id).catch(() => []),
+    pipelineRepo.getAll().catch(() => []),
   ]);
 
   const activePipeline = pipelines[0];
