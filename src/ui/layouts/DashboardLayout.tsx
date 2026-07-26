@@ -37,7 +37,13 @@ const navigation = [
   { name: "Ajustes", href: "/settings/profile", icon: Settings },
 ];
 
-export function DashboardLayout({ children }: { children: React.ReactNode }) {
+export function DashboardLayout({
+  children,
+  breadcrumbLabels,
+}: {
+  children: React.ReactNode;
+  breadcrumbLabels?: Record<string, string>;
+}) {
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
   const [userData, setUserData] = React.useState<{ email?: string; name?: string; avatar_url?: string } | null>(null);
@@ -175,7 +181,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         </header>
 
         <main className="flex-1 p-4 lg:p-8">
-          <Breadcrumbs />
+          <Breadcrumbs routeLabels={breadcrumbLabels} />
           {children}
         </main>
       </div>

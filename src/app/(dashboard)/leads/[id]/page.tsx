@@ -28,8 +28,10 @@ export default async function LeadDetailsPage({ params }: LeadDetailsPageProps) 
     notFound();
   }
 
+  const leadBreadcrumbLabel = lead.company || lead.name || lead.id;
+
   return (
-    <DashboardLayout>
+    <DashboardLayout breadcrumbLabels={{ [`/leads/${lead.id}`]: leadBreadcrumbLabel }}>
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">

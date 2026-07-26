@@ -18,25 +18,29 @@ const LABEL_MAP: Record<string, string> = {
   edit: 'Editar',
 };
 
-function getBreadcrumbs(pathname: string): Array<{ label: string; href: string }> {
+function getBreadcrumbs(
+  pathname: string,
+  routeLabels: Record<string, string> = {}
+): Array<{ label: string; href: string }> {
   const segments = pathname.split('/').filter(Boolean);
   const crumbs: Array<{ label: string; href: string }> = [];
+  
   let href = '';
 
   for (const segment of segments) {
     href += `/${segment}`;
-    const label = LABEL_MAP[segment] || decodeURIComponent(segment);
+    const label = routeLabels[href] || LABEL_MAP[segment] || decodeURIComponent(segment);
     crumbs.push({ label, href });
   }
 
   return crumbs;
 }
 
-export function Breadcrumbs() {
+export function Breadcrumbs({ routeLabels }: { routeLabels?: Record<string, string> }) {
   const pathname = usePathname();
 
   // Only show on sub-pages (not top-level routes)
-  const crumbs = getBreadcrumbs(pathname);
+  const crumbs = getBreadcrumbs(pathname, routeLabels);
   if (crumbs.length <= 1) return null;
 
   return (
