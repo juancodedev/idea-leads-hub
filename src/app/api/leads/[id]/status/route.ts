@@ -4,7 +4,7 @@ import { apiHandler } from '@/lib/api/api-handler';
 import { withAuth } from '@/lib/api/with-auth';
 import { NotFoundError } from '@/infrastructure/repositories/errors';
 import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLeadRepository';
-import { createAuditLog } from '@/modules/shared/infrastructure/actions/auditActions';
+import { SupabasePipelineRepository } from '@/infrastructure/repositories/SupabasePipelineRepository';
 import { InstagramAuthService } from '@/infrastructure/services/InstagramAuthService';
 import { InstagramMessagingService } from '@/infrastructure/services/InstagramMessagingService';
 import { InstagramAutoTrigger } from '@/modules/instagram/InstagramAutoTrigger';
@@ -86,6 +86,8 @@ async function createAuditLogFromApi(
   supabase: any,
   log: { entityType: string; entityId: string; action: string; changes: Record<string, any> }
 ) {
+  if (!supabase?.auth) return;
+
   const { data: userData } = await supabase.auth.getUser();
   if (!userData?.user) return;
 
