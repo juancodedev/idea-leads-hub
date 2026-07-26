@@ -6,8 +6,15 @@ import { Providers } from "@/ui/providers/QueryProvider";
 import { RepositoryProvider } from "@/ui/providers/RepositoryProvider";
 
 export const metadata: Metadata = {
-  title: "Idea Leads Hub - Personal CRM",
+  title: {
+    template: "%s | IdeaLeadsHub",
+    default: "IdeaLeadsHub — Personal CRM",
+  },
   description: "A modern, minimalist personal CRM for freelancers and developers.",
+  icons: {
+    icon: "/favicon.svg",
+    apple: "/logo.svg",
+  },
 };
 
 export default function RootLayout({
