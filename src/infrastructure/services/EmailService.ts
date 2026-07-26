@@ -13,18 +13,22 @@ export interface EmailResult {
 }
 
 export class EmailService {
-  private client: Resend;
+  private client: Resend | null = null;
 
-  constructor(apiKey?: string) {
-    const key = apiKey ?? process.env.RESEND_API_KEY;
-    if (!key) throw new Error('RESEND_API_KEY no está configurada');
-    this.client = new Resend(key);
+  private getClient(): Resend {
+    if (!this.client) {
+      const key = process.env.RESEND_API_KEY;
+      if (!key) throw new Error('RESEND_API_KEY no está configurada');
+      this.client = new Resend(key);
+    }
+    return this.client;
   }
 
   async send({ to, subject, html, from }: SendEmailParams): Promise<EmailResult> {
-    const sender = from ?? 'Idea Leads Hub <onboarding@resend.dev>';
+    const client = this.getClient();
+    const sender = from ?? 'jmunoz@juancode.dev';
 
-    const { data, error } = await this.client.emails.send({
+    const { data, error } = await client.emails.send({
       from: sender,
       to: [to],
       subject,
