@@ -8,10 +8,17 @@ Idea Leads Hub es un CRM personal diseñado para gestionar leads e ideas de nego
 -   **Pipeline de Ventas**: Tablero Kanban para leads con drag & drop entre columnas y popup inline para editar, cambiar estado, agregar notas y ver historial de actividades.
 -   **Gestión de Ideas**: Tablero Kanban para ideas con drag & drop entre estados (cross-column y reorden intra-columna), persistencia con error rollback.
 -   **Seguimiento de Actividades**: Registro de llamadas, correos, reuniones, tareas e Instagram DMs.
+-   **Lead Scoring**: Clasificación hot/warm/cold según etapa, valor estimado y actividad reciente.
+-   **Búsqueda Global**: CommandMenu (⌘K) con búsqueda de leads por nombre y accesos directos.
+-   **Paginación Server-Side**: Tabla de leads con paginación, filtros combinables y persistencia en URL.
+-   **Filtros en Actividades e Ideas**: Búsqueda por texto, filtro por tipo/estado con persistencia en URL.
+- **Loading States**: Skeletons en todas las rutas del dashboard (loading.tsx).
+-   **Audit Log**: Historial de cambios con línea de tiempo en detalle de leads, ideas y actividades.
+-   **Identidad Visual**: Logo SVG, favicon, paleta de colores indigo/slate personalizada.
 -   **Integración con Instagram**: Envío y recepción de mensajes DM vía Meta API, timeline de conversaciones por lead, auto-DM en transiciones de estado, handle clickeable en la ficha del lead, lista de conversaciones agrupadas por lead (vinculadas y no vinculadas), página de mensajes dedicada con acciones de eliminar, vincular leads, y envío de mensajes a contactos sin lead asociado, badge de notificaciones no leídas en tiempo real.
 -   **API REST Completa**: ~35 endpoints para todas las entidades, con autenticación JWT, rate limiting y logging estructurado.
 -   **Documentación Interactiva**: Documentación de la API integrada con Swagger UI (OpenAPI 3.0).
--   **275 Tests Automatizados**: Tests unitarios y de integración con Jest + React Testing Library.
+-   **336 Tests Automatizados**: Tests unitarios y de integración con Jest + React Testing Library.
 
 ## 🏗️ Arquitectura
 
@@ -41,7 +48,7 @@ Para más detalles, consulta la [Guía de Arquitectura](./docs/architecture.md).
 -   **Validación**: Zod
 -   **Estado**: Zustand + React Query (@tanstack/react-query)
 -   **Drag & Drop**: @dnd-kit (Pipeline de leads + Board de ideas)
-- **Testing**: Jest + React Testing Library (275 tests)
+-   **Testing**: Jest + React Testing Library (336 tests)
 -   **CI/CD**: GitHub Actions (type-check, lint, tests en cada PR)
 
 ## 📋 Requisitos Previos
@@ -220,7 +227,7 @@ npx tsc --noEmit
 npx eslint .
 ```
 
-Actualmente **275 tests** pasando en 47 suites, incluyendo:
+Actualmente **336 tests** pasando en 56 suites, incluyendo:
 - Tests de casos de uso (CreateLead, CreateIdea, CreateActivity, etc.)
 - Tests de API routes (Profile, Tags, Notes, Ideas, Activities, Pipeline, Leads, Instagram)
 - Tests de servicios (InstagramAuthService, InstagramMessagingService)

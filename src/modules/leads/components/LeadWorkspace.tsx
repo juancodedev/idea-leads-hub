@@ -15,6 +15,7 @@ import { LeadActivitiesSection } from '@/modules/activities/presentation/compone
 import { RelatedIdeasSection } from '@/modules/ideas/presentation/components/RelatedIdeasSection';
 import { InstagramSendDialog } from '@/modules/instagram/components/InstagramSendDialog';
 import { InstagramConversation } from '@/modules/instagram/components/InstagramConversation';
+import { AuditLogTimeline } from '@/modules/shared/components/AuditLogTimeline';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/select';
 import { toast } from 'sonner';
 
@@ -187,7 +188,7 @@ export function LeadWorkspace({ lead }: LeadWorkspaceProps) {
       {/* Columna Derecha: Workspace con Tabs */}
       <div className="md:col-span-2">
         <Tabs defaultValue="notes" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="notes" className="gap-2">
               <MessageSquare className="h-4 w-4" />
               Notas
@@ -195,6 +196,10 @@ export function LeadWorkspace({ lead }: LeadWorkspaceProps) {
             <TabsTrigger value="activity" className="gap-2">
               <History className="h-4 w-4" />
               Actividad
+            </TabsTrigger>
+            <TabsTrigger value="history" className="gap-2">
+              <History className="h-4 w-4" />
+              Historial
             </TabsTrigger>
             <TabsTrigger value="ideas" className="gap-2">
               <Lightbulb className="h-4 w-4" />
@@ -233,6 +238,10 @@ export function LeadWorkspace({ lead }: LeadWorkspaceProps) {
             <div className="rounded-xl border bg-card p-6 shadow-sm">
               <LeadActivitiesSection leadId={lead.id} />
             </div>
+          </TabsContent>
+
+          <TabsContent value="history" className="space-y-6">
+            <AuditLogTimeline parentId={lead.id} />
           </TabsContent>
 
           <TabsContent value="ideas" className="space-y-6">

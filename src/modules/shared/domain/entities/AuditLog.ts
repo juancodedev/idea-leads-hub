@@ -1,5 +1,5 @@
 export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE';
-export type AuditEntityType = 'IDEA' | 'ACTIVITY';
+export type AuditEntityType = 'IDEA' | 'ACTIVITY' | 'LEAD';
 
 export interface AuditLog {
   id: string;
