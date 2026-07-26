@@ -98,14 +98,15 @@ export function LeadForm({ initialData }: LeadFormProps) {
           setLeads(leads.map(l => l.id === initialData.id ? updatedLead : l));
         }
         toast.success('Lead actualizado correctamente');
+        router.push(`/leads/${initialData.id}`);
       } else {
         const newLead = await repository.create(values);
         if (newLead) {
           setLeads([newLead, ...leads]);
+          router.push(`/leads/${newLead.id}`);
         }
         toast.success('Lead creado correctamente');
       }
-      router.push('/leads');
       router.refresh();
     } catch (error: any) {
       toast.error(initialData ? 'Error al actualizar el lead' : 'Error al crear el lead', {
