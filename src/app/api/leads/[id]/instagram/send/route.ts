@@ -54,14 +54,16 @@ export const POST = apiHandler(
       }
 
       try {
-        // Resolve via Business Discovery API and cache it
+        // Resolve via Business Discovery API
         recipientId = await messagingService.resolveHandleToUserId(
           lead.instagramHandle,
           tokenData.igId,
           tokenData.userToken || tokenData.token
         );
 
-        // Cache the resolved ID on the lead for future sends
+        // Persist the scoped_id BEFORE sending — otherwise the lead's reply
+        // could arrive at the webhook before this write propagates,
+        // causing the message to appear as a new unlinked conversation.
         await leadRepo.update({
           id: lead.id,
           instagramScopedId: recipientId,

@@ -291,14 +291,19 @@ export class InstagramMessagingService {
    * Supports two formats:
    *   - Legacy: entry[].messaging[].message.text
    *   - Instagram Graph API v25.0+: entry[].changes[].value.message.text
-   * Returns null if the payload is not a text message.
+   *
+   * Filters out echo messages (is_echo: true) — these are Meta echoing
+   * our own outbound messages back to the webhook, which would otherwise
+   * create phantom unlinked conversations.
+   *
+   * Returns null if the payload is not a text message or is an echo.
    */
   parseIncomingMessage(payload: unknown): ParsedMessage | null {
     type ChangePayload = {
       value: {
         sender?: { id?: string };
         recipient?: { id?: string };
-        message?: { mid?: string; text?: string };
+        message?: { mid?: string; text?: string; is_echo?: boolean };
         timestamp?: number;
       };
     };
@@ -307,7 +312,7 @@ export class InstagramMessagingService {
       entry?: Array<{
         messaging?: Array<{
           sender?: { id?: string };
-          message?: { mid?: string; text?: string };
+          message?: { mid?: string; text?: string; is_echo?: boolean };
           timestamp?: number;
         }>;
         changes?: ChangePayload[];
@@ -320,6 +325,9 @@ export class InstagramMessagingService {
     // Try legacy format: entry[].messaging[]
     const legacyMsg = entry.messaging?.[0];
     if (legacyMsg) {
+      // Skip echo messages (our own outbound echoed back by Meta)
+      if (legacyMsg.message?.is_echo) return null;
+
       const text = legacyMsg.message?.text;
       if (!text) return null;
       const senderId = legacyMsg.sender?.id;
@@ -339,6 +347,9 @@ export class InstagramMessagingService {
     const change = entry.changes?.[0];
     const value = change?.value;
     if (!value?.message?.text) return null;
+
+    // Skip echo messages (v25+ format)
+    if (value.message.is_echo) return null;
 
     const senderId = value.sender?.id;
     const messageId = value.message.mid;

@@ -196,10 +196,14 @@ export async function POST(request: NextRequest) {
 
   let leadId = leads?.[0]?.id ?? null;
 
-  // If no direct lead match, check if previous messages from this sender
-  // were already linked to a lead (e.g. outbound replies created the link).
+  // If no direct lead match, check if previous messages from/to this sender
+  // were already linked to a lead (search both "from" and "to" title patterns).
+  // Outbound replies use "Instagram DM to {id}", inbound use "Instagram DM from {id}".
   if (!leadId) {
-    const { data: linkedActivity } = (await supabase
+    let linkedActivity: { lead_id: string } | null = null;
+
+    // Try "from" first (inbound from this sender was already linked)
+    const { data: fromMatch } = (await supabase
       .from("activities")
       .select("lead_id")
       .eq("type", ActivityType.INSTAGRAM_MESSAGE)
@@ -207,6 +211,24 @@ export async function POST(request: NextRequest) {
       .not("lead_id", "is", null)
       .limit(1)
       .maybeSingle()) as unknown as { data: { lead_id: string } | null };
+
+    if (fromMatch?.lead_id) {
+      linkedActivity = fromMatch;
+    } else {
+      // Try "to" (we sent an outbound to this sender, so it's the same lead)
+      const { data: toMatch } = (await supabase
+        .from("activities")
+        .select("lead_id")
+        .eq("type", ActivityType.INSTAGRAM_MESSAGE)
+        .eq("title", `Instagram DM to ${parsed.senderId}`)
+        .not("lead_id", "is", null)
+        .limit(1)
+        .maybeSingle()) as unknown as { data: { lead_id: string } | null };
+
+      if (toMatch?.lead_id) {
+        linkedActivity = toMatch;
+      }
+    }
 
     if (linkedActivity?.lead_id) {
       leadId = linkedActivity.lead_id;
