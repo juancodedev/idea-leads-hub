@@ -13,6 +13,9 @@ interface PipelineCardProps {
 }
 
 export function PipelineCard({ lead, isOverlay, onClick }: PipelineCardProps) {
+  const displayDate = lead.lastActivityAt ?? lead.createdAt;
+  const formattedDate = new Intl.DateTimeFormat('es-ES', { month: 'short', day: 'numeric' }).format(new Date(displayDate));
+
   const {
     attributes,
     listeners,
@@ -75,7 +78,7 @@ export function PipelineCard({ lead, isOverlay, onClick }: PipelineCardProps) {
           )}
 
           <div className="mt-3 flex items-center justify-between text-[10px] text-muted-foreground">
-             <span>{new Intl.DateTimeFormat('es-ES', { month: 'short', day: 'numeric' }).format(new Date(lead.createdAt))}</span>
+             <span title={`Last activity: ${formattedDate}`} aria-label={`Last activity: ${formattedDate}`}>{formattedDate}</span>
              {lead.source && <span className="rounded bg-muted px-1">{lead.source}</span>}
           </div>
         </CardContent>

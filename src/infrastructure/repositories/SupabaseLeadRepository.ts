@@ -14,6 +14,10 @@ interface LeadWithJoins extends LeadRow {
   notes_data?: NoteRow[];
 }
 
+// last_activity_at is now a column on the leads table, updated by DB triggers
+// on notes/activities INSERT and leads UPDATE — no need to join activities here
+const LEAD_SELECT_WITH_JOINS = '*, lead_tags(tags(*)), notes_data:notes(*)';
+
 const SORT_FIELD_MAP: Record<string, string> = {
   name: 'name',
   company: 'company',
@@ -32,7 +36,7 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
   async getAll(): Promise<Lead[]> {
     const { data, error } = await this.supabase
       .from('leads')
-      .select('*, lead_tags(tags(*)), notes_data:notes(*)')
+      .select(LEAD_SELECT_WITH_JOINS)
       .order('created_at', { ascending: false });
 
     if (error) this.handleError(error);
@@ -53,7 +57,7 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
 
     let queryBuilder = this.supabase
       .from('leads')
-      .select('*, lead_tags(tags(*)), notes_data:notes(*)', { count: 'exact' });
+      .select(LEAD_SELECT_WITH_JOINS, { count: 'exact' });
 
     // Text search across name, company, email
     if (query && query.trim()) {
@@ -98,7 +102,7 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
   async getById(id: string): Promise<Lead | null> {
     const { data, error } = await this.supabase
       .from('leads')
-      .select('*, lead_tags(tags(*)), notes_data:notes(*)')
+      .select(LEAD_SELECT_WITH_JOINS)
       .eq('id', id)
       .maybeSingle();
 
@@ -205,7 +209,11 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
     if (error) this.handleError(error);
   }
 
-  private mapToDomain(row: LeadRow, entityTags?: Array<{ tags: TagRow }>, notesData?: NoteRow[]): Lead {
+  private mapToDomain(
+    row: LeadRow,
+    entityTags?: Array<{ tags: TagRow }>,
+    notesData?: NoteRow[]
+  ): Lead {
     return {
       id: row.id,
       name: row.name,
@@ -242,6 +250,7 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
         createdAt: n.created_at,
         updatedAt: n.updated_at
       })) : [],
+      lastActivityAt: row.last_activity_at ?? undefined,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
