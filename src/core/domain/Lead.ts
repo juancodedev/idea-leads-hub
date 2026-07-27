@@ -25,6 +25,7 @@ export interface Lead {
   nextFollowUp?: string;
   tags?: Tag[];
   notes_data?: Note[];
+  lastActivityAt?: string;
   createdAt: string;
   updatedAt: string;
 }

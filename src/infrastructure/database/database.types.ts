@@ -62,6 +62,7 @@ export interface Database {
           linkedin_url: string | null;
           estimated_value: number | null;
           next_follow_up: string | null;
+          last_activity_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -85,6 +86,7 @@ export interface Database {
           linkedin_url?: string | null;
           estimated_value?: number | null;
           next_follow_up?: string | null;
+          last_activity_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -108,6 +110,7 @@ export interface Database {
           linkedin_url?: string | null;
           estimated_value?: number | null;
           next_follow_up?: string | null;
+          last_activity_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
