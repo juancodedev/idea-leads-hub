@@ -6,7 +6,7 @@ export const ideaSchema = z.object({
   description: z.string().max(2000).optional(),
   priority: z.nativeEnum(IdeaPriority).default(IdeaPriority.MEDIUM),
   status: z.nativeEnum(IdeaStatus).default(IdeaStatus.BACKLOG),
-  leadId: z.string().uuid().optional().nullable(),
+  leadIds: z.array(z.string().uuid()).default([]),
   tagIds: z.array(z.string().uuid()).default([]),
   attachments: z.array(z.object({
     name: z.string(),

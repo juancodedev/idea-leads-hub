@@ -31,7 +31,7 @@ export function IdeaForm({ initialValues, onSubmit, isLoading, onCancel, mode = 
       description: initialValues?.description || "",
       priority: initialValues?.priority || IdeaPriority.MEDIUM,
       status: initialValues?.status || IdeaStatus.BACKLOG,
-      leadId: initialValues?.leadId || null,
+      leadIds: initialValues?.leadIds || [],
       tagIds: initialValues?.tagIds || [],
       attachments: initialValues?.attachments || [],
     },
@@ -82,13 +82,13 @@ export function IdeaForm({ initialValues, onSubmit, isLoading, onCancel, mode = 
 
         <FormField
           control={form.control}
-          name="leadId"
+          name="leadIds"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Lead Relacionado (Opcional)</FormLabel>
+              <FormLabel>Leads Relacionados (Opcional)</FormLabel>
               <FormControl>
                 <LeadSelector
-                  selectedLeadId={field.value}
+                  selectedLeadIds={field.value}
                   onChange={field.onChange}
                 />
               </FormControl>

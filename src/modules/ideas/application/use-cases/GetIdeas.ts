@@ -5,7 +5,7 @@ import { IdeaStatus } from "../../domain/enums/IdeaEnums";
 export class GetIdeas {
   constructor(private readonly ideaRepository: IdeaRepository) {}
 
-  async execute(filters?: { status?: IdeaStatus; leadId?: string }): Promise<Idea[]> {
+  async execute(filters?: { status?: IdeaStatus; leadIds?: string[] }): Promise<Idea[]> {
     return await this.ideaRepository.getAll(filters);
   }
 }

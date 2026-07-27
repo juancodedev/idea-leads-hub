@@ -45,7 +45,7 @@ export function NewIdeaView() {
           <IdeaForm 
             onSubmit={handleSubmit} 
             isLoading={isLoading} 
-            initialValues={{ leadId: leadId || undefined }} 
+            initialValues={{ leadIds: leadId ? [leadId] : [] }} 
           />
         </CardContent>
       </Card>

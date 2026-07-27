@@ -38,8 +38,12 @@ export function EditIdeaView({ idea }: EditIdeaViewProps) {
         <p className="text-muted-foreground">Actualiza los detalles de tu idea.</p>
       </div>
 
-      {idea.leadId && (
-        <RelatedLeadCard leadId={idea.leadId} />
+      {idea.leadIds.length > 0 && (
+        <div className="space-y-2">
+          {idea.leadIds.map((leadId) => (
+            <RelatedLeadCard key={leadId} leadId={leadId} />
+          ))}
+        </div>
       )}
 
       <Card>
@@ -56,7 +60,7 @@ export function EditIdeaView({ idea }: EditIdeaViewProps) {
               description: idea.description,
               priority: idea.priority,
               status: idea.status,
-              leadId: idea.leadId,
+              leadIds: idea.leadIds,
               tagIds: idea.tags?.map(t => t.id) || [],
               attachments: idea.attachments || [],
             }} 

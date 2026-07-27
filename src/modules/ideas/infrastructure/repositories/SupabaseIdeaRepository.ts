@@ -14,7 +14,7 @@ export class SupabaseIdeaRepository extends BaseRepository implements IdeaReposi
   async getById(id: string): Promise<Idea | null> {
     const { data, error } = await this.supabase
       .from('ideas')
-      .select('*, idea_tags(tags(*))')
+      .select('*, idea_tags(tags(*)), idea_leads(lead_id)')
       .eq('id', id)
       .maybeSingle();
 
@@ -22,18 +22,29 @@ export class SupabaseIdeaRepository extends BaseRepository implements IdeaReposi
     return data ? IdeaMapper.toDomain(data) : null;
   }
 
-  async getAll(filters?: { status?: IdeaStatus; leadId?: string }): Promise<Idea[]> {
+  async getAll(filters?: { status?: IdeaStatus; leadIds?: string[] }): Promise<Idea[]> {
     let query = this.supabase
       .from('ideas')
-      .select('*, idea_tags(tags(*))')
+      .select('*, idea_tags(tags(*)), idea_leads(lead_id)')
       .order('created_at', { ascending: false });
 
     if (filters?.status) {
       query = query.eq('status', filters.status);
     }
 
-    if (filters?.leadId) {
-      query = query.eq('lead_id', filters.leadId);
+    if (filters?.leadIds && filters.leadIds.length > 0) {
+      // Filter ideas that are linked to ANY of the given leadIds
+      const { data: filteredIds } = await this.supabase
+        .from('idea_leads')
+        .select('idea_id')
+        .in('lead_id', filters.leadIds) as unknown as { data: { idea_id: string }[] | null; error: any };
+
+      if (filteredIds && filteredIds.length > 0) {
+        const ideaIds = filteredIds.map(item => item.idea_id);
+        query = query.in('id', ideaIds);
+      } else {
+        return []; // No matching ideas
+      }
     }
 
     const { data, error } = await query;
@@ -45,7 +56,7 @@ export class SupabaseIdeaRepository extends BaseRepository implements IdeaReposi
   async create(idea: CreateIdeaDTO): Promise<Idea> {
     const userId = await this.requireUser();
 
-    const { tagIds, ...ideaData } = idea;
+    const { tagIds, leadIds, ...ideaData } = idea;
 
     const persistence = IdeaMapper.toPersistence({
       ...ideaData,
@@ -75,11 +86,26 @@ export class SupabaseIdeaRepository extends BaseRepository implements IdeaReposi
       if (tagError) console.error("Error assigning tags:", tagError);
     }
 
+    // Assign leads if provided
+    if (leadIds && leadIds.length > 0) {
+      const leadAssignments = leadIds.map(leadId => ({
+        idea_id: data.id,
+        lead_id: leadId,
+        user_id: userId,
+      }));
+
+      const { error: leadError } = await this.supabase
+        .from('idea_leads')
+        .insert(leadAssignments as never);
+
+      if (leadError) console.error("Error assigning leads:", leadError);
+    }
+
     return this.getById(data.id) as Promise<Idea>;
   }
 
   async update(idea: UpdateIdeaDTO): Promise<Idea> {
-    const { id, tagIds, ...updates } = idea;
+    const { id, tagIds, leadIds, ...updates } = idea;
     const persistence = IdeaMapper.toPersistence(updates);
     
     const userId = await this.requireUser();
@@ -112,6 +138,28 @@ export class SupabaseIdeaRepository extends BaseRepository implements IdeaReposi
         await this.supabase
           .from('idea_tags')
           .insert(tagAssignments as never);
+      }
+    }
+
+    // Sync leads if provided
+    if (leadIds !== undefined) {
+      // Remove old lead assignments
+      await this.supabase
+        .from('idea_leads')
+        .delete()
+        .eq('idea_id', id);
+
+      // Add new lead assignments
+      if (leadIds.length > 0) {
+        const leadAssignments = leadIds.map(leadId => ({
+          idea_id: id,
+          lead_id: leadId,
+          user_id: userId,
+        }));
+
+        await this.supabase
+          .from('idea_leads')
+          .insert(leadAssignments as never);
       }
     }
 

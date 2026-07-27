@@ -99,6 +99,7 @@ const createIdea = (overrides: Partial<Idea> = {}): Idea => ({
   description: "A description",
   priority: IdeaPriority.MEDIUM,
   status: IdeaStatus.BACKLOG,
+  leadIds: [],
   createdBy: "user-1",
   createdAt: new Date("2024-01-15"),
   updatedAt: new Date("2024-01-15"),

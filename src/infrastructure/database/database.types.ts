@@ -124,7 +124,6 @@ export interface Database {
           status: string;
           priority: string;
           potential_revenue: number;
-          lead_id: string | null;
           archived_at: string | null;
           attachments: any[];
           created_at: string;
@@ -138,7 +137,6 @@ export interface Database {
           status?: string;
           priority?: string;
           potential_revenue?: number;
-          lead_id?: string | null;
           archived_at?: string | null;
           attachments?: any[];
           created_at?: string;
@@ -152,7 +150,6 @@ export interface Database {
           status?: string;
           priority?: string;
           potential_revenue?: number;
-          lead_id?: string | null;
           archived_at?: string | null;
           attachments?: any[];
           created_at?: string;
@@ -301,6 +298,23 @@ export interface Database {
           user_id?: string;
         };
       };
+      idea_leads: {
+        Row: {
+          idea_id: string;
+          lead_id: string;
+          user_id: string;
+        };
+        Insert: {
+          idea_id: string;
+          lead_id: string;
+          user_id: string;
+        };
+        Update: {
+          idea_id?: string;
+          lead_id?: string;
+          user_id?: string;
+        };
+      };
       pipelines: {
         Row: {
           id: string;
@@ -434,6 +448,7 @@ export namespace Tables {
   export type Tags = Database['public']['Tables']['tags']['Row'];
   export type LeadTags = Database['public']['Tables']['lead_tags']['Row'];
   export type IdeaTags = Database['public']['Tables']['idea_tags']['Row'];
+  export type IdeaLeads = Database['public']['Tables']['idea_leads']['Row'];
   export type Pipelines = Database['public']['Tables']['pipelines']['Row'];
   export type PipelineStages = Database['public']['Tables']['pipeline_stages']['Row'];
   export type Notes = Database['public']['Tables']['notes']['Row'];
