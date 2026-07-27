@@ -20,7 +20,7 @@ export function RelatedIdeasSection({ leadId }: RelatedIdeasSectionProps) {
 
   useEffect(() => {
     setIsLoading(true);
-    module.getIdeas.execute({ leadId })
+    module.getIdeas.execute({ leadIds: [leadId] })
       .then(setIdeas)
       .finally(() => setIsLoading(false));
   }, [leadId]);

@@ -72,15 +72,15 @@ describe("GET /api/ideas", () => {
     expect(mockGetAll).toHaveBeenCalledWith({ status: IdeaStatus.RESEARCHING });
   });
 
-  it("should filter by leadId query param", async () => {
+  it("should filter by leadIds query param", async () => {
     mockGetAll.mockResolvedValue([]);
 
     const request = new NextRequest(
-      new URL("http://localhost:3000/api/ideas?leadId=lead-1")
+      new URL("http://localhost:3000/api/ideas?leadIds=lead-1")
     );
     await GET(request);
 
-    expect(mockGetAll).toHaveBeenCalledWith({ leadId: "lead-1" });
+    expect(mockGetAll).toHaveBeenCalledWith({ leadIds: ["lead-1"] });
   });
 });
 

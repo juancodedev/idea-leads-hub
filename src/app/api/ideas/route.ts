@@ -14,7 +14,7 @@ const CreateIdeaSchema = z.object({
   description: z.string().optional(),
   priority: z.nativeEnum(IdeaPriority).optional().default(IdeaPriority.MEDIUM),
   status: z.nativeEnum(IdeaStatus).optional().default(IdeaStatus.BACKLOG),
-  leadId: z.string().uuid().optional().nullable(),
+  leadIds: z.array(z.string().uuid()).default([]),
   tagIds: z.array(z.string().uuid()).optional(),
 });
 
@@ -23,14 +23,14 @@ export const GET = apiHandler(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
 
   const statusParam = searchParams.get('status');
-  const leadIdParam = searchParams.get('leadId');
+  const leadIdsParam = searchParams.get('leadIds');
 
-  const filters: { status?: IdeaStatus; leadId?: string } = {};
+  const filters: { status?: IdeaStatus; leadIds?: string[] } = {};
   if (statusParam && Object.values(IdeaStatus).includes(statusParam as IdeaStatus)) {
     filters.status = statusParam as IdeaStatus;
   }
-  if (leadIdParam) {
-    filters.leadId = leadIdParam;
+  if (leadIdsParam) {
+    filters.leadIds = leadIdsParam.split(',');
   }
 
   const repo = new SupabaseIdeaRepository(supabase);

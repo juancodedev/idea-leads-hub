@@ -15,7 +15,7 @@ const UpdateIdeaSchema = z.object({
   description: z.string().optional(),
   priority: z.nativeEnum(IdeaPriority).optional(),
   status: z.nativeEnum(IdeaStatus).optional(),
-  leadId: z.string().uuid().optional(),
+  leadIds: z.array(z.string().uuid()).optional(),
   tagIds: z.array(z.string().uuid()).optional(),
 });
 

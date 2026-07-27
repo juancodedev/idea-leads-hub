@@ -15,7 +15,7 @@ export interface Idea {
   description?: string;
   priority: IdeaPriority;
   status: IdeaStatus;
-  leadId?: string | null;
+  leadIds: string[];
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;

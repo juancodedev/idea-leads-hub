@@ -27,6 +27,7 @@ describe("CreateIdea Use Case", () => {
       description: "Una descripción interesante",
       priority: IdeaPriority.HIGH,
       status: IdeaStatus.BACKLOG,
+      leadIds: [],
     };
 
     const expectedIdea: Idea = {
@@ -51,6 +52,7 @@ describe("CreateIdea Use Case", () => {
       description: "Sin título",
       priority: IdeaPriority.LOW,
       status: IdeaStatus.BACKLOG,
+      leadIds: [],
     };
 
     await expect(createIdea.execute(dto)).rejects.toThrow("El título de la idea no puede estar vacío");
