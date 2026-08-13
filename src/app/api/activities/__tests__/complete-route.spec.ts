@@ -24,6 +24,10 @@ jest.mock(
       update: jest.fn(),
       delete: jest.fn(),
       complete: mockComplete,
+      moveStatus: jest.fn(),
+      markRead: jest.fn(),
+      markUnread: jest.fn(),
+      getUnreadCount: jest.fn(),
     })),
   })
 );

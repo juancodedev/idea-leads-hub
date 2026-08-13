@@ -16,7 +16,8 @@ const UpdateActivitySchema = z.object({
   dueDate: z.string().datetime().transform((s) => new Date(s)).optional(),
   leadId: z.string().uuid().optional(),
   ideaId: z.string().uuid().optional(),
-  completed: z.boolean().optional(),
+  // Rollout: `completed` dropped — status transitions go through the status
+  // surface (PATCH /status / repo.moveStatus), which dual-writes `completed`.
 });
 
 export const GET = apiHandler(async (request: NextRequest, context: { params: Promise<{ id: string }> }) => {

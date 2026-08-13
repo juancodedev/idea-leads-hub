@@ -1,4 +1,5 @@
 import { ActivityType } from "../enums/ActivityType";
+import { ActivityStatus } from "../enums/ActivityStatus";
 
 export interface ActivityAttachment {
   name: string;
@@ -17,14 +18,17 @@ export interface Activity {
   title: string;
   description?: string;
   dueDate?: Date | null;
+  status: ActivityStatus;
   completed: boolean;
   completedAt?: Date;
+  readAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
   attachments?: ActivityAttachment[];
 }
 
-export type CreateActivityDTO = Omit<Activity, 'id' | 'createdAt' | 'updatedAt' | 'completed' | 'completedAt' | 'userId'> & {
+export type CreateActivityDTO = Omit<Activity, 'id' | 'createdAt' | 'updatedAt' | 'completed' | 'completedAt' | 'readAt' | 'status' | 'userId'> & {
   completed?: boolean;
+  status?: ActivityStatus;
 };
-export type UpdateActivityDTO = Partial<CreateActivityDTO> & { id: string; completed?: boolean; completedAt?: Date };
+export type UpdateActivityDTO = Omit<Partial<CreateActivityDTO>, 'completed'> & { id: string; completedAt?: Date };

@@ -1,6 +1,7 @@
 import { CreateActivity } from "./CreateActivity";
 import { ActivityRepository } from "../../domain/repositories/ActivityRepository";
 import { ActivityType } from "../../domain/enums/ActivityType";
+import { ActivityStatus } from "../../domain/enums/ActivityStatus";
 import { Activity } from "../../domain/entities/Activity";
 
 describe('CreateActivity Use Case', () => {
@@ -16,6 +17,10 @@ describe('CreateActivity Use Case', () => {
       update: jest.fn(),
       delete: jest.fn(),
       complete: jest.fn(),
+      moveStatus: jest.fn(),
+      markRead: jest.fn(),
+      markUnread: jest.fn(),
+      getUnreadCount: jest.fn(),
     } as any;
     createActivity = new CreateActivity(mockRepository);
   });
@@ -33,6 +38,7 @@ describe('CreateActivity Use Case', () => {
       id: 'activity-id',
       userId: 'user-id',
       completed: false,
+      status: ActivityStatus.PENDING,
       createdAt: new Date(),
       updatedAt: new Date(),
       ...dto
