@@ -52,6 +52,30 @@ describe('CreateActivity Use Case', () => {
     expect(mockRepository.create).toHaveBeenCalledWith(dto);
   });
 
+  it('should pass an explicit status through to the repository (P3.3)', async () => {
+    const dto = {
+      type: ActivityType.CALL,
+      title: 'Llamada inicial',
+      status: ActivityStatus.IN_PROGRESS,
+    };
+
+    const expectedActivity: Activity = {
+      id: 'activity-id',
+      userId: 'user-id',
+      completed: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...dto
+    };
+
+    mockRepository.create.mockResolvedValue(expectedActivity);
+
+    const result = await createActivity.execute(dto);
+
+    expect(mockRepository.create).toHaveBeenCalledWith(dto);
+    expect(result.status).toBe(ActivityStatus.IN_PROGRESS);
+  });
+
   it('should throw an error if title is empty', async () => {
     const dto = {
       leadId: 'lead-id',
