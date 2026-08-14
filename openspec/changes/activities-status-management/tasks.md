@@ -53,20 +53,20 @@ Paths base `src/modules/activities/` unless stated; API routes under `src/app/ap
 - [x] 4.1 RED→GREEN: `infrastructure/repositories/SupabaseActivityRepository.ts`: `moveStatus` atomic (status, dual-write `completed`, `completed_at` CASE BR-6); `complete()` rework; `create()` normalize+dual-write; `update()` stops `completed`; `markRead/markUnread/getUnreadCount` (`read_at IS NULL`); search `statusIn` default `[PENDING,IN_PROGRESS]` — DONE: implementation spec added (`SupabaseActivityRepository.spec.ts`, 13 tests); BR-3 type guard on markRead/markUnread (`.eq('type', INSTAGRAM_MESSAGE)`) implemented; search default treats `status IS NULL` as PENDING via `.or(...)`.
 - [x] 4.2 RED→GREEN: `infrastructure/mappers/ActivityMapper.ts`: map `status`/`read_at`; derive `completed` — DONE: implementation spec added (`ActivityMapper.spec.ts`, 8 tests) covering NULL-status fallback and dual-write derivation.
 - [x] 4.3 `src/infrastructure/database/database.types.ts`: `status`, `read_at` in Row/Insert/Update — DONE (absorbed in slice 1; `status`/`read_at` present in all three shapes).
-- [ ] 4.4 RED→GREEN: `infrastructure/actions/activityActions.ts`: `changeActivityStatus` (getById-first + `createAuditLog` `{old,new}`); `createActivityAction` passes `status`.
+- [x] 4.4 RED→GREEN: `infrastructure/actions/activityActions.ts`: `changeActivityStatus` (getById-first + `createAuditLog` `{old,new}`); `createActivityAction` passes `status` — DONE: spec added (`activityActions.spec.ts`, 3 tests: getById-first delegation + audit delta, missing-id no-audit error, status passthrough); commit fc7a74a.
 - [x] 4.5 Update spec mocks (`__tests__/complete-route.spec.ts`, `id-route.spec.ts`, `route.spec.ts`, core specs) with new verbs — DONE: complete-route/id-route mocks updated in slice 1; `route.spec.ts` mock now includes `moveStatus/markRead/markUnread/getUnreadCount`; id-route gained the PATCH silent-strip contract test.
 
 ## Phase 5: REST + OpenAPI (CF-2)
 
-- [ ] 5.1 RED→GREEN: `[id]/status/route.ts`: PATCH `z.nativeEnum` (400), 404, getById-first audit delta, 200; spec per complete-route pattern.
-- [ ] 5.2 RED→GREEN: `[id]/complete/route.ts`: delegate; ADD audit `changes.status.{old,new}` (currently none — CF-2); update spec.
-- [ ] 5.3 RED→GREEN: `[id]/read/route.ts`: `markRead`, drop `completed` write; spec: status/completed untouched (BR-3).
-- [ ] 5.4 RED→GREEN: `unread/route.ts`: `getUnreadCount` on `read_at IS NULL`; spec.
-- [ ] 5.5 `route.ts` (list): unlinked `unread=true` filter → `.is('read_at', null)`; no `?status=` mapping.
+- [x] 5.1 RED→GREEN: `[id]/status/route.ts`: PATCH `z.nativeEnum` (400), 404, getById-first audit delta, 200; spec per complete-route pattern — DONE: `status-route.spec.ts` (4 tests: transition + audit delta, invalid enum 400, 404, no-audit-on-error); commits 6ad1830.
+- [x] 5.2 RED→GREEN: `[id]/complete/route.ts`: delegate; ADD audit `changes.status.{old,new}` (currently none — CF-2); update spec — DONE: complete-route spec asserts the delta + no-audit on 404; commit 2e5fdc6.
+- [x] 5.3 RED→GREEN: `[id]/read/route.ts`: `markRead`, drop `completed` write; spec: status/completed untouched (BR-3) — DONE: `read-route.spec.ts` (2 tests: markRead only, 404); commit f56a7c0.
+- [x] 5.4 RED→GREEN: `unread/route.ts`: `getUnreadCount` on `read_at IS NULL`; spec — DONE: `unread-route.spec.ts` (2 tests: count via repo verb, zero); commit f56a7c0.
+- [x] 5.5 `route.ts` (list): unlinked `unread=true` filter → `.is('read_at', null)`; no `?status=` mapping — DONE: route.spec added unlinked-branch test asserting `is('read_at', null)` and absence of `eq('completed', false)`; selects `read_at`; commit c1735a5.
 - [x] 5.6 `[id]/route.ts`: drop `completed` from UpdateActivitySchema (field ignored scenario) — DONE (absorbed in slice 1; contract test + silent-strip note added in api-rest spec).
-- [ ] 5.7 `src/app/api/instagram/conversations/route.ts`: unreadCount on read marker (replaces `!activity.completed`).
-- [ ] 5.8 `src/app/messages/page.tsx`: selection on `!readAt && INSTAGRAM_MESSAGE`, fetch `read_at`.
-- [ ] 5.9 `src/app/api/docs/openapi.json/route.ts`: `ActivityStatus` enum + `/status`,`/read`,`/unread`; `completed` marked deprecated (removal deferred).
+- [x] 5.7 `src/app/api/instagram/conversations/route.ts`: unreadCount on read marker (replaces `!activity.completed`) — DONE: `conversations-route.spec.ts` (2 tests: unreadCount by read_at IS NULL; completed-but-unread stays unread); selects `read_at`; commit c7d7953.
+- [x] 5.8 `src/app/messages/page.tsx`: selection on `!readAt && INSTAGRAM_MESSAGE`, fetch `read_at` — DONE: linked mark-as-read filters `!readAt && type==='INSTAGRAM_MESSAGE'`; unlinked reuses `/api/activities?unread=true` (read_at IS NULL); commit c7d7953.
+- [x] 5.9 `src/app/api/docs/openapi.json/route.ts`: `ActivityStatus` enum + `/status`,`/read`,`/unread`; `completed` marked deprecated (removal deferred) — DONE: `openapi-route.spec.ts` asserts enum + paths + status/readAt on Activity + `completed.deprecated`; `UpdateActivityRequest` drops `completed`; commit 22188df.
 
 ## Phase 6: UI
 
