@@ -43,14 +43,15 @@ export const GET = apiHandler(async (request: NextRequest) => {
     // Fetch unlinked Instagram messages for a given sender/recipient ID
     let query = supabase
       .from('activities')
-      .select('id, completed, type')
+      .select('id, read_at, type')
       .is('lead_id', null)
       .or(
         `title.ilike.Instagram DM from ${unlinkedId},title.ilike.Instagram DM to ${unlinkedId}`
       );
 
     if (unreadOnly) {
-      query = query.eq('completed', false);
+      // Unread marker: read_at IS NULL (BR-3) — no `completed` dependency.
+      query = query.is('read_at', null);
     }
 
     if (typeFilter) {
