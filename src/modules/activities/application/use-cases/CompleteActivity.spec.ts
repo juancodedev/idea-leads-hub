@@ -3,6 +3,7 @@ import { ActivityRepository } from "../../domain/repositories/ActivityRepository
 import { Activity } from "../../domain/entities/Activity";
 import { ActivityType } from "../../domain/enums/ActivityType";
 import { ActivityStatus } from "../../domain/enums/ActivityStatus";
+import { NotFoundError } from "@/infrastructure/repositories/errors";
 
 describe("CompleteActivity Use Case (P3.2)", () => {
   let completeActivity: CompleteActivity;
@@ -60,12 +61,12 @@ describe("CompleteActivity Use Case (P3.2)", () => {
     expect(result.completed).toBe(true);
   });
 
-  it("should throw when activity not found", async () => {
+  it("should throw NotFoundError (404) when activity not found — same as MoveActivityStatus", async () => {
     mockRepository.getById.mockResolvedValue(null);
 
-    await expect(completeActivity.execute("non-existent")).rejects.toThrow(
-      "Actividad no encontrada"
-    );
+    const promise = completeActivity.execute("non-existent");
+    await expect(promise).rejects.toBeInstanceOf(NotFoundError);
+    await expect(promise).rejects.toMatchObject({ statusCode: 404 });
 
     expect(mockRepository.moveStatus).not.toHaveBeenCalled();
   });
