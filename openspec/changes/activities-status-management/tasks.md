@@ -50,11 +50,11 @@ Paths base `src/modules/activities/` unless stated; API routes under `src/app/ap
 
 ## Phase 4: Infrastructure
 
-- [ ] 4.1 RED→GREEN: `infrastructure/repositories/SupabaseActivityRepository.ts`: `moveStatus` atomic (status, dual-write `completed`, `completed_at` CASE BR-6); `complete()` rework; `create()` normalize+dual-write; `update()` stops `completed`; `markRead/markUnread/getUnreadCount` (`read_at IS NULL`); search `statusIn` default `[PENDING,IN_PROGRESS]`.
-- [ ] 4.2 RED→GREEN: `infrastructure/mappers/ActivityMapper.ts`: map `status`/`read_at`; derive `completed`.
-- [ ] 4.3 `src/infrastructure/database/database.types.ts`: `status`, `read_at` in Row/Insert/Update.
+- [x] 4.1 RED→GREEN: `infrastructure/repositories/SupabaseActivityRepository.ts`: `moveStatus` atomic (status, dual-write `completed`, `completed_at` CASE BR-6); `complete()` rework; `create()` normalize+dual-write; `update()` stops `completed`; `markRead/markUnread/getUnreadCount` (`read_at IS NULL`); search `statusIn` default `[PENDING,IN_PROGRESS]` — DONE: implementation spec added (`SupabaseActivityRepository.spec.ts`, 13 tests); BR-3 type guard on markRead/markUnread (`.eq('type', INSTAGRAM_MESSAGE)`) implemented; search default treats `status IS NULL` as PENDING via `.or(...)`.
+- [x] 4.2 RED→GREEN: `infrastructure/mappers/ActivityMapper.ts`: map `status`/`read_at`; derive `completed` — DONE: implementation spec added (`ActivityMapper.spec.ts`, 8 tests) covering NULL-status fallback and dual-write derivation.
+- [x] 4.3 `src/infrastructure/database/database.types.ts`: `status`, `read_at` in Row/Insert/Update — DONE (absorbed in slice 1; `status`/`read_at` present in all three shapes).
 - [ ] 4.4 RED→GREEN: `infrastructure/actions/activityActions.ts`: `changeActivityStatus` (getById-first + `createAuditLog` `{old,new}`); `createActivityAction` passes `status`.
-- [ ] 4.5 Update spec mocks (`__tests__/complete-route.spec.ts`, `id-route.spec.ts`, `route.spec.ts`, core specs) with new verbs.
+- [x] 4.5 Update spec mocks (`__tests__/complete-route.spec.ts`, `id-route.spec.ts`, `route.spec.ts`, core specs) with new verbs — DONE: complete-route/id-route mocks updated in slice 1; `route.spec.ts` mock now includes `moveStatus/markRead/markUnread/getUnreadCount`; id-route gained the PATCH silent-strip contract test.
 
 ## Phase 5: REST + OpenAPI (CF-2)
 
@@ -63,7 +63,7 @@ Paths base `src/modules/activities/` unless stated; API routes under `src/app/ap
 - [ ] 5.3 RED→GREEN: `[id]/read/route.ts`: `markRead`, drop `completed` write; spec: status/completed untouched (BR-3).
 - [ ] 5.4 RED→GREEN: `unread/route.ts`: `getUnreadCount` on `read_at IS NULL`; spec.
 - [ ] 5.5 `route.ts` (list): unlinked `unread=true` filter → `.is('read_at', null)`; no `?status=` mapping.
-- [ ] 5.6 `[id]/route.ts`: drop `completed` from UpdateActivitySchema (field ignored scenario).
+- [x] 5.6 `[id]/route.ts`: drop `completed` from UpdateActivitySchema (field ignored scenario) — DONE (absorbed in slice 1; contract test + silent-strip note added in api-rest spec).
 - [ ] 5.7 `src/app/api/instagram/conversations/route.ts`: unreadCount on read marker (replaces `!activity.completed`).
 - [ ] 5.8 `src/app/messages/page.tsx`: selection on `!readAt && INSTAGRAM_MESSAGE`, fetch `read_at`.
 - [ ] 5.9 `src/app/api/docs/openapi.json/route.ts`: `ActivityStatus` enum + `/status`,`/read`,`/unread`; `completed` marked deprecated (removal deferred).
@@ -71,7 +71,7 @@ Paths base `src/modules/activities/` unless stated; API routes under `src/app/ap
 ## Phase 6: UI
 
 - [ ] 6.1 RED→GREEN: `presentation/components/ActivityItem.tsx`: `onStatusChange` selector; timeline toggle → `moveStatus(COMPLETED)`, drop `repository.complete`.
-- [ ] 6.2 RED→GREEN: `(dashboard)/activities/actions.ts`: toggle → `moveStatus(COMPLETED/PENDING)` + getById-first audit delta; transition action + `revalidatePath`.
+- [x] 6.2 RED→GREEN: `(dashboard)/activities/actions.ts`: toggle → `moveStatus(COMPLETED/PENDING)` + getById-first audit delta; transition action + `revalidatePath` — DONE (toggle re-pointed in slice 1; spec `actions.spec.ts` added covering complete AND un-complete paths + unauthenticated rejection). The getById-first audit delta + transition action remain part of the later UI slice (6.4+).
 - [ ] 6.3 RED→GREEN: `(dashboard)/activities/ActivitiesList.tsx`: status filter replaces "Completadas"; optimistic + revert-toast; `status` URL param.
 - [ ] 6.4 `(dashboard)/activities/page.tsx`: `status` param → `statusIn` (default `[PENDING,IN_PROGRESS]`); title/copy.
 - [ ] 6.5 `src/modules/ideas/presentation/components/AddActivityForm.tsx`: `completed:true` normalized; no raw `completed` INSERT.
