@@ -721,6 +721,98 @@ const openapi = {
         },
       },
     },
+    "/api/activities/{id}/status": {
+      patch: {
+        summary: "Cambiar estado de actividad",
+        description: "Transición libre de estado (PENDING | IN_PROGRESS | COMPLETED). Escribe el delta de auditoría.",
+        tags: ["Activities"],
+        security: [{ supabaseAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ChangeActivityStatusRequest" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Actividad con el nuevo estado",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Activity" },
+              },
+            },
+          },
+          400: { description: "Error de validación (status fuera del enum)" },
+          401: { description: "No autorizado" },
+          404: { description: "Actividad no encontrada" },
+          500: { description: "Error interno del servidor" },
+        },
+      },
+    },
+    "/api/activities/{id}/read": {
+      patch: {
+        summary: "Marcar actividad como leída",
+        description: "Establece read_at. No toca status ni completed (BR-3).",
+        tags: ["Activities"],
+        security: [{ supabaseAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Actividad marcada como leída",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Activity" },
+              },
+            },
+          },
+          401: { description: "No autorizado" },
+          404: { description: "Actividad no encontrada" },
+          500: { description: "Error interno del servidor" },
+        },
+      },
+    },
+    "/api/activities/unread": {
+      get: {
+        summary: "Contar actividades no leídas",
+        description: "Cuenta mensajes de Instagram con read_at IS NULL (BR-3).",
+        tags: ["Activities"],
+        security: [{ supabaseAuth: [] }],
+        responses: {
+          200: {
+            description: "Cantidad de mensajes no leídos",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    count: { type: "integer" },
+                  },
+                },
+              },
+            },
+          },
+          401: { description: "No autorizado" },
+          500: { description: "Error interno del servidor" },
+        },
+      },
+    },
     "/api/pipelines": {
       get: {
         summary: "Listar pipelines",
@@ -1661,7 +1753,7 @@ const openapi = {
           title: { type: "string" },
           description: { type: "string", nullable: true },
           dueDate: { type: "string", format: "date-time", nullable: true },
-          completed: { type: "boolean" },
+          completed: { type: "boolean", deprecated: true, description: "Obsoleto: deriva de status (status='COMPLETED'). Se eliminará junto al drop de la columna." },
           completedAt: { type: "string", format: "date-time", nullable: true },
           createdAt: { type: "string", format: "date-time" },
           updatedAt: { type: "string", format: "date-time" },
@@ -1670,7 +1762,14 @@ const openapi = {
             items: { $ref: "#/components/schemas/ActivityAttachment" },
             nullable: true,
           },
+          status: { $ref: "#/components/schemas/ActivityStatus" },
+          readAt: { type: "string", format: "date-time", nullable: true },
         },
+      },
+      ActivityStatus: {
+        type: "string",
+        enum: ["PENDING", "IN_PROGRESS", "COMPLETED"],
+        description: "Estado de la actividad (transiciones libres)",
       },
       ActivityAttachment: {
         type: "object",
@@ -1692,6 +1791,7 @@ const openapi = {
           dueDate: { type: "string", format: "date-time", description: "Fecha de vencimiento" },
           leadId: { type: "string", format: "uuid", description: "ID del lead asociado" },
           ideaId: { type: "string", format: "uuid", description: "ID de la idea asociada" },
+          status: { $ref: "#/components/schemas/ActivityStatus", description: "Estado inicial (default PENDING)" },
           attachments: {
             type: "array",
             items: { $ref: "#/components/schemas/ActivityAttachment" },
@@ -1708,7 +1808,17 @@ const openapi = {
           dueDate: { type: "string", format: "date-time" },
           leadId: { type: "string", format: "uuid" },
           ideaId: { type: "string", format: "uuid" },
-          completed: { type: "boolean" },
+          attachments: {
+            type: "array",
+            items: { $ref: "#/components/schemas/ActivityAttachment" },
+          },
+        },
+      },
+      ChangeActivityStatusRequest: {
+        type: "object",
+        required: ["status"],
+        properties: {
+          status: { $ref: "#/components/schemas/ActivityStatus", description: "Nuevo estado de la actividad" },
         },
       },
 
