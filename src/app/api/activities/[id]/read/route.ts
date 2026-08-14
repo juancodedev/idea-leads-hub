@@ -1,56 +1,22 @@
-import { NextRequest, NextResponse } from "next/server";
-import { apiHandler } from "@/lib/api/api-handler";
-import { withAuth } from "@/lib/api/with-auth";
+import { NextRequest, NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api/api-handler';
+import { withAuth } from '@/lib/api/with-auth';
+import { NotFoundError } from '@/infrastructure/repositories/errors';
+import { SupabaseActivityRepository } from '@/modules/activities/infrastructure/repositories/SupabaseActivityRepository';
+import { MarkActivityRead } from '@/modules/activities/application/use-cases/MarkActivityRead';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
-export const PATCH = apiHandler(
-  async (
-    _request: NextRequest,
-    context: { params: Promise<{ id: string }> }
-  ) => {
-    const { id } = await context.params;
-    const { supabase } = await withAuth(_request);
+// PATCH marks the read marker (`read_at`) only — status/completed are never
+// touched (BR-3: read never implies completion).
+export const PATCH = apiHandler(async (request: NextRequest, context: { params: Promise<{ id: string }> }) => {
+  const { id } = await context.params;
+  const { supabase } = await withAuth(request);
+  const repo = new SupabaseActivityRepository(supabase);
+  const existing = await repo.getById(id);
+  if (!existing) throw new NotFoundError('Activity not found');
 
-    // Check activity exists
-    const { data: existing, error: findError } = await supabase
-      .from("activities")
-      .select("id")
-      .eq("id", id)
-      .maybeSingle();
-
-    if (findError) {
-      console.error("Error finding activity:", findError);
-      return NextResponse.json(
-        { error: "Error al buscar la actividad" },
-        { status: 500 }
-      );
-    }
-
-    if (!existing) {
-      return NextResponse.json(
-        { error: "Actividad no encontrada" },
-        { status: 404 }
-      );
-    }
-
-    // Mark as read (completed = true)
-    const { error: updateError } = await supabase
-      .from("activities")
-      .update({
-        completed: true,
-        completed_at: new Date().toISOString(),
-      } as never)
-      .eq("id", id);
-
-    if (updateError) {
-      console.error("Error marking activity as read:", updateError);
-      return NextResponse.json(
-        { error: "Error al marcar como leída" },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ success: true }, { status: 200 });
-  }
-);
+  const useCase = new MarkActivityRead(repo);
+  const activity = await useCase.execute(id);
+  return NextResponse.json(activity, { status: 200 });
+});
