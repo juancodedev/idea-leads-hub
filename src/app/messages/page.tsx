@@ -167,11 +167,13 @@ export default function MessagesPage() {
           const res = await fetch(`/api/activities?leadId=${conv.leadId}`);
           if (!res.ok) return;
 
-          const activities: Array<{ id: string; completed: boolean; type: string }> =
+          const activities: Array<{ id: string; readAt: string | null; type: string }> =
             await res.json();
 
+          // Read marker is the source of truth (BR-3): read never implies
+          // completion and completion never implies read.
           activityIds = activities
-            .filter((a) => !a.completed && a.type === "INSTAGRAM_MESSAGE")
+            .filter((a) => !a.readAt && a.type === "INSTAGRAM_MESSAGE")
             .map((a) => a.id);
         } else if (!conv.isLinked && conv.instagramScopedId) {
           // Unlinked — find unread messages by sender/recipient ID
