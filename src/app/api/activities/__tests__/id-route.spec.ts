@@ -121,6 +121,46 @@ describe("PATCH /api/activities/[id]", () => {
 
     expect(response.status).toBe(404);
   });
+
+  it("should silently strip completed from the update payload (contract: field ignored)", async () => {
+    // api-rest spec: PATCH /api/activities/[id] has NO completed field during
+    // rollout — status transitions go through the status surface. The Zod
+    // schema strips unknown keys (no .strict()), so `completed` in the body
+    // is silently ignored: neither status nor completed is mutated, while the
+    // other fields still update.
+    mockGetById.mockResolvedValue({
+      id: "act-1",
+      title: "Original",
+      type: ActivityType.TASK,
+      completed: false,
+      userId: "user-1",
+      createdAt: new Date("2024-01-01"),
+      updatedAt: new Date("2024-01-01"),
+    });
+    mockUpdate.mockResolvedValue({
+      id: "act-1",
+      title: "Updated title",
+      type: ActivityType.TASK,
+      completed: false,
+      userId: "user-1",
+      createdAt: new Date("2024-01-01"),
+      updatedAt: new Date("2024-01-01"),
+    });
+
+    const request = new NextRequest("http://localhost:3000/api/activities/act-1", {
+      method: "PATCH",
+      body: JSON.stringify({ title: "Updated title", completed: true }),
+    });
+    const response = await PATCH(request, { params: { id: "act-1" } });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.title).toBe("Updated title");
+    // `completed` never reaches the repository — not even as a pass-through.
+    expect(mockUpdate).toHaveBeenCalledWith({ id: "act-1", title: "Updated title" });
+    expect(mockUpdate.mock.calls[0][0]).not.toHaveProperty("completed");
+    expect(mockUpdate.mock.calls[0][0]).not.toHaveProperty("status");
+  });
 });
 
 describe("DELETE /api/activities/[id]", () => {
