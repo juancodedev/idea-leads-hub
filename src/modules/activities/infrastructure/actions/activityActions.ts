@@ -3,9 +3,11 @@
 import { createClient } from "@/infrastructure/database/server";
 import { SupabaseActivityRepository } from "../repositories/SupabaseActivityRepository";
 import { CreateActivityDTO, UpdateActivityDTO } from "../../domain/entities/Activity";
+import { ActivityStatus } from "../../domain/enums/ActivityStatus";
 import { revalidatePath } from "next/cache";
 
 import { createAuditLog } from "@/modules/shared/infrastructure/actions/auditActions";
+import { MoveActivityStatus } from "../../application/use-cases/MoveActivityStatus";
 
 export async function createActivityAction(data: CreateActivityDTO) {
   const supabase = await createClient();
@@ -104,6 +106,40 @@ export async function getIdeaActivitiesAction(ideaId: string) {
   try {
     const activities = await repository.getForIdea(ideaId);
     return { success: true, activities };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
+/** Free status transition (BR-2) with a single audited delta. getById-first:
+ *  loads the current row to build changes.status.{old,new}, delegates the
+ *  transition to MoveActivityStatus (moveStatus), then logs exactly once.
+ *  Unknown/not-owned ids return { error } — mirrors the 404 API contract. */
+export async function changeActivityStatus(id: string, status: ActivityStatus) {
+  const supabase = await createClient();
+  const repository = new SupabaseActivityRepository(supabase);
+
+  try {
+    const oldActivity = await repository.getById(id);
+    if (!oldActivity) {
+      return { error: "Actividad no encontrada" };
+    }
+
+    const useCase = new MoveActivityStatus(repository);
+    const activity = await useCase.execute(id, status);
+
+    await createAuditLog({
+      entityType: 'ACTIVITY',
+      entityId: activity.id,
+      parentId: activity.ideaId || activity.leadId,
+      action: 'UPDATE',
+      changes: {
+        status: { old: oldActivity.status, new: status },
+      },
+    });
+
+    revalidatePath("/activities");
+    return { success: true, activity };
   } catch (error: any) {
     return { error: error.message };
   }
