@@ -37,9 +37,10 @@ WHERE status IS NULL;
 -- read by setting completed=true. This UPDATE translates that historical
 -- coupling into read_at exactly once. Going forward, completion NEVER
 -- implies read and read NEVER implies completion (BR-3): moveStatus and
--- markRead/markUnread write the two surfaces independently, and no trigger
--- may keep read_at coupled to completed. See docs/activities-status-rollout.md
--- "Backfill vs BR-3" for the post-deploy checks that must NOT flag these rows.
+-- markRead/markUnread write the two surfaces independently, and the later
+-- dual-write sync hook (a separate migration) must never couple read_at to
+-- completed. See docs/activities-status-rollout.md "Backfill vs BR-3" for
+-- the post-deploy checks that must NOT flag these rows.
 UPDATE public.activities
 SET read_at = COALESCE(completed_at, created_at, now())
 WHERE type = 'INSTAGRAM_MESSAGE'
