@@ -77,21 +77,25 @@ Do not add a check like `read_at = completed_at` or
 `(read_at IS NULL) = (NOT completed)` — it would flag legitimate backfilled
 rows and the intentional decoupling.
 
-## Unread duality until P5 (known, accepted)
+## Unread duality resolved (P5 shipped)
 
-Two "unread" definitions coexist during rollout:
+The P5 slice (REST + OpenAPI) rewired every unread consumer to the read
+marker, resolving the temporary duality:
 
-- the shipped `GET /api/activities/unread` route still counts
-  `type = 'INSTAGRAM_MESSAGE' AND completed = false` (P5 migrates it);
-- the new `getUnreadCount(userId)` verb counts
-  `type = 'INSTAGRAM_MESSAGE' AND read_at IS NULL` (BR-3 source of truth).
+- `GET /api/activities/unread` now counts
+  `type = 'INSTAGRAM_MESSAGE' AND read_at IS NULL` via the `getUnreadCount`
+  verb (was `completed = false`);
+- the Instagram conversations list computes per-conversation `unreadCount`
+  from `read_at IS NULL`;
+- the messages page read-selection keys on `!readAt && type='INSTAGRAM_MESSAGE'`
+  (linked) and `/api/activities?unread=true` (unlinked), which filters the
+  read marker;
+- the unlinked list filter (`unread=true`) uses `.is('read_at', null)`.
 
-Until P5 rewires the badge, the conversations list, and the messages page
-read-selection to the read marker, the two counts can differ on rows whose
-`completed` and `read_at` disagree (e.g., a COMPLETED-but-unread IG message:
-the old route excludes it, the new verb includes it). This is expected and
-temporary; do not "fix" the old route before P5, and do not assert the two
-counts are equal in checks.
+`read_at IS NULL` is now the single source of truth for "unread" everywhere
+(BR-3). No consumer depends on the binary `completed` flag for read state;
+`completed` remains dual-written only as the legacy status flag. Do not
+re-introduce a `completed = false` read-count anywhere.
 
 ## Rollback
 
