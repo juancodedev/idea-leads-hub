@@ -112,4 +112,22 @@ describe("PATCH /api/activities/[id]/complete", () => {
     expect(response.status).toBe(404);
     expect(mockCreateAuditLog).not.toHaveBeenCalled();
   });
+
+  it("should no-op (no write, no audit) when the activity is already COMPLETED", async () => {
+    mockGetById.mockResolvedValue(mockCompletedActivity);
+    mockCreateAuditLog.mockResolvedValue({ success: true });
+
+    const request = new NextRequest(
+      "http://localhost:3000/api/activities/act-1/complete",
+      { method: "PATCH" }
+    );
+    const response = await PATCH(request, { params: { id: "act-1" } });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.status).toBe(ActivityStatus.COMPLETED);
+    // Already-COMPLETED re-PATCH must not re-write completed_at nor audit.
+    expect(mockMoveStatus).not.toHaveBeenCalled();
+    expect(mockCreateAuditLog).not.toHaveBeenCalled();
+  });
 });

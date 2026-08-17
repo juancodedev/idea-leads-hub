@@ -112,3 +112,85 @@ re-introduce a `completed = false` read-count anywhere.
   after the code that wrote the columns has been rolled back/reverted.
 - Do NOT roll back by re-running `completed` writes while `status` is
   NOT NULL — that is why the sync trigger ships together with NOT NULL.
+
+## Rollback after step 2/step 3 applied (1.2 NOT NULL + sync trigger live)
+
+Plain "revert the app code first" is NOT enough once migration 1.2
+(`status NOT NULL DEFAULT 'PENDING'`) and migration 1.3 (the sync trigger)
+are live: reverting the app writers to the legacy `completed` surface while
+the trigger still runs would corrupt data on every write.
+
+Why: a reverted writer creates a row with `completed = true` and no
+`status`; the column default stamps `status = 'PENDING'`, and the live
+`tr_sync_activity_completed` trigger then clobbers `completed = false`
+(`completed = (status = 'COMPLETED')`). Result: completed activities that
+magically flip back to uncompleted on insert/update. The trigger must die
+BEFORE any legacy write happens again, and the invariant check
+(`completed IS DISTINCT FROM (status = 'COMPLETED')`) must return zero rows
+after each of the steps below.
+
+**Rollback order (defensive — for maximum safety, execute in a maintenance
+window sized to the table; see the note on 1.2 locking):**
+
+1. **Drop the sync trigger first** — no reverted writer may run while it
+   lives:
+
+   ```sql
+   DROP TRIGGER IF EXISTS tr_sync_activity_completed ON public.activities;
+   ```
+
+   For full cleanup (this is now the ONLY remaining consumer of the
+   function), drop the helper too — a single `DROP` below; otherwise leave
+   it, harmlessly, for the deferred follow-up change:
+
+   ```sql
+   DROP FUNCTION IF EXISTS public.fn_sync_activity_completed();
+   ```
+
+2. **Optionally relax the NOT NULL constraint** — only needed if reverted
+   legacy code can write rows without a status value. Legacy writers always
+   set `completed`, and the mapper reads `status = NULL` as
+   `completed ? 'COMPLETED' : 'PENDING'`, so NULLs remain safe: relaxing is
+   strictly optional. If you relax:
+
+   ```sql
+   ALTER TABLE public.activities ALTER COLUMN status DROP NOT NULL;
+   ```
+
+   Scope it to the rollback window — re-apply 1.2 (`SET NOT NULL`) when the
+   status-surface code ships again.
+
+3. **Revert the application code** (slice 1 modules) to the legacy
+   `completed` surface. With the trigger gone and status nullable, legacy
+   writers behave exactly as before this change.
+
+4. **Re-run the invariant check — expect zero rows:**
+
+   ```sql
+   SELECT count(*)
+   FROM public.activities
+   WHERE completed IS DISTINCT FROM (status = 'COMPLETED');
+   ```
+
+   Any violating row means a write sneaked in between steps 1 and 3 (or a
+   writer was reverted before the trigger was dropped): repair
+   `completed = (status = 'COMPLETED')` for those rows before proceeding —
+   do not ship "successful" on a non-zero count.
+
+**Why trigger-drop first, not "code first":** the trigger is the only
+mechanism that actively *rewrites* `completed` independent of the app.
+Scaling the same reasoning to the deploy side: 1.3 ships LAST in the rolling
+forward exactly because it must never run ahead of the status-surface code —
+rolling back is just the mirror image (it must not outlive it either).
+
+**Locking note for step 2 of the original rollout (migration 1.2):** `SET
+NOT NULL` takes an `ACCESS EXCLUSIVE` lock and requires a full-table scan to
+validate the constraint. On large `activities` tables this blocks all reads
+and writes for the duration. If the table is too large for an in-window
+scan, fall back to a two-phase equivalent:
+`ALTER TABLE ... ADD CONSTRAINT status_not_null CHECK (status IS NOT NULL)
+NOT VALID;` then `ALTER TABLE ... VALIDATE CONSTRAINT status_not_null;`
+(validates without the full-table lock), and only then
+`DROP CONSTRAINT` + `SET NOT NULL` — or simply schedule the migration in a
+maintenance window sized to a full scan. The same lock profile applies in
+reverse if a rollback ever needs to re-apply 1.2.

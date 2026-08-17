@@ -57,6 +57,19 @@ describe("MoveActivityStatus Use Case (P3.2)", () => {
     expect(result.completed).toBe(true);
   });
 
+  it("should be an idempotent no-op when the target status equals the current status (no write)", async () => {
+    // COMPLETED→COMPLETED must not re-write (stamping completed_at again) nor
+    // PENDING→PENDING null it — the caller then skips the audit row (old===new).
+    mockRepository.getById.mockResolvedValue(completedActivity);
+    mockRepository.moveStatus.mockResolvedValue(completedActivity);
+
+    const result = await moveActivityStatus.execute("activity-1", ActivityStatus.COMPLETED);
+
+    expect(mockRepository.moveStatus).not.toHaveBeenCalled();
+    expect(result.status).toBe(ActivityStatus.COMPLETED);
+    expect(result.completed).toBe(true);
+  });
+
   it("should reopen a completed activity to PENDING (free transition)", async () => {
     mockRepository.getById.mockResolvedValue(completedActivity);
     mockRepository.moveStatus.mockResolvedValue(existingActivity);

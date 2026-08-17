@@ -77,7 +77,7 @@ describe("ActivitiesList status filter (replaces Completadas)", () => {
 
     const filter = screen.getByLabelText("Filtrar por estado");
     expect(filter).toHaveValue(""); // default = pending set
-    expect(within(filter).getByRole("option", { name: "Pendientes" })).toBeInTheDocument();
+    expect(within(filter).getByRole("option", { name: "Pendientes y en progreso" })).toBeInTheDocument();
     expect(within(filter).getByRole("option", { name: "Pendiente" })).toBeInTheDocument();
     expect(within(filter).getByRole("option", { name: "En progreso" })).toBeInTheDocument();
     expect(within(filter).getByRole("option", { name: "Completadas" })).toBeInTheDocument();

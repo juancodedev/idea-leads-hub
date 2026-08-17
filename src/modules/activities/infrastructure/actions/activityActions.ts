@@ -114,7 +114,10 @@ export async function getIdeaActivitiesAction(ideaId: string) {
 /** Free status transition (BR-2) with a single audited delta. getById-first:
  *  loads the current row to build changes.status.{old,new}, delegates the
  *  transition to MoveActivityStatus (moveStatus), then logs exactly once.
- *  Unknown/not-owned ids return { error } — mirrors the 404 API contract. */
+ *  Unknown/not-owned ids return { error } — mirrors the 404 API contract.
+ *  A same-status transition is a true no-op (review-fix): the use case
+ *  returns the current row without a write, and no audit row is created —
+ *  idempotent success. */
 export async function changeActivityStatus(id: string, status: ActivityStatus) {
   const supabase = await createClient();
   const repository = new SupabaseActivityRepository(supabase);
@@ -123,6 +126,10 @@ export async function changeActivityStatus(id: string, status: ActivityStatus) {
     const oldActivity = await repository.getById(id);
     if (!oldActivity) {
       return { error: "Actividad no encontrada" };
+    }
+
+    if (oldActivity.status === status) {
+      return { success: true, activity: oldActivity };
     }
 
     const useCase = new MoveActivityStatus(repository);
