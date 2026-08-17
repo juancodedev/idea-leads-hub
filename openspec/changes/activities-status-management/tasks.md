@@ -31,8 +31,8 @@ Paths base `src/modules/activities/` unless stated; API routes under `src/app/ap
 ## Phase 1: Data / Migration (CF-1 rollout)
 
 - [x] 1.1 Create `supabase/migrations/20260813000001_add_activity_status.sql` (14-digit CF-1): ADD nullable `status TEXT` + `read_at TIMESTAMPTZ`; backfill `status` from `completed`; Instagram `read_at = COALESCE(completed_at, created_at, now())`; CHECK 3 values; NO `SET NOT NULL`.
-- [ ] 1.2 Create `supabase/migrations/20260814000000_activity_status_not_null.sql`: `SET DEFAULT 'PENDING'` + `SET NOT NULL` — apply ONLY after all writers migrated (step 4).
-- [ ] 1.3 Create `supabase/migrations/20260815000000_sync_activity_completed_trigger.sql`: BEFORE INSERT/UPDATE `completed=(status='COMPLETED')`; push LAST (safety net), gated until 1.4.
+- [x] 1.2 Create `supabase/migrations/20260814000000_activity_status_not_null.sql`: `SET DEFAULT 'PENDING'` + `SET NOT NULL` — apply ONLY after all writers migrated (step 4) — DONE: final rollout migration; defensive/idempotent: straggler backfill (`status IS NULL` → CASE WHEN completed) + `SET DEFAULT 'PENDING'` + `SET NOT NULL` on `public.activities`; gating comments; spec `20260814000000_activity_status_not_null.spec.ts` 7/7 green (commit pending this slice).
+- [x] 1.3 Create `supabase/migrations/20260815000000_sync_activity_completed_trigger.sql`: BEFORE INSERT/UPDATE `completed=(status='COMPLETED')`; push LAST (safety net), gated until 1.4 — DONE: `fn_sync_activity_completed()` + `tr_sync_activity_completed` (DROP IF EXISTS + CREATE, idempotent, CREATE OR REPLACE per leads convention); comment wording uses "sync hook"/"sync function"; only touches `completed`, never `read_at` (BR-3); spec `20260815000000_sync_activity_completed_trigger.spec.ts` 6/6 green (commit pending this slice).
 - [x] 1.4 Runbook: post-deploy invariant `completed IS DISTINCT FROM (status='COMPLETED')` count=0; remediate before trigger push.
 
 ## Phase 2: Domain
