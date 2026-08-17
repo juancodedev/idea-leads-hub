@@ -102,6 +102,29 @@ describe("PATCH /api/activities/[id]/status", () => {
     });
   });
 
+  it("should not write or audit when the target status equals the current status (idempotent no-op)", async () => {
+    // COMPLETED→COMPLETED (or any old===new) must not re-write nor create an
+    // audit row: the use case no-ops, and the route skips the delta log.
+    const completedActivity = { ...mockActivity, status: ActivityStatus.COMPLETED, completed: true };
+    mockGetById.mockResolvedValue(completedActivity);
+
+    const request = new NextRequest(
+      "http://localhost:3000/api/activities/act-1/status",
+      {
+        method: "PATCH",
+        body: JSON.stringify({ status: "COMPLETED" }),
+        headers: { "content-type": "application/json" },
+      }
+    );
+    const response = await PATCH(request, { params: { id: "act-1" } });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.status).toBe(ActivityStatus.COMPLETED);
+    expect(mockMoveStatus).not.toHaveBeenCalled();
+    expect(mockCreateAuditLog).not.toHaveBeenCalled();
+  });
+
   it("should return 400 when status is outside the enum", async () => {
     mockGetById.mockResolvedValue(mockActivity);
 

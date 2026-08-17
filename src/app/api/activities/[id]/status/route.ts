@@ -29,16 +29,21 @@ export const PATCH = apiHandler(async (request: NextRequest, context: { params: 
   const useCase = new MoveActivityStatus(repo);
   const activity = await useCase.execute(id, status);
 
-  // Audit exactly once, with changes.status.{old,new} (CF-2).
-  await createAuditLog({
-    entityType: 'ACTIVITY',
-    entityId: activity.id,
-    parentId: activity.leadId ?? null,
-    action: 'UPDATE',
-    changes: {
-      status: { old: existing.status, new: status },
-    },
-  });
+  // Audit exactly once, with changes.status.{old,new} (CF-2). A same-status
+  // transition is a no-op (use case returned existing): no write happened,
+  // so no audit row (old === new would be noise) — still a 200 idempotent
+  // success.
+  if (existing.status !== activity.status) {
+    await createAuditLog({
+      entityType: 'ACTIVITY',
+      entityId: activity.id,
+      parentId: activity.leadId ?? null,
+      action: 'UPDATE',
+      changes: {
+        status: { old: existing.status, new: status },
+      },
+    });
+  }
 
   return NextResponse.json(activity, { status: 200 });
 });

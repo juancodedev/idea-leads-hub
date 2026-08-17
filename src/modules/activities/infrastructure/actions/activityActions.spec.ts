@@ -129,6 +129,18 @@ describe("changeActivityStatus", () => {
     expect(mockUseCaseExecute).not.toHaveBeenCalled();
     expect(createAuditLog).not.toHaveBeenCalled();
   });
+
+  it("should no-op (no write, no audit) when the target status equals the current status", async () => {
+    mockGetById.mockResolvedValue(inProgressActivity);
+
+    const result = await changeActivityStatus("act-1", ActivityStatus.IN_PROGRESS);
+
+    expect(result.success).toBe(true);
+    // Same-status transition: idempotent success — skip the use case write
+    // and the audit row (old===new is noise).
+    expect(mockUseCaseExecute).not.toHaveBeenCalled();
+    expect(createAuditLog).not.toHaveBeenCalled();
+  });
 });
 
 describe("createActivityAction", () => {

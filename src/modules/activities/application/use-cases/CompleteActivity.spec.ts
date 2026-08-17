@@ -70,4 +70,16 @@ describe("CompleteActivity Use Case (P3.2)", () => {
 
     expect(mockRepository.moveStatus).not.toHaveBeenCalled();
   });
+
+  it("should be an idempotent no-op when already COMPLETED (no write, no re-stamp)", async () => {
+    mockRepository.getById.mockResolvedValue(completedActivity);
+
+    const result = await completeActivity.execute("activity-1");
+
+    expect(mockRepository.getById).toHaveBeenCalledWith("activity-1");
+    // COMPLETED→COMPLETED must not re-write completed_at / audit old===new.
+    expect(mockRepository.moveStatus).not.toHaveBeenCalled();
+    expect(result.status).toBe(ActivityStatus.COMPLETED);
+    expect(result.completed).toBe(true);
+  });
 });
