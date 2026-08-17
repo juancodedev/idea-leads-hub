@@ -1,6 +1,7 @@
 "use client";
 
 import { Activity } from "../../domain/entities/Activity";
+import { ActivityStatus } from "../../domain/enums/ActivityStatus";
 import { ActivityTypeIcon } from "./ActivityTypeIcon";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -10,24 +11,44 @@ import { useActivityRepository } from "@/ui/providers/RepositoryProvider";
 import { toast } from "sonner";
 import { useState } from "react";
 
+const STATUS_LABELS: Record<ActivityStatus, string> = {
+  [ActivityStatus.PENDING]: "Pendiente",
+  [ActivityStatus.IN_PROGRESS]: "En Progreso",
+  [ActivityStatus.COMPLETED]: "Completada",
+};
+
 interface ActivityItemProps {
   activity: Activity;
   onUpdate?: () => void;
+  /** Free-transition status control (design 6.1). When provided, both the
+   *  selector and the complete checkbox delegate here — e.g. the /activities
+   *  page routes every transition through the changeActivityStatus server
+   *  action (audit + revalidate). Omit it to keep the timeline checkbox path. */
+  onStatusChange?: (id: string, status: ActivityStatus) => void;
 }
 
-export function ActivityItem({ activity, onUpdate }: ActivityItemProps) {
+export function ActivityItem({ activity, onUpdate, onStatusChange }: ActivityItemProps) {
   const [isCompleting, setIsCompleting] = useState(false);
   const repository = useActivityRepository();
 
   const handleToggleComplete = async () => {
     if (activity.completed) return; // For now, only allow marking as complete
-    
+
+    // Server-action path: delegate to the parent so the transition is audited
+    // and the list can apply its optimistic update + revert (BR-4).
+    if (onStatusChange) {
+      onStatusChange(activity.id, ActivityStatus.COMPLETED);
+      return;
+    }
+
     setIsCompleting(true);
     try {
       // Keep the existence check that CompleteActivity use case had
       const existing = await repository.getById(activity.id);
       if (!existing) throw new Error("Actividad no encontrada");
-      await repository.complete(activity.id);
+      // Status surface (BR-4): complete moves through moveStatus so
+      // `completed` stays dual-written from `status = 'COMPLETED'`.
+      await repository.moveStatus(activity.id, ActivityStatus.COMPLETED);
       toast.success("Actividad completada");
       if (onUpdate) onUpdate();
     } catch (error) {
@@ -59,13 +80,27 @@ export function ActivityItem({ activity, onUpdate }: ActivityItemProps) {
           )}>
             {activity.title}
           </h4>
-          {!activity.completed && (
-            <Checkbox 
-              checked={activity.completed} 
-              onCheckedChange={handleToggleComplete}
-              disabled={isCompleting}
-            />
-          )}
+          <div className="flex items-center gap-2">
+            {onStatusChange && (
+              <select
+                value={activity.status}
+                onChange={(e) => onStatusChange(activity.id, e.target.value as ActivityStatus)}
+                aria-label="Estado"
+                className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+              >
+                {Object.values(ActivityStatus).map((status) => (
+                  <option key={status} value={status}>{STATUS_LABELS[status]}</option>
+                ))}
+              </select>
+            )}
+            {!activity.completed && (
+              <Checkbox 
+                checked={activity.completed} 
+                onCheckedChange={handleToggleComplete}
+                disabled={isCompleting}
+              />
+            )}
+          </div>
         </div>
         
         {activity.description && (

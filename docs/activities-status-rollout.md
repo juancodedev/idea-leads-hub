@@ -9,8 +9,8 @@ remains dual-written during the transition.
 | Step | Migration | Slice | What it does |
 | --- | --- | --- | --- |
 | 1 | `20260813000001_add_activity_status.sql` | 1 (this change) | Adds nullable `status` + `read_at`, backfills, adds CHECK constraint (two-phase NOT VALID + VALIDATE). No NOT NULL, no trigger. Must be applied BEFORE the slice-1 code deploy. |
-| 2 | `20260814000000_activity_status_not_null.sql` | later (writer migrations) | Backfills any stragglers and sets `status` NOT NULL. |
-| 3 | `20260815000000_sync_activity_completed_trigger.sql` | later (writer migrations) | Sync trigger keeping `completed = (status = 'COMPLETED')`. |
+| 2 | `20260814000000_activity_status_not_null.sql` | 4 (this change, rollout step 4) | Backfills any stragglers with NULL `status`, sets `status` DEFAULT `'PENDING'` and `status` NOT NULL. Final rollout migration — apply ONLY after every writer is migrated (step 4) and the invariant check below returns zero rows. |
+| 3 | `20260815000000_sync_activity_completed_trigger.sql` | 4 (this change, rollout step 5) | Sync hook keeping `completed = (status = 'COMPLETED')` on every write (BEFORE INSERT/UPDATE safety net). Push LAST, gated until the invariant check passes. |
 
 ## Deploy order
 
@@ -32,11 +32,12 @@ remains dual-written during the transition.
    /`markUnread` write only `read_at`; `PATCH /activities/[id]` drops
    `completed`. From this point every writer supplies `status`, so no new
    row can violate `completed = (status = 'COMPLETED')`.
-3. After step 1 is live and the app has been running, apply step 2
-   (`NOT NULL DEFAULT 'PENDING'`) and step 3 (sync trigger) in later
-   slices — only now is every legacy `completed` writer migrated, closing
-   the window in which a create/complete/`/read` between steps 1 and 2
-   could produce a violating row.
+3. After step 1 is live, the app deployed with the status surface (slices
+   1–3), and the invariant check below returns zero rows, apply step 2
+   (`NOT NULL DEFAULT 'PENDING'`) and step 3 (sync hook) as the final
+   rollout migrations (slice 4) — only now is every legacy `completed`
+   writer migrated, closing the window in which a create/complete/`/read`
+   between steps 1 and 2 could produce a violating row.
 
 Why migration-first? The step 1 migration is nullable and backfilled, so
 old code reads it safely; deploying the code before the columns exist would
@@ -77,21 +78,25 @@ Do not add a check like `read_at = completed_at` or
 `(read_at IS NULL) = (NOT completed)` — it would flag legitimate backfilled
 rows and the intentional decoupling.
 
-## Unread duality until P5 (known, accepted)
+## Unread duality resolved (P5 shipped)
 
-Two "unread" definitions coexist during rollout:
+The P5 slice (REST + OpenAPI) rewired every unread consumer to the read
+marker, resolving the temporary duality:
 
-- the shipped `GET /api/activities/unread` route still counts
-  `type = 'INSTAGRAM_MESSAGE' AND completed = false` (P5 migrates it);
-- the new `getUnreadCount(userId)` verb counts
-  `type = 'INSTAGRAM_MESSAGE' AND read_at IS NULL` (BR-3 source of truth).
+- `GET /api/activities/unread` now counts
+  `type = 'INSTAGRAM_MESSAGE' AND read_at IS NULL` via the `getUnreadCount`
+  verb (was `completed = false`);
+- the Instagram conversations list computes per-conversation `unreadCount`
+  from `read_at IS NULL`;
+- the messages page read-selection keys on `!readAt && type='INSTAGRAM_MESSAGE'`
+  (linked) and `/api/activities?unread=true` (unlinked), which filters the
+  read marker;
+- the unlinked list filter (`unread=true`) uses `.is('read_at', null)`.
 
-Until P5 rewires the badge, the conversations list, and the messages page
-read-selection to the read marker, the two counts can differ on rows whose
-`completed` and `read_at` disagree (e.g., a COMPLETED-but-unread IG message:
-the old route excludes it, the new verb includes it). This is expected and
-temporary; do not "fix" the old route before P5, and do not assert the two
-counts are equal in checks.
+`read_at IS NULL` is now the single source of truth for "unread" everywhere
+(BR-3). No consumer depends on the binary `completed` flag for read state;
+`completed` remains dual-written only as the legacy status flag. Do not
+re-introduce a `completed = false` read-count anywhere.
 
 ## Rollback
 
@@ -107,3 +112,85 @@ counts are equal in checks.
   after the code that wrote the columns has been rolled back/reverted.
 - Do NOT roll back by re-running `completed` writes while `status` is
   NOT NULL — that is why the sync trigger ships together with NOT NULL.
+
+## Rollback after step 2/step 3 applied (1.2 NOT NULL + sync trigger live)
+
+Plain "revert the app code first" is NOT enough once migration 1.2
+(`status NOT NULL DEFAULT 'PENDING'`) and migration 1.3 (the sync trigger)
+are live: reverting the app writers to the legacy `completed` surface while
+the trigger still runs would corrupt data on every write.
+
+Why: a reverted writer creates a row with `completed = true` and no
+`status`; the column default stamps `status = 'PENDING'`, and the live
+`tr_sync_activity_completed` trigger then clobbers `completed = false`
+(`completed = (status = 'COMPLETED')`). Result: completed activities that
+magically flip back to uncompleted on insert/update. The trigger must die
+BEFORE any legacy write happens again, and the invariant check
+(`completed IS DISTINCT FROM (status = 'COMPLETED')`) must return zero rows
+after each of the steps below.
+
+**Rollback order (defensive — for maximum safety, execute in a maintenance
+window sized to the table; see the note on 1.2 locking):**
+
+1. **Drop the sync trigger first** — no reverted writer may run while it
+   lives:
+
+   ```sql
+   DROP TRIGGER IF EXISTS tr_sync_activity_completed ON public.activities;
+   ```
+
+   For full cleanup (this is now the ONLY remaining consumer of the
+   function), drop the helper too — a single `DROP` below; otherwise leave
+   it, harmlessly, for the deferred follow-up change:
+
+   ```sql
+   DROP FUNCTION IF EXISTS public.fn_sync_activity_completed();
+   ```
+
+2. **Optionally relax the NOT NULL constraint** — only needed if reverted
+   legacy code can write rows without a status value. Legacy writers always
+   set `completed`, and the mapper reads `status = NULL` as
+   `completed ? 'COMPLETED' : 'PENDING'`, so NULLs remain safe: relaxing is
+   strictly optional. If you relax:
+
+   ```sql
+   ALTER TABLE public.activities ALTER COLUMN status DROP NOT NULL;
+   ```
+
+   Scope it to the rollback window — re-apply 1.2 (`SET NOT NULL`) when the
+   status-surface code ships again.
+
+3. **Revert the application code** (slice 1 modules) to the legacy
+   `completed` surface. With the trigger gone and status nullable, legacy
+   writers behave exactly as before this change.
+
+4. **Re-run the invariant check — expect zero rows:**
+
+   ```sql
+   SELECT count(*)
+   FROM public.activities
+   WHERE completed IS DISTINCT FROM (status = 'COMPLETED');
+   ```
+
+   Any violating row means a write sneaked in between steps 1 and 3 (or a
+   writer was reverted before the trigger was dropped): repair
+   `completed = (status = 'COMPLETED')` for those rows before proceeding —
+   do not ship "successful" on a non-zero count.
+
+**Why trigger-drop first, not "code first":** the trigger is the only
+mechanism that actively *rewrites* `completed` independent of the app.
+Scaling the same reasoning to the deploy side: 1.3 ships LAST in the rolling
+forward exactly because it must never run ahead of the status-surface code —
+rolling back is just the mirror image (it must not outlive it either).
+
+**Locking note for step 2 of the original rollout (migration 1.2):** `SET
+NOT NULL` takes an `ACCESS EXCLUSIVE` lock and requires a full-table scan to
+validate the constraint. On large `activities` tables this blocks all reads
+and writes for the duration. If the table is too large for an in-window
+scan, fall back to a two-phase equivalent:
+`ALTER TABLE ... ADD CONSTRAINT status_not_null CHECK (status IS NOT NULL)
+NOT VALID;` then `ALTER TABLE ... VALIDATE CONSTRAINT status_not_null;`
+(validates without the full-table lock), and only then
+`DROP CONSTRAINT` + `SET NOT NULL` — or simply schedule the migration in a
+maintenance window sized to a full scan. The same lock profile applies in
+reverse if a rollback ever needs to re-apply 1.2.

@@ -1,14 +1,16 @@
 'use client';
 
-import React, { useCallback, useState } from 'react';
-import { ActivityItem } from '@/modules/activities/components/ActivityItem';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityItem } from '@/modules/activities/presentation/components/ActivityItem';
 import type { Activity } from '@/modules/activities/domain/entities/Activity';
 import { ActivityType } from '@/modules/activities/domain/enums/ActivityType';
-import { toggleActivityCompletion } from './actions';
+import { ActivityStatus } from '@/modules/activities/domain/enums/ActivityStatus';
+import { changeActivityStatus } from './actions';
 import { EmptyState } from '@/ui/components/EmptyState';
 import { Input } from '@/ui/components/input';
 import { CheckSquare, Search, X } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { toast } from 'sonner';
 
 interface ActivitiesListProps {
   activities: Activity[];
@@ -28,13 +30,30 @@ const TYPE_LABELS: Record<string, string> = {
   INSTAGRAM_MESSAGE: 'Instagram',
 };
 
+// Default (no param) includes PENDING + IN_PROGRESS + legacy NULL-status
+// rows; the explicit "Pendiente" filter narrows to PENDING only — labels
+// must stay distinguishable.
+const STATUS_FILTER_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: 'Pendientes y en progreso' },
+  { value: 'pending', label: 'Pendiente' },
+  { value: 'in_progress', label: 'En progreso' },
+  { value: 'completed', label: 'Completadas' },
+  { value: 'all', label: 'Todas' },
+];
+
 export function ActivitiesList({ activities, searchParams }: ActivitiesListProps) {
   const router = useRouter();
   const sp = useSearchParams();
   const [searchText, setSearchText] = useState(searchParams.q || '');
+  const [items, setItems] = useState<Activity[]>(activities);
+
+  // Server data refreshes after changeActivityStatus revalidates /activities.
+  useEffect(() => {
+    setItems(activities);
+  }, [activities]);
 
   const currentType = searchParams.type || '';
-  const showCompleted = searchParams.completed === 'true';
+  const currentStatus = searchParams.status || '';
 
   const updateParam = useCallback((key: string, value: string | null) => {
     const next = new URLSearchParams(sp.toString());
@@ -57,13 +76,29 @@ export function ActivitiesList({ activities, searchParams }: ActivitiesListProps
     updateParam('q', null);
   }, [updateParam]);
 
-  const handleToggle = useCallback(async (id: string, completed: boolean) => {
+  // Optimistic status transition (spec: inline list management): the row
+  // updates immediately, the server action persists (audit + revalidate),
+  // and a failed transition reverts with an error toast.
+  const handleStatusChange = useCallback(async (id: string, status: ActivityStatus) => {
+    const previous = items;
+    setItems((current) =>
+      current.map((activity) =>
+        activity.id === id
+          ? { ...activity, status, completed: status === ActivityStatus.COMPLETED }
+          : activity
+      )
+    );
     try {
-      await toggleActivityCompletion(id, completed);
-    } catch (error) {
-      console.error('Failed to toggle activity:', error);
+      const result = await changeActivityStatus(id, status);
+      if (!result?.success) {
+        setItems(previous);
+        toast.error(result?.error || 'Error al cambiar el estado');
+      }
+    } catch {
+      setItems(previous);
+      toast.error('Error al cambiar el estado');
     }
-  }, []);
+  }, [items]);
 
   return (
     <div className="flex flex-col">
@@ -98,34 +133,35 @@ export function ActivitiesList({ activities, searchParams }: ActivitiesListProps
           ))}
         </select>
 
-        <label className="flex items-center gap-2 text-sm cursor-pointer whitespace-nowrap">
-          <input
-            type="checkbox"
-            checked={showCompleted}
-            onChange={(e) => updateParam('completed', e.target.checked ? 'true' : null)}
-            className="h-4 w-4 rounded border-gray-300"
-          />
-          Completadas
-        </label>
+        <select
+          value={currentStatus}
+          onChange={(e) => updateParam('status', e.target.value || null)}
+          aria-label="Filtrar por estado"
+          className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+        >
+          {STATUS_FILTER_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
       </div>
 
       {/* List */}
-      {activities.length === 0 ? (
+      {items.length === 0 ? (
         <EmptyState
           icon={CheckSquare}
           title="No hay actividades pendientes"
           description={
-            searchParams.q || searchParams.type
+            searchParams.q || searchParams.type || searchParams.status
               ? "No se encontraron actividades que coincidan con los filtros."
               : "¡Buen trabajo! Las actividades que crees aparecerán aquí."
           }
         />
       ) : (
-        activities.map((activity) => (
+        items.map((activity) => (
           <ActivityItem
             key={activity.id}
             activity={activity}
-            onToggle={handleToggle}
+            onStatusChange={handleStatusChange}
           />
         ))
       )}

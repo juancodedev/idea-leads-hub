@@ -8,11 +8,17 @@ export class CompleteActivity {
 
   /** Completes via the status surface (moveStatus) so `completed` stays
    *  dual-written from `status = 'COMPLETED'` (BR-4). Throws the same
-   *  NotFoundError (404) as MoveActivityStatus / MarkActivityRead. */
+   *  NotFoundError (404) as MoveActivityStatus / MarkActivityRead.
+   *  Idempotent (review-fix): already-COMPLETED rows are returned as-is
+   *  without a write (no completed_at re-stamp) so callers skip the audit. */
   async execute(id: string): Promise<Activity> {
     const activity = await this.repository.getById(id);
     if (!activity) {
       throw new NotFoundError("Actividad no encontrada");
+    }
+
+    if (activity.status === ActivityStatus.COMPLETED) {
+      return activity;
     }
 
     return await this.repository.moveStatus(id, ActivityStatus.COMPLETED);
