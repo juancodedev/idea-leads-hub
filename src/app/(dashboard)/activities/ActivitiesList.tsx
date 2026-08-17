@@ -30,8 +30,11 @@ const TYPE_LABELS: Record<string, string> = {
   INSTAGRAM_MESSAGE: 'Instagram',
 };
 
+// Default (no param) includes PENDING + IN_PROGRESS + legacy NULL-status
+// rows; the explicit "Pendiente" filter narrows to PENDING only — labels
+// must stay distinguishable.
 const STATUS_FILTER_OPTIONS: { value: string; label: string }[] = [
-  { value: '', label: 'Pendientes' },
+  { value: '', label: 'Pendientes y en progreso' },
   { value: 'pending', label: 'Pendiente' },
   { value: 'in_progress', label: 'En progreso' },
   { value: 'completed', label: 'Completadas' },
