@@ -70,14 +70,14 @@ Paths base `src/modules/activities/` unless stated; API routes under `src/app/ap
 
 ## Phase 6: UI
 
-- [ ] 6.1 RED→GREEN: `presentation/components/ActivityItem.tsx`: `onStatusChange` selector; timeline toggle → `moveStatus(COMPLETED)`, drop `repository.complete`.
+- [x] 6.1 RED→GREEN: `presentation/components/ActivityItem.tsx`: `onStatusChange` selector; timeline toggle → `moveStatus(COMPLETED)`, drop `repository.complete` — DONE: selector renders only when `onStatusChange` provided; checkbox completes via `moveStatus(COMPLETED)`; spec `presentation/components/__tests__/ActivityItem.spec.tsx` 5/5 green (commit e9aec72, after checkbox root props fix 40bdf1e).
 - [x] 6.2 RED→GREEN: `(dashboard)/activities/actions.ts`: toggle → `moveStatus(COMPLETED/PENDING)` + getById-first audit delta; transition action + `revalidatePath` — DONE (toggle re-pointed in slice 1; spec `actions.spec.ts` added covering complete AND un-complete paths + unauthenticated rejection). The getById-first audit delta + transition action remain part of the later UI slice (6.4+).
-- [ ] 6.3 RED→GREEN: `(dashboard)/activities/ActivitiesList.tsx`: status filter replaces "Completadas"; optimistic + revert-toast; `status` URL param.
-- [ ] 6.4 `(dashboard)/activities/page.tsx`: `status` param → `statusIn` (default `[PENDING,IN_PROGRESS]`); title/copy.
-- [ ] 6.5 `src/modules/ideas/presentation/components/AddActivityForm.tsx`: `completed:true` normalized; no raw `completed` INSERT.
+- [x] 6.3 RED→GREEN: `(dashboard)/activities/ActivitiesList.tsx`: status filter replaces "Completadas"; optimistic + revert-toast; `status` URL param — DONE: status `<select aria-label="Filtrar por estado">` (Pendientes/Pendiente/En progreso/Completadas/Todas) writes `status` param preserving others; optimistic `handleStatusChange` → `changeActivityStatus(id, status)` with revert + `toast.error` on `{ error }` or throw; `useEffect` re-syncs from server after revalidation; actions.ts re-exports infra `changeActivityStatus`; spec 6/6 green (commit 1cef3c6).
+- [x] 6.4 `(dashboard)/activities/page.tsx`: `status` param → `statusIn` (default `[PENDING,IN_PROGRESS]`); title/copy — DONE: pure `statusFilter.ts resolveStatusIn` (spec 3/3 green) maps param → statusIn; `completed` alias removed from `ActivitySearchParams`, `SupabaseActivityRepository.search` (only `statusIn`/default pending branch remain), domain contract spec + repo spec legacy-alias tests; h1 copy "pendientes"→generic `actividad/actividades` + CardTitle "Tareas Pendientes"→"Actividades" (commit 739c0b5).
+- [x] 6.5 `src/modules/ideas/presentation/components/AddActivityForm.tsx`: `completed:true` normalized; no raw `completed` INSERT — DONE: create branch sends `status: ActivityStatus.COMPLETED` (no `completed` key — spec asserts both); edit branch unchanged; spec `__tests__/AddActivityForm.spec.tsx` 2/2 green (commit 1e0a305).
 
 ## Phase 7: Cleanup / Verification
 
-- [ ] 7.1 Delete legacy `components/ActivityItem.tsx` + spec after page migrates (design: retire legacy).
-- [ ] 7.2 Regression: dashboard `getPending`, timelines, badge (`useUnreadCount`) green under dual-write + read marker.
-- [ ] 7.3 `pnpm test`, `tsc --noEmit`, `next lint` green; note deferred follow-up: column drop + trigger removal + OpenAPI `completed` removal (ONE later change).
+- [x] 7.1 Delete legacy `components/ActivityItem.tsx` + spec after page migrates (design: retire legacy) — DONE: no importers remained after 6.4; both files removed (commit 3a73608, 102 deletions).
+- [x] 7.2 Regression: dashboard `getPending`, timelines, badge (`useUnreadCount`) green under dual-write + read marker — DONE: full suite green with legacy component gone (76 suites / 416 tests; includes PipelineBoard getPending, timeline ActivityItem, ActivityBadge/useUnreadCount specs, dashboard pages).
+- [x] 7.3 `pnpm test`, `tsc --noEmit`, `next lint` green; note deferred follow-up: column drop + trigger removal + OpenAPI `completed` removal (ONE later change) — DONE: `pnpm test -- --ci` 76 suites / 416 tests, `tsc --noEmit` exit 0, `next lint` exit 0 (single pre-existing unrelated warning in `leads/components/LeadPopup.tsx`). DEFERRED follow-up (ONE later change): DB column drop + trigger removal + OpenAPI `completed` removal.

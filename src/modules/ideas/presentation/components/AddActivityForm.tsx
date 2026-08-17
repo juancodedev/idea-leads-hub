@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ActivityType } from "../../../activities/domain/enums/ActivityType";
+import { ActivityStatus } from "../../../activities/domain/enums/ActivityStatus";
 import { Button } from "@/ui/components/button";
 import { Textarea } from "@/ui/components/textarea";
 import { FileUploader } from "./FileUploader";
@@ -47,7 +48,9 @@ export function AddActivityForm({ ideaId, activity, onSuccess, onCancel }: AddAc
         description,
         type,
         attachments,
-        completed: true,
+        // Activities logged from an idea are completed work by definition
+        // (status migration: normalized from the legacy completed=true).
+        status: ActivityStatus.COMPLETED,
       });
     }
 

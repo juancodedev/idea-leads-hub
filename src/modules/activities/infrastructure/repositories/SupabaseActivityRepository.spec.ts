@@ -229,14 +229,6 @@ describe("SupabaseActivityRepository.search default filter (PENDING includes NUL
     expect(mockIn).toHaveBeenCalledWith("status", [ActivityStatus.COMPLETED]);
     expect(mockOr).not.toHaveBeenCalled();
   });
-
-  it("should fall back to the legacy completed alias when statusIn is absent", async () => {
-    const repo = createRepo();
-    await repo.search({ userId: "user-1", completed: false });
-
-    expect(mockEq).toHaveBeenCalledWith("completed", false);
-    expect(mockOr).not.toHaveBeenCalled();
-  });
 });
 
 describe("SupabaseActivityRepository.create normalization (BR-4)", () => {

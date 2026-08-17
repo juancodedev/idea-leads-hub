@@ -11,6 +11,13 @@ jest.mock("@/infrastructure/database/server", () => ({
   createClient: jest.fn(),
 }));
 
+// The dashboard actions re-export changeActivityStatus from the infra
+// actions, which imports next/cache (revalidatePath) — mock it to keep the
+// spec focused on toggleActivityCompletion.
+jest.mock("next/cache", () => ({
+  revalidatePath: jest.fn(),
+}));
+
 const mockMoveStatus = jest.fn();
 
 jest.mock(

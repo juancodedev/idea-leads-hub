@@ -58,13 +58,14 @@ describe("ActivityRepository status contract (P2.3)", () => {
     expect(params.statusIn).toContain(ActivityStatus.IN_PROGRESS);
   });
 
-  it("search params keep completed as a rollout alias (page layer still uses it)", () => {
+  it("search params retire the completed rollout alias (page migrated to statusIn)", () => {
     const params: ActivitySearchParams = {
       userId: "user-1",
+      statusIn: [ActivityStatus.PENDING],
+      // @ts-expect-error completed was retired with the statusIn migration (P6)
       completed: false,
-      type: ActivityType.TASK,
     };
 
-    expect(params.completed).toBe(false);
+    expect(params.statusIn).toEqual([ActivityStatus.PENDING]);
   });
 });

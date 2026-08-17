@@ -5,9 +5,7 @@ import { ActivityStatus } from "../enums/ActivityStatus";
 export interface ActivitySearchParams {
   query?: string;
   type?: ActivityType;
-  /** Rollout alias: keep until the page layer (P6) migrates to statusIn. */
-  completed?: boolean;
-  /** Status filter replacing the binary completed flag once the page migrates. */
+  /** Status filter; omitted defaults to the pending set (PENDING + IN_PROGRESS). */
   statusIn?: ActivityStatus[];
   userId: string;
   page?: number;
