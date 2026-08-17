@@ -1,6 +1,7 @@
 import { CreateActivity } from "./CreateActivity";
 import { ActivityRepository } from "../../domain/repositories/ActivityRepository";
 import { ActivityType } from "../../domain/enums/ActivityType";
+import { ActivityStatus } from "../../domain/enums/ActivityStatus";
 import { Activity } from "../../domain/entities/Activity";
 
 describe('CreateActivity Use Case', () => {
@@ -16,6 +17,10 @@ describe('CreateActivity Use Case', () => {
       update: jest.fn(),
       delete: jest.fn(),
       complete: jest.fn(),
+      moveStatus: jest.fn(),
+      markRead: jest.fn(),
+      markUnread: jest.fn(),
+      getUnreadCount: jest.fn(),
     } as any;
     createActivity = new CreateActivity(mockRepository);
   });
@@ -33,6 +38,7 @@ describe('CreateActivity Use Case', () => {
       id: 'activity-id',
       userId: 'user-id',
       completed: false,
+      status: ActivityStatus.PENDING,
       createdAt: new Date(),
       updatedAt: new Date(),
       ...dto
@@ -44,6 +50,30 @@ describe('CreateActivity Use Case', () => {
 
     expect(result).toEqual(expectedActivity);
     expect(mockRepository.create).toHaveBeenCalledWith(dto);
+  });
+
+  it('should pass an explicit status through to the repository (P3.3)', async () => {
+    const dto = {
+      type: ActivityType.CALL,
+      title: 'Llamada inicial',
+      status: ActivityStatus.IN_PROGRESS,
+    };
+
+    const expectedActivity: Activity = {
+      id: 'activity-id',
+      userId: 'user-id',
+      completed: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...dto
+    };
+
+    mockRepository.create.mockResolvedValue(expectedActivity);
+
+    const result = await createActivity.execute(dto);
+
+    expect(mockRepository.create).toHaveBeenCalledWith(dto);
+    expect(result.status).toBe(ActivityStatus.IN_PROGRESS);
   });
 
   it('should throw an error if title is empty', async () => {

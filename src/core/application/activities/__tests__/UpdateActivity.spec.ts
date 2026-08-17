@@ -2,6 +2,7 @@ import { UpdateActivity } from "../UpdateActivity";
 import { ActivityRepository } from "@/modules/activities/domain/repositories/ActivityRepository";
 import { Activity } from "@/modules/activities/domain/entities/Activity";
 import { ActivityType } from "@/modules/activities/domain/enums/ActivityType";
+import { ActivityStatus } from "@/modules/activities/domain/enums/ActivityStatus";
 
 describe("UpdateActivity Use Case", () => {
   let updateActivity: UpdateActivity;
@@ -13,6 +14,7 @@ describe("UpdateActivity Use Case", () => {
     title: "Original title",
     type: ActivityType.TASK,
     completed: false,
+    status: ActivityStatus.PENDING,
     createdAt: new Date("2024-01-01"),
     updatedAt: new Date("2024-01-01"),
   };
@@ -28,6 +30,10 @@ describe("UpdateActivity Use Case", () => {
       update: jest.fn(),
       delete: jest.fn(),
       complete: jest.fn(),
+      moveStatus: jest.fn(),
+      markRead: jest.fn(),
+      markUnread: jest.fn(),
+      getUnreadCount: jest.fn(),
     };
     updateActivity = new UpdateActivity(mockRepository);
   });

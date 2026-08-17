@@ -30,31 +30,31 @@ Paths base `src/modules/activities/` unless stated; API routes under `src/app/ap
 
 ## Phase 1: Data / Migration (CF-1 rollout)
 
-- [ ] 1.1 Create `supabase/migrations/20260813000001_add_activity_status.sql` (14-digit CF-1): ADD nullable `status TEXT` + `read_at TIMESTAMPTZ`; backfill `status` from `completed`; Instagram `read_at = COALESCE(completed_at, created_at, now())`; CHECK 3 values; NO `SET NOT NULL`.
+- [x] 1.1 Create `supabase/migrations/20260813000001_add_activity_status.sql` (14-digit CF-1): ADD nullable `status TEXT` + `read_at TIMESTAMPTZ`; backfill `status` from `completed`; Instagram `read_at = COALESCE(completed_at, created_at, now())`; CHECK 3 values; NO `SET NOT NULL`.
 - [ ] 1.2 Create `supabase/migrations/20260814000000_activity_status_not_null.sql`: `SET DEFAULT 'PENDING'` + `SET NOT NULL` — apply ONLY after all writers migrated (step 4).
 - [ ] 1.3 Create `supabase/migrations/20260815000000_sync_activity_completed_trigger.sql`: BEFORE INSERT/UPDATE `completed=(status='COMPLETED')`; push LAST (safety net), gated until 1.4.
-- [ ] 1.4 Runbook: post-deploy invariant `completed IS DISTINCT FROM (status='COMPLETED')` count=0; remediate before trigger push.
+- [x] 1.4 Runbook: post-deploy invariant `completed IS DISTINCT FROM (status='COMPLETED')` count=0; remediate before trigger push.
 
 ## Phase 2: Domain
 
-- [ ] 2.1 RED→GREEN: `domain/enums/ActivityStatus.ts` (PENDING|IN_PROGRESS|COMPLETED) + spec; export via `index.ts`.
-- [ ] 2.2 RED→GREEN: `domain/entities/Activity.ts`: `status`, `readAt?`; CreateDTO `status?` (keep `completed`); UpdateDTO drops `completed`.
-- [ ] 2.3 RED→GREEN: `domain/repositories/ActivityRepository.ts`: `moveStatus/markRead/markUnread/getUnreadCount`; search `completed?`→`statusIn?`.
+- [x] 2.1 RED→GREEN: `domain/enums/ActivityStatus.ts` (PENDING|IN_PROGRESS|COMPLETED) + spec; export via `index.ts`.
+- [x] 2.2 RED→GREEN: `domain/entities/Activity.ts`: `status`, `readAt?`; CreateDTO `status?` (keep `completed`); UpdateDTO drops `completed`.
+- [x] 2.3 RED→GREEN: `domain/repositories/ActivityRepository.ts`: `moveStatus/markRead/markUnread/getUnreadCount`; search `completed?`→`statusIn?`.
 
 ## Phase 3: Application
 
-- [ ] 3.1 RED→GREEN: `application/use-cases/MoveActivityStatus.ts`: getById → `moveStatus`; NotFound; pure (no audit — callers log).
-- [ ] 3.2 RED→GREEN: `application/use-cases/CompleteActivity.ts` → `moveStatus(COMPLETED)`; update spec.
-- [ ] 3.3 RED→GREEN: `application/use-cases/CreateActivity.ts`: pass `status`; `completed:true→COMPLETED` at repo/action boundary.
-- [ ] 3.4 RED→GREEN: `MarkActivityRead/Unread.ts`: set/clear `read_at` only; never status/completed (BR-3).
+- [x] 3.1 RED→GREEN: `application/use-cases/MoveActivityStatus.ts`: getById → `moveStatus`; NotFound; pure (no audit — callers log).
+- [x] 3.2 RED→GREEN: `application/use-cases/CompleteActivity.ts` → `moveStatus(COMPLETED)`; update spec.
+- [x] 3.3 RED→GREEN: `application/use-cases/CreateActivity.ts`: pass `status`; `completed:true→COMPLETED` at repo/action boundary.
+- [x] 3.4 RED→GREEN: `MarkActivityRead/Unread.ts`: set/clear `read_at` only; never status/completed (BR-3).
 
 ## Phase 4: Infrastructure
 
-- [ ] 4.1 RED→GREEN: `infrastructure/repositories/SupabaseActivityRepository.ts`: `moveStatus` atomic (status, dual-write `completed`, `completed_at` CASE BR-6); `complete()` rework; `create()` normalize+dual-write; `update()` stops `completed`; `markRead/markUnread/getUnreadCount` (`read_at IS NULL`); search `statusIn` default `[PENDING,IN_PROGRESS]`.
-- [ ] 4.2 RED→GREEN: `infrastructure/mappers/ActivityMapper.ts`: map `status`/`read_at`; derive `completed`.
-- [ ] 4.3 `src/infrastructure/database/database.types.ts`: `status`, `read_at` in Row/Insert/Update.
+- [x] 4.1 RED→GREEN: `infrastructure/repositories/SupabaseActivityRepository.ts`: `moveStatus` atomic (status, dual-write `completed`, `completed_at` CASE BR-6); `complete()` rework; `create()` normalize+dual-write; `update()` stops `completed`; `markRead/markUnread/getUnreadCount` (`read_at IS NULL`); search `statusIn` default `[PENDING,IN_PROGRESS]` — DONE: implementation spec added (`SupabaseActivityRepository.spec.ts`, 13 tests); BR-3 type guard on markRead/markUnread (`.eq('type', INSTAGRAM_MESSAGE)`) implemented; search default treats `status IS NULL` as PENDING via `.or(...)`.
+- [x] 4.2 RED→GREEN: `infrastructure/mappers/ActivityMapper.ts`: map `status`/`read_at`; derive `completed` — DONE: implementation spec added (`ActivityMapper.spec.ts`, 8 tests) covering NULL-status fallback and dual-write derivation.
+- [x] 4.3 `src/infrastructure/database/database.types.ts`: `status`, `read_at` in Row/Insert/Update — DONE (absorbed in slice 1; `status`/`read_at` present in all three shapes).
 - [ ] 4.4 RED→GREEN: `infrastructure/actions/activityActions.ts`: `changeActivityStatus` (getById-first + `createAuditLog` `{old,new}`); `createActivityAction` passes `status`.
-- [ ] 4.5 Update spec mocks (`__tests__/complete-route.spec.ts`, `id-route.spec.ts`, `route.spec.ts`, core specs) with new verbs.
+- [x] 4.5 Update spec mocks (`__tests__/complete-route.spec.ts`, `id-route.spec.ts`, `route.spec.ts`, core specs) with new verbs — DONE: complete-route/id-route mocks updated in slice 1; `route.spec.ts` mock now includes `moveStatus/markRead/markUnread/getUnreadCount`; id-route gained the PATCH silent-strip contract test.
 
 ## Phase 5: REST + OpenAPI (CF-2)
 
@@ -63,7 +63,7 @@ Paths base `src/modules/activities/` unless stated; API routes under `src/app/ap
 - [ ] 5.3 RED→GREEN: `[id]/read/route.ts`: `markRead`, drop `completed` write; spec: status/completed untouched (BR-3).
 - [ ] 5.4 RED→GREEN: `unread/route.ts`: `getUnreadCount` on `read_at IS NULL`; spec.
 - [ ] 5.5 `route.ts` (list): unlinked `unread=true` filter → `.is('read_at', null)`; no `?status=` mapping.
-- [ ] 5.6 `[id]/route.ts`: drop `completed` from UpdateActivitySchema (field ignored scenario).
+- [x] 5.6 `[id]/route.ts`: drop `completed` from UpdateActivitySchema (field ignored scenario) — DONE (absorbed in slice 1; contract test + silent-strip note added in api-rest spec).
 - [ ] 5.7 `src/app/api/instagram/conversations/route.ts`: unreadCount on read marker (replaces `!activity.completed`).
 - [ ] 5.8 `src/app/messages/page.tsx`: selection on `!readAt && INSTAGRAM_MESSAGE`, fetch `read_at`.
 - [ ] 5.9 `src/app/api/docs/openapi.json/route.ts`: `ActivityStatus` enum + `/status`,`/read`,`/unread`; `completed` marked deprecated (removal deferred).
@@ -71,7 +71,7 @@ Paths base `src/modules/activities/` unless stated; API routes under `src/app/ap
 ## Phase 6: UI
 
 - [ ] 6.1 RED→GREEN: `presentation/components/ActivityItem.tsx`: `onStatusChange` selector; timeline toggle → `moveStatus(COMPLETED)`, drop `repository.complete`.
-- [ ] 6.2 RED→GREEN: `(dashboard)/activities/actions.ts`: toggle → `moveStatus(COMPLETED/PENDING)` + getById-first audit delta; transition action + `revalidatePath`.
+- [x] 6.2 RED→GREEN: `(dashboard)/activities/actions.ts`: toggle → `moveStatus(COMPLETED/PENDING)` + getById-first audit delta; transition action + `revalidatePath` — DONE (toggle re-pointed in slice 1; spec `actions.spec.ts` added covering complete AND un-complete paths + unauthenticated rejection). The getById-first audit delta + transition action remain part of the later UI slice (6.4+).
 - [ ] 6.3 RED→GREEN: `(dashboard)/activities/ActivitiesList.tsx`: status filter replaces "Completadas"; optimistic + revert-toast; `status` URL param.
 - [ ] 6.4 `(dashboard)/activities/page.tsx`: `status` param → `statusIn` (default `[PENDING,IN_PROGRESS]`); title/copy.
 - [ ] 6.5 `src/modules/ideas/presentation/components/AddActivityForm.tsx`: `completed:true` normalized; no raw `completed` INSERT.

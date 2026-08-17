@@ -6,6 +6,7 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { ActivityItem } from "../ActivityItem";
 import { ActivityType } from "../../domain/enums/ActivityType";
+import { ActivityStatus } from "../../domain/enums/ActivityStatus";
 
 describe("ActivityItem with INSTAGRAM_MESSAGE", () => {
   it("should render an activity with INSTAGRAM_MESSAGE type", () => {
@@ -15,6 +16,7 @@ describe("ActivityItem with INSTAGRAM_MESSAGE", () => {
       description: "Message from @john_doe",
       type: ActivityType.INSTAGRAM_MESSAGE,
       completed: false,
+      status: ActivityStatus.PENDING,
       leadId: "lead-1",
       userId: "user-1",
       ideaId: null,

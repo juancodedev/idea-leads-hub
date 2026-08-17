@@ -10,7 +10,7 @@ jest.mock("@/lib/api/with-auth", () => ({
 }));
 
 const mockGetById = jest.fn();
-const mockComplete = jest.fn();
+const mockMoveStatus = jest.fn();
 
 jest.mock(
   "@/modules/activities/infrastructure/repositories/SupabaseActivityRepository",
@@ -23,7 +23,11 @@ jest.mock(
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
-      complete: mockComplete,
+      complete: jest.fn(),
+      moveStatus: mockMoveStatus,
+      markRead: jest.fn(),
+      markUnread: jest.fn(),
+      getUnreadCount: jest.fn(),
     })),
   })
 );
@@ -31,6 +35,7 @@ jest.mock(
 import { NextRequest } from "next/server";
 import { PATCH } from "../[id]/complete/route";
 import { ActivityType } from "@/modules/activities/domain/enums/ActivityType";
+import { ActivityStatus } from "@/modules/activities/domain/enums/ActivityStatus";
 
 const mockActivity = {
   id: "act-1",
@@ -51,12 +56,12 @@ const mockCompletedActivity = {
 describe("PATCH /api/activities/[id]/complete", () => {
   beforeEach(() => {
     mockGetById.mockClear();
-    mockComplete.mockClear();
+    mockMoveStatus.mockClear();
   });
 
   it("should mark activity as complete and return 200", async () => {
     mockGetById.mockResolvedValue(mockActivity);
-    mockComplete.mockResolvedValue(mockCompletedActivity);
+    mockMoveStatus.mockResolvedValue(mockCompletedActivity);
 
     const request = new NextRequest(
       "http://localhost:3000/api/activities/act-1/complete",
@@ -67,7 +72,8 @@ describe("PATCH /api/activities/[id]/complete", () => {
 
     expect(response.status).toBe(200);
     expect(body.completed).toBe(true);
-    expect(mockComplete).toHaveBeenCalledWith("act-1");
+    // Delegate to the migrated CompleteActivity → moveStatus(COMPLETED).
+    expect(mockMoveStatus).toHaveBeenCalledWith("act-1", ActivityStatus.COMPLETED);
   });
 
   it("should return 404 when activity not found", async () => {
