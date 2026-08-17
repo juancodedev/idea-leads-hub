@@ -9,8 +9,8 @@ remains dual-written during the transition.
 | Step | Migration | Slice | What it does |
 | --- | --- | --- | --- |
 | 1 | `20260813000001_add_activity_status.sql` | 1 (this change) | Adds nullable `status` + `read_at`, backfills, adds CHECK constraint (two-phase NOT VALID + VALIDATE). No NOT NULL, no trigger. Must be applied BEFORE the slice-1 code deploy. |
-| 2 | `20260814000000_activity_status_not_null.sql` | later (writer migrations) | Backfills any stragglers and sets `status` NOT NULL. |
-| 3 | `20260815000000_sync_activity_completed_trigger.sql` | later (writer migrations) | Sync trigger keeping `completed = (status = 'COMPLETED')`. |
+| 2 | `20260814000000_activity_status_not_null.sql` | 4 (this change, rollout step 4) | Backfills any stragglers with NULL `status`, sets `status` DEFAULT `'PENDING'` and `status` NOT NULL. Final rollout migration — apply ONLY after every writer is migrated (step 4) and the invariant check below returns zero rows. |
+| 3 | `20260815000000_sync_activity_completed_trigger.sql` | 4 (this change, rollout step 5) | Sync hook keeping `completed = (status = 'COMPLETED')` on every write (BEFORE INSERT/UPDATE safety net). Push LAST, gated until the invariant check passes. |
 
 ## Deploy order
 
@@ -32,11 +32,12 @@ remains dual-written during the transition.
    /`markUnread` write only `read_at`; `PATCH /activities/[id]` drops
    `completed`. From this point every writer supplies `status`, so no new
    row can violate `completed = (status = 'COMPLETED')`.
-3. After step 1 is live and the app has been running, apply step 2
-   (`NOT NULL DEFAULT 'PENDING'`) and step 3 (sync trigger) in later
-   slices — only now is every legacy `completed` writer migrated, closing
-   the window in which a create/complete/`/read` between steps 1 and 2
-   could produce a violating row.
+3. After step 1 is live, the app deployed with the status surface (slices
+   1–3), and the invariant check below returns zero rows, apply step 2
+   (`NOT NULL DEFAULT 'PENDING'`) and step 3 (sync hook) as the final
+   rollout migrations (slice 4) — only now is every legacy `completed`
+   writer migrated, closing the window in which a create/complete/`/read`
+   between steps 1 and 2 could produce a violating row.
 
 Why migration-first? The step 1 migration is nullable and backfilled, so
 old code reads it safely; deploying the code before the columns exist would
