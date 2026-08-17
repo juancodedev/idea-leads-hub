@@ -4,6 +4,8 @@ import { createClient } from '@/infrastructure/database/server';
 import { SupabaseActivityRepository } from '@/modules/activities/infrastructure/repositories/SupabaseActivityRepository';
 import { ActivityStatus } from '@/modules/activities/domain/enums/ActivityStatus';
 
+export { changeActivityStatus } from '@/modules/activities/infrastructure/actions/activityActions';
+
 export async function toggleActivityCompletion(id: string, completed: boolean) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
