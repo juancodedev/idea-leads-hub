@@ -166,8 +166,10 @@ export interface Database {
           title: string;
           description: string;
           due_date: string | null;
+          status: string | null;
           completed: boolean;
           completed_at: string | null;
+          read_at: string | null;
           attachments: any[];
           created_at: string;
           updated_at: string;
@@ -181,8 +183,10 @@ export interface Database {
           title: string;
           description: string;
           due_date?: string | null;
+          status?: string | null;
           completed?: boolean;
           completed_at?: string | null;
+          read_at?: string | null;
           attachments?: any[];
           created_at?: string;
           updated_at?: string;
@@ -196,8 +200,10 @@ export interface Database {
           title?: string;
           description?: string;
           due_date?: string | null;
+          status?: string | null;
           completed?: boolean;
           completed_at?: string | null;
+          read_at?: string | null;
           attachments?: any[];
           created_at?: string;
           updated_at?: string;

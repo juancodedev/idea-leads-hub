@@ -2,6 +2,7 @@ import { DeleteActivity } from "../DeleteActivity";
 import { ActivityRepository } from "@/modules/activities/domain/repositories/ActivityRepository";
 import { Activity } from "@/modules/activities/domain/entities/Activity";
 import { ActivityType } from "@/modules/activities/domain/enums/ActivityType";
+import { ActivityStatus } from "@/modules/activities/domain/enums/ActivityStatus";
 
 describe("DeleteActivity Use Case", () => {
   let deleteActivity: DeleteActivity;
@@ -13,6 +14,7 @@ describe("DeleteActivity Use Case", () => {
     title: "Activity to delete",
     type: ActivityType.TASK,
     completed: false,
+    status: ActivityStatus.PENDING,
     createdAt: new Date("2024-01-01"),
     updatedAt: new Date("2024-01-01"),
   };
@@ -28,6 +30,10 @@ describe("DeleteActivity Use Case", () => {
       update: jest.fn(),
       delete: jest.fn(),
       complete: jest.fn(),
+      moveStatus: jest.fn(),
+      markRead: jest.fn(),
+      markUnread: jest.fn(),
+      getUnreadCount: jest.fn(),
     };
     deleteActivity = new DeleteActivity(mockRepository);
   });

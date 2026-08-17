@@ -2,6 +2,7 @@ import { GetActivities } from "../GetActivities";
 import { ActivityRepository } from "@/modules/activities/domain/repositories/ActivityRepository";
 import { Activity, ActivityAttachment } from "@/modules/activities/domain/entities/Activity";
 import { ActivityType } from "@/modules/activities/domain/enums/ActivityType";
+import { ActivityStatus } from "@/modules/activities/domain/enums/ActivityStatus";
 
 describe("GetActivities Use Case", () => {
   let getActivities: GetActivities;
@@ -13,6 +14,7 @@ describe("GetActivities Use Case", () => {
     title: "Test activity",
     type: ActivityType.TASK,
     completed: false,
+    status: ActivityStatus.PENDING,
     createdAt: new Date("2024-01-01"),
     updatedAt: new Date("2024-01-01"),
   };
@@ -28,6 +30,10 @@ describe("GetActivities Use Case", () => {
       update: jest.fn(),
       delete: jest.fn(),
       complete: jest.fn(),
+      moveStatus: jest.fn(),
+      markRead: jest.fn(),
+      markUnread: jest.fn(),
+      getUnreadCount: jest.fn(),
     };
     getActivities = new GetActivities(mockRepository);
   });

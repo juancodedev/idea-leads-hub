@@ -2,6 +2,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { Activity, CreateActivityDTO, UpdateActivityDTO } from "../../domain/entities/Activity";
 import { ActivityRepository, ActivitySearchParams } from "../../domain/repositories/ActivityRepository";
 import { ActivityType } from "../../domain/enums/ActivityType";
+import { ActivityStatus } from "../../domain/enums/ActivityStatus";
 import { ActivityMapper } from "../mappers/ActivityMapper";
 import { BaseRepository } from "../../../../infrastructure/repositories/BaseRepository";
 import { Database } from "../../../../infrastructure/database/database.types";
@@ -71,10 +72,14 @@ export class SupabaseActivityRepository extends BaseRepository implements Activi
       query = query.eq('type', params.type);
     }
 
-    if (params.completed !== undefined) {
-      query = query.eq('completed', params.completed);
+    // Status filter (design Search contract): statusIn omitted defaults to the
+    // pending set and treats rows with status IS NULL as PENDING (rows written
+    // before the backfill read as PENDING — matches the mapper fallback and
+    // getPending).
+    if (params.statusIn && params.statusIn.length > 0) {
+      query = query.in('status', params.statusIn);
     } else {
-      query = query.eq('completed', false);
+      query = query.or('status.in.(PENDING,IN_PROGRESS),status.is.null');
     }
 
     const page = params.page || 1;
@@ -100,8 +105,13 @@ export class SupabaseActivityRepository extends BaseRepository implements Activi
   async create(activity: CreateActivityDTO): Promise<Activity> {
     const userId = await this.requireUser();
 
+    // Rollout normalization (BR-4): legacy `completed:true` writers map to
+    // status=COMPLETED; the mapper then dual-writes `completed` from status.
+    const status = activity.status ?? (activity.completed ? ActivityStatus.COMPLETED : ActivityStatus.PENDING);
+
     const persistence = ActivityMapper.toPersistence({
       ...activity,
+      status,
       userId: userId
     });
     
@@ -120,6 +130,8 @@ export class SupabaseActivityRepository extends BaseRepository implements Activi
 
   async update(activity: UpdateActivityDTO): Promise<Activity> {
     const { id, ...updates } = activity;
+    // toPersistence dual-writes `completed` from `status` when present
+    // (BR-4); `completed` is no longer accepted on UpdateActivityDTO.
     const persistence = ActivityMapper.toPersistence(updates);
 
     const { data, error } = await this.supabase
@@ -142,12 +154,16 @@ export class SupabaseActivityRepository extends BaseRepository implements Activi
     if (error) this.handleError(error);
   }
 
-  async complete(id: string): Promise<Activity> {
+  /** Free status transition with the dual-write invariant (design SQL). */
+  async moveStatus(id: string, status: ActivityStatus): Promise<Activity> {
     const { data, error } = await this.supabase
       .from('activities')
-      .update({ 
-        completed: true, 
-        completed_at: new Date().toISOString() 
+      .update({
+        status,
+        completed: status === ActivityStatus.COMPLETED,
+        completed_at: status === ActivityStatus.COMPLETED
+          ? new Date().toISOString()
+          : null,
       } as never)
       .eq('id', id)
       .select()
@@ -155,5 +171,56 @@ export class SupabaseActivityRepository extends BaseRepository implements Activi
 
     if (error) this.handleError(error);
     return ActivityMapper.toDomain(data);
+  }
+
+  /** Sets `read_at=now()` only — status/completed untouched (BR-3).
+   *  Guarded to INSTAGRAM_MESSAGE rows via a DB-level type filter: a non-IG
+   *  row matches 0 rows and .single() surfaces PGRST116 → NotFoundError
+   *  (404). Ownership is RLS-based (matches the Ideas module convention). */
+  async markRead(id: string): Promise<Activity> {
+    const { data, error } = await this.supabase
+      .from('activities')
+      .update({ read_at: new Date().toISOString() } as never)
+      .eq('id', id)
+      .eq('type', ActivityType.INSTAGRAM_MESSAGE)
+      .select()
+      .single();
+
+    if (error) this.handleError(error);
+    return ActivityMapper.toDomain(data);
+  }
+
+  /** Clears `read_at` only — status/completed untouched (BR-3). Guarded to
+   *  INSTAGRAM_MESSAGE rows (same DB-level filter as markRead). */
+  async markUnread(id: string): Promise<Activity> {
+    const { data, error } = await this.supabase
+      .from('activities')
+      .update({ read_at: null } as never)
+      .eq('id', id)
+      .eq('type', ActivityType.INSTAGRAM_MESSAGE)
+      .select()
+      .single();
+
+    if (error) this.handleError(error);
+    return ActivityMapper.toDomain(data);
+  }
+
+  /** INSTAGRAM_MESSAGE rows with `read_at IS NULL` — the unread marker (BR-3). */
+  async getUnreadCount(userId: string): Promise<number> {
+    const { count, error } = await this.supabase
+      .from('activities')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('type', ActivityType.INSTAGRAM_MESSAGE)
+      .is('read_at', null);
+
+    if (error) this.handleError(error);
+    return count || 0;
+  }
+
+  /** Legacy verb — re-pointed to the status surface so every writer goes
+   *  through the dual-write invariant (BR-4). */
+  async complete(id: string): Promise<Activity> {
+    return this.moveStatus(id, ActivityStatus.COMPLETED);
   }
 }

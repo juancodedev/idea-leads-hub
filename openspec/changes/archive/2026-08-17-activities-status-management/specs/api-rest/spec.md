@@ -71,3 +71,11 @@ The system MUST document every endpoint added or modified by this change in the 
 - GIVEN an existing activity
 - WHEN PATCH /api/activities/[id] with a body containing `completed`
 - THEN 200 with other fields updated and `completed`/`status` untouched (field ignored)
+
+> **Contract note (silent strip, no `.strict()`):** the update body is parsed
+> with a plain `z.object(...)` schema, so unknown keys are silently stripped —
+> a `completed` field in the payload is ignored without an error, and neither
+> `completed` nor `status` is mutated. This is deliberate: status transitions
+> go through the status surface (`PATCH /status`, `moveStatus`), and throwing
+> on a legacy `completed` payload would break older clients during rollout.
+> A `.strict()` rejection was considered and rejected for that reason.

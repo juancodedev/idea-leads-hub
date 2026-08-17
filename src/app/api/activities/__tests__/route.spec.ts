@@ -25,6 +25,10 @@ jest.mock(
       update: jest.fn(),
       delete: jest.fn(),
       complete: jest.fn(),
+      moveStatus: jest.fn(),
+      markRead: jest.fn(),
+      markUnread: jest.fn(),
+      getUnreadCount: jest.fn(),
     })),
   })
 );
@@ -32,6 +36,9 @@ jest.mock(
 import { NextRequest } from "next/server";
 import { GET, POST } from "../route";
 import { ActivityType } from "@/modules/activities/domain/enums/ActivityType";
+import { withAuth } from "@/lib/api/with-auth";
+
+const mockWithAuth = withAuth as jest.Mock;
 
 describe("GET /api/activities", () => {
   beforeEach(() => {
@@ -99,6 +106,53 @@ describe("GET /api/activities", () => {
     const response = await GET(request);
 
     expect(response.status).toBe(400);
+  });
+
+  it("should filter unlinked unread activities by read_at IS NULL (BR-3), not completed", async () => {
+    // Chain mock: capture which filter verb the route applies.
+    const calls: Array<{ verb: string; args: unknown[] }> = [];
+    const chain: Record<string, jest.Mock> = {};
+    const makeChain = (): any => {
+      const target: Record<string, jest.Mock> = {};
+      for (const verb of ["is", "eq", "or", "select"]) {
+        target[verb] = jest.fn((...args: unknown[]) => {
+          calls.push({ verb, args });
+          return makeChain();
+        });
+      }
+      return target;
+    };
+    const queryChain = makeChain();
+
+    mockWithAuth.mockResolvedValue({
+      supabase: {
+        from: jest.fn(() => queryChain),
+      },
+      user: { id: "user-1", email: "test@example.com" },
+    });
+
+    // Resolve the chain promise-like: the route awaits `query` — make the
+    // final chained object thenable to a successful payload.
+    (queryChain as any).then = (resolve: (v: unknown) => void) =>
+      resolve({ data: [{ id: "m1", readAt: null, type: "INSTAGRAM_MESSAGE" }], error: null });
+
+    const request = new NextRequest(
+      new URL(
+        "http://localhost:3000/api/activities?type=INSTAGRAM_MESSAGE&unread=true&unlinkedId=ig-123"
+      )
+    );
+    const response = await GET(request);
+
+    expect(response.status).toBe(200);
+    // Unread filter keys on the read marker, not the binary completed flag.
+    expect(calls).toContainEqual({
+      verb: "is",
+      args: ["read_at", null],
+    });
+    expect(calls).not.toContainEqual({
+      verb: "eq",
+      args: ["completed", false],
+    });
   });
 });
 

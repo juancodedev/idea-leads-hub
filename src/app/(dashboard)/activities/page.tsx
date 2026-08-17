@@ -4,6 +4,7 @@ import { SupabaseActivityRepository } from "@/modules/activities/infrastructure/
 import { DashboardLayout } from "@/ui/layouts/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/ui/components/card";
 import { ActivitiesList } from "./ActivitiesList";
+import { resolveStatusIn } from "./statusFilter";
 import { ActivityType } from "@/modules/activities/domain/enums/ActivityType";
 
 export const dynamic = "force-dynamic";
@@ -22,14 +23,14 @@ export default async function ActivitiesPage({ searchParams }: ActivitiesPagePro
   const activityRepo = new SupabaseActivityRepository(supabase);
 
   const typeParam = typeof params.type === 'string' ? params.type as ActivityType : undefined;
-  const showCompleted = params.completed === 'true';
+  const statusParam = typeof params.status === 'string' ? params.status : undefined;
   const query = typeof params.q === 'string' ? params.q : undefined;
 
   const { data: activities, total } = await activityRepo.search({
     userId: user.id,
     query,
     type: typeParam,
-    completed: showCompleted ? undefined : false,
+    statusIn: resolveStatusIn(statusParam),
     limit: 100,
   });
 
@@ -39,13 +40,13 @@ export default async function ActivitiesPage({ searchParams }: ActivitiesPagePro
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold tracking-tight">Actividades</h1>
           <p className="text-sm text-muted-foreground">
-            {total} {total === 1 ? 'pendiente' : 'pendientes'}
+            {total} {total === 1 ? 'actividad' : 'actividades'}
           </p>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Tareas Pendientes</CardTitle>
+            <CardTitle>Actividades</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <ActivitiesList

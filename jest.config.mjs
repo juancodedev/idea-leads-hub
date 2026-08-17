@@ -10,6 +10,8 @@ const createJestConfig = nextJest({
 const config = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   testEnvironment: 'jsdom',
+  // CI guard: `it.only`/`describe.only` must never slip into the suite.
+  forbidOnly: true,
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@core/(.*)$': '<rootDir>/src/core/$1',

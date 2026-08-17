@@ -50,7 +50,7 @@ export const GET = apiHandler(async (_request: NextRequest) => {
       lead_id,
       title,
       description,
-      completed,
+      read_at,
       created_at,
       lead:leads(id, name, instagram_handle, instagram_scoped_id)
     `
@@ -77,7 +77,7 @@ export const GET = apiHandler(async (_request: NextRequest) => {
     lead_id: string | null;
     title: string;
     description: string;
-    completed: boolean;
+    read_at: string | null;
     created_at: string;
     lead: {
       id: string;
@@ -134,8 +134,10 @@ export const GET = apiHandler(async (_request: NextRequest) => {
 
     const entry = conversationsMap.get(groupKey)!;
 
-    // Count unread only for messages we haven't counted yet
-    if (!activity.completed && !entry._seen.has(activity.id)) {
+    // Count unread only for messages we haven't counted yet — the read marker
+    // is the single source of truth (BR-3): read_at IS NULL ⇔ unread. Completion
+    // never implies read and read never implies completion.
+    if (!activity.read_at && !entry._seen.has(activity.id)) {
       entry.unreadCount++;
       entry._seen.add(activity.id);
     }
