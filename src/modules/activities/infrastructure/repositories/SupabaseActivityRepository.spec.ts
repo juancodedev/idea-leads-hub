@@ -144,6 +144,25 @@ describe("SupabaseActivityRepository.moveStatus (BR-4 dual-write + BR-6 complete
     expect(result.status).toBe(ActivityStatus.PENDING);
     expect(result.completed).toBe(false);
   });
+
+  it("should surface NotFoundError (404) when the update matches zero rows (review-fix)", async () => {
+    // Cross-tenant id or a row deleted between getById and moveStatus: RLS
+    // filters the update to 0 rows and .single() surfaces PGRST116 — the
+    // sibling markRead/markUnread contract. A generic 500 (toDomain([]))
+    // would leak a server error where a 404 belongs.
+    mockSingle.mockResolvedValue({
+      data: null,
+      error: { code: "PGRST116", message: "The result contains 0 rows" },
+    });
+
+    const repo = createRepo();
+    await expect(repo.moveStatus("act-1", ActivityStatus.COMPLETED)).rejects.toBeInstanceOf(
+      NotFoundError
+    );
+    await expect(
+      repo.moveStatus("act-2", ActivityStatus.IN_PROGRESS)
+    ).rejects.toMatchObject({ statusCode: 404 });
+  });
 });
 
 describe("SupabaseActivityRepository.markRead / markUnread (BR-3 guard + only read_at)", () => {
