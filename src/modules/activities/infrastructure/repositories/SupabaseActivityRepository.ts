@@ -72,14 +72,12 @@ export class SupabaseActivityRepository extends BaseRepository implements Activi
       query = query.eq('type', params.type);
     }
 
-    // Status filter: statusIn (new) wins; completed stays as a rollout alias
-    // until the page layer (P6) migrates. Defaults preserve the pending list
-    // and treat rows with status IS NULL as PENDING (rows written before the
-    // backfill read as PENDING — matches the mapper fallback and getPending).
+    // Status filter (design Search contract): statusIn omitted defaults to the
+    // pending set and treats rows with status IS NULL as PENDING (rows written
+    // before the backfill read as PENDING — matches the mapper fallback and
+    // getPending).
     if (params.statusIn && params.statusIn.length > 0) {
       query = query.in('status', params.statusIn);
-    } else if (params.completed !== undefined) {
-      query = query.eq('completed', params.completed);
     } else {
       query = query.or('status.in.(PENDING,IN_PROGRESS),status.is.null');
     }
