@@ -1,63 +1,67 @@
 /**
  * CORS configuration for the CRM API.
  *
- * Soportar Origin: null es necesario para clientes que cargan desde
- * el protocolo file:// (el browser envía "null" como origin).
- *
- * La spec de CORS dice que Access-Control-Allow-Origin: * NO cubre el
- * valor null, así que hay que devolver explícitamente "null" en el header.
+ * Only explicitly allowed origins receive Access-Control-Allow-Origin and
+ * credentials. The opaque "null" origin (file://, sandboxed iframes, data:
+ * URLs) is never allowed: any page can forge it, so allowing it together
+ * with credentials would let arbitrary sites make authenticated requests.
  */
 
-const ALLOWED_ORIGINS = new Set([
-  process.env.NEXT_PUBLIC_APP_URL,
-  'http://localhost:3000',
-  'http://localhost:5173',
-  'http://localhost:4173',
-  'null', // file:// protocol → Origin: null
-].filter(Boolean));
+const ALLOWED_ORIGINS = new Set(
+  [
+    process.env.NEXT_PUBLIC_APP_URL,
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'http://localhost:4173',
+  ].filter(Boolean)
+);
 
 const CORS_METHODS = 'GET, POST, PUT, PATCH, DELETE, OPTIONS';
 
 const CORS_HEADERS_ALLOW = 'authorization, x-client-info, apikey, content-type, x-forwarded-for, x-real-ip';
 
 /**
- * Resuelve el valor correcto para Access-Control-Allow-Origin
- * basado en el Origin de la request.
+ * Resolves the Access-Control-Allow-Origin value for a request origin.
  *
- * - null (file://) → devuelve "null"
- * - ALLOWED_ORIGINS match → devuelve el origin
- * - development → devuelve el origin (todo permitido)
- * - default → null (seguro)
+ * - allowed origin → echoed back
+ * - development → echoed back (except the opaque "null" origin)
+ * - anything else (including missing or "null") → null, meaning the
+ *   header must not be sent
  */
-export function resolveOrigin(requestOrigin: string | null): string {
-  if (!requestOrigin) return 'null';
+export function resolveOrigin(requestOrigin: string | null): string | null {
+  if (!requestOrigin || requestOrigin === 'null') return null;
 
   if (process.env.NODE_ENV === 'development') return requestOrigin;
 
   if (ALLOWED_ORIGINS.has(requestOrigin)) return requestOrigin;
 
-  // Fallback seguro — se rechaza en el browser pero no se expone *
-  return 'null';
+  return null;
 }
 
 /**
- * Retorna headers CORS para una request específica.
- * NO incluye Content-Type — eso lo pone cada route.
+ * Returns CORS headers for a specific request.
+ * Does NOT include Content-Type — each route sets that.
  */
 export function getCorsHeaders(requestOrigin: string | null): Record<string, string> {
-  return {
-    'Access-Control-Allow-Origin': resolveOrigin(requestOrigin),
+  const headers: Record<string, string> = {
     'Access-Control-Allow-Methods': CORS_METHODS,
     'Access-Control-Allow-Headers': CORS_HEADERS_ALLOW,
-    'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',
   };
+
+  const allowedOrigin = resolveOrigin(requestOrigin);
+  if (allowedOrigin) {
+    headers['Access-Control-Allow-Origin'] = allowedOrigin;
+    headers['Access-Control-Allow-Credentials'] = 'true';
+  }
+
+  return headers;
 }
 
 /**
- * Maneja OPTIONS preflight.
- * Devuelve 204 con headers CORS o null si no es OPTIONS.
+ * Handles an OPTIONS preflight.
+ * Returns 204 with CORS headers, or null when the request is not OPTIONS.
  */
 export function handlePreflight(request: Request): Response | null {
   if (request.method !== 'OPTIONS') return null;
@@ -72,11 +76,17 @@ export function handlePreflight(request: Request): Response | null {
 }
 
 /**
- * Envuelve una Response con headers CORS.
+ * Wraps a Response with CORS headers.
  */
 export function withCors(response: Response, requestOrigin: string | null): Response {
   const headers = new Headers(response.headers);
-  headers.set('Access-Control-Allow-Origin', resolveOrigin(requestOrigin));
+  const allowedOrigin = resolveOrigin(requestOrigin);
+  if (allowedOrigin) {
+    headers.set('Access-Control-Allow-Origin', allowedOrigin);
+  } else {
+    headers.delete('Access-Control-Allow-Origin');
+    headers.delete('Access-Control-Allow-Credentials');
+  }
   headers.set('Vary', 'Origin');
   return new Response(response.body, {
     status: response.status,

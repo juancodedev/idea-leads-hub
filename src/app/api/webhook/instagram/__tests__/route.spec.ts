@@ -227,6 +227,67 @@ describe("POST /api/webhook/instagram", () => {
 
     expect(response.status).toBe(200);
     expect(body.status).toBe("ignored");
+    expect(body).not.toHaveProperty("debug");
     expect(mockActivityCreate).not.toHaveBeenCalled();
+  });
+
+  describe("hardening", () => {
+    const originalFetch = global.fetch;
+    const fetchSpy = jest.fn();
+
+    beforeEach(() => {
+      fetchSpy.mockReset();
+      global.fetch = fetchSpy as unknown as typeof fetch;
+    });
+
+    afterAll(() => {
+      global.fetch = originalFetch;
+    });
+
+    function invalidSignatureRequest() {
+      return new NextRequest("http://localhost:3000/api/webhook/instagram", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Hub-Signature-256": "sha256=invalid_signature",
+        },
+        body: JSON.stringify({ entry: [{ messaging: [{ message: { text: "secret" } }] }] }),
+      });
+    }
+
+    it("does not expose debug data or HMAC values on an invalid signature", async () => {
+      mockVerifyMetaSignature.mockResolvedValue(false);
+
+      const response = await POST(invalidSignatureRequest());
+      const body = await response.json();
+
+      expect(response.status).toBe(403);
+      expect(body).toEqual({ error: "Invalid signature" });
+    });
+
+    it("does not write to the database on an invalid signature", async () => {
+      mockVerifyMetaSignature.mockResolvedValue(false);
+
+      await POST(invalidSignatureRequest());
+
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 for a malformed JSON body with a valid signature", async () => {
+      mockVerifyMetaSignature.mockResolvedValue(true);
+
+      const response = await POST(
+        new NextRequest("http://localhost:3000/api/webhook/instagram", {
+          method: "POST",
+          headers: { "X-Hub-Signature-256": "sha256=valid_signature" },
+          body: "{not-json",
+        })
+      );
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ error: "Invalid payload" });
+      expect(mockParseIncomingMessage).not.toHaveBeenCalled();
+      expect(mockActivityCreate).not.toHaveBeenCalled();
+    });
   });
 });
