@@ -4,6 +4,11 @@ export interface SendDMResult {
 
 export interface ParsedMessage {
   senderId: string;
+  /**
+   * Id of the Instagram account that received the message (the business
+   * account owned by one of our users). Falls back to entry.id.
+   */
+  recipientId?: string;
   messageId: string;
   text: string;
   timestamp: string;
@@ -301,8 +306,10 @@ export class InstagramMessagingService {
 
     const data = payload as {
       entry?: Array<{
+        id?: string;
         messaging?: Array<{
           sender?: { id?: string };
+          recipient?: { id?: string };
           message?: { mid?: string; text?: string; is_echo?: boolean };
           timestamp?: number;
         }>;
@@ -326,6 +333,7 @@ export class InstagramMessagingService {
       if (!senderId || !messageId) return null;
       return {
         senderId,
+        recipientId: legacyMsg.recipient?.id ?? entry.id,
         messageId,
         text,
         timestamp: legacyMsg.timestamp
@@ -348,6 +356,7 @@ export class InstagramMessagingService {
 
     return {
       senderId,
+      recipientId: value.recipient?.id ?? entry.id,
       messageId,
       text: value.message.text,
       timestamp: value.timestamp
