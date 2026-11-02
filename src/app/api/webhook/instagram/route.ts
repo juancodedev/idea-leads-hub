@@ -28,23 +28,6 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * Compute HMAC-SHA256 hex digest over raw bytes.
- */
-async function computeHmacHex(secret: string, data: ArrayBuffer): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const sig = await crypto.subtle.sign("HMAC", key, data);
-  return Array.from(new Uint8Array(sig))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-/**
  * POST /api/webhook/instagram
  * Receive inbound Instagram messages from Meta.
  */
@@ -64,79 +47,22 @@ export async function POST(request: NextRequest) {
   );
 
   if (!isValid) {
-    // Compute HMAC values for debugging
-    const metaHex = process.env.META_APP_SECRET
-      ? await computeHmacHex(process.env.META_APP_SECRET, rawBytes)
-      : "";
-    const igHex = process.env.INSTAGRAM_APP_SECRET
-      ? await computeHmacHex(process.env.INSTAGRAM_APP_SECRET, rawBytes)
-      : "";
-
-    // Log to Cloudflare observability (now enabled in wrangler.toml)
-    console.error("[webhook/hmac_mismatch]", JSON.stringify({
+    logger.warn("Instagram webhook rejected: invalid signature", {
       bodyLength: rawBytes.byteLength,
-      bodyFirst100: rawBody.substring(0, 100),
-      bodyLast40: rawBody.substring(rawBody.length - 40),
-      signature256: signature,
-      metaHmacPrefix: metaHex.substring(0, 16),
-      igHmacPrefix: igHex.substring(0, 16),
-      metaSecretSet: !!process.env.META_APP_SECRET,
-      igSecretSet: !!process.env.INSTAGRAM_APP_SECRET,
-    }));
-
-    // Persist debug data to audit_logs (raw fetch, bypasses supabase-js client issues)
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (supabaseUrl && serviceRoleKey) {
-      try {
-        const res = await fetch(`${supabaseUrl}/rest/v1/audit_logs`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            apikey: serviceRoleKey,
-            Authorization: `Bearer ${serviceRoleKey}`,
-            Prefer: "return=minimal",
-          },
-          body: JSON.stringify({
-            entity_type: "instagram_webhook",
-            entity_id: "hmac_mismatch_debug",
-            action: "hmac_mismatch",
-            changes: {
-              body: rawBody.substring(0, 500),
-              bodyLength: rawBytes.byteLength,
-              signature256: signature,
-              metaHmac: metaHex.substring(0, 16) + "...",
-              igHmac: igHex.substring(0, 16) + "...",
-              metaSecretSet: !!process.env.META_APP_SECRET,
-              igSecretSet: !!process.env.INSTAGRAM_APP_SECRET,
-            },
-          }),
-        });
-        if (!res.ok) {
-          console.error("[webhook] audit_logs insert failed", { status: res.status, statusText: res.statusText });
-        }
-      } catch (err) {
-        console.error("[webhook] audit_logs insert error", err);
-      }
-    }
-
-    return NextResponse.json(
-      {
-        error: "Invalid signature",
-        debug: {
-          bodyLength: rawBytes.byteLength,
-          bodyFirst100: rawBody.substring(0, 100),
-          bodyLast40: rawBody.substring(rawBody.length - 40),
-          signature256: signature.substring(0, 30) + "...",
-          metaHmacPrefix: metaHex.substring(0, 16),
-          igHmacPrefix: igHex.substring(0, 16),
-        },
-      },
-      { status: 403 }
-    );
+      hasSignature: signature.length > 0,
+    });
+    return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
   }
 
-  const payload = JSON.parse(rawBody);
+  let payload;
+  try {
+    payload = JSON.parse(rawBody);
+  } catch {
+    logger.warn("Instagram webhook rejected: malformed JSON", {
+      bodyLength: rawBytes.byteLength,
+    });
+    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  }
 
   // parseIncomingMessage only handles messages with text content
   const parsed = messagingService.parseIncomingMessage(payload);
@@ -157,8 +83,8 @@ export async function POST(request: NextRequest) {
       ignoredInfo.changesField = payload.entry[0].changes[0].field;
       ignoredInfo.changesValueKeys = Object.keys(payload.entry[0].changes[0].value || {});
     }
-    console.log("[webhook] ignored payload:", JSON.stringify(ignoredInfo));
-    return NextResponse.json({ status: "ignored", debug: ignoredInfo }, { status: 200 });
+    logger.info("Instagram webhook payload ignored", ignoredInfo);
+    return NextResponse.json({ status: "ignored" }, { status: 200 });
   }
 
   // Create admin Supabase client for webhook (no user session)

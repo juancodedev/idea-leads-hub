@@ -266,20 +266,11 @@ export class InstagramMessagingService {
       }
     }
 
-    // None matched — log diagnostics
-    const expectedHex = metaSecret
-      ? await this.computeHmac(metaSecret, payload)
-      : "";
-    const bodyStr =
-      payload instanceof ArrayBuffer
-        ? new TextDecoder().decode(payload)
-        : payload;
+    // None matched. Never log expected HMAC values or message content:
+    // they leak signature material and private user data into logs.
     console.error("[verifyMetaSignature] HMAC mismatch with all secrets", {
-      expectedPrefix: expectedHex.substring(0, 16),
-      providedPrefix: providedHex.substring(0, 16),
-      bodyLength: bodyStr.length,
-      bodyFirst100: bodyStr.substring(0, 100),
-      bodyLast40: bodyStr.substring(bodyStr.length - 40),
+      bodyLength:
+        payload instanceof ArrayBuffer ? payload.byteLength : payload.length,
       metaSecretSet: !!metaSecret,
       igSecretSet: !!igSecret,
     });
