@@ -13,7 +13,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm install --frozen-lockfile
       - run: npx tsc --noEmit
       - run: npx eslint . --max-warnings 30
-      - run: pnpm test -- --ci
+      - run: pnpm test --ci
