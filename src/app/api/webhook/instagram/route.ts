@@ -101,94 +101,78 @@ export async function POST(request: NextRequest) {
 
   const supabase = createClient<Database>(supabaseUrl, serviceRoleKey);
 
-  // Find the user who owns the Instagram integration to associate activities.
-  // Webhook context has no auth session, so we look up the admin from user_secrets.
-  const { data: adminUserSecret } = await supabase
-    .from("user_secrets")
-    .select("user_id")
-    .not("instagram_ig_id", "is", null)
-    .limit(1)
-    .maybeSingle() as unknown as { data: { user_id: string } | null };
+  const owner = await resolveIntegrationOwner(supabase, parsed.recipientId);
+  if (owner.kind === "lookup_failed") {
+    // Non-2xx makes Meta retry delivery, so a transient database failure
+    // does not turn into permanent message loss.
+    return NextResponse.json({ error: "Temporary failure" }, { status: 500 });
+  }
+  const ownerUserId = owner.kind === "found" ? owner.userId : null;
+  if (!ownerUserId) {
+    // Acknowledge receipt so Meta does not retry; the message has no owner.
+    return NextResponse.json({ status: "received" }, { status: 200 });
+  }
 
-  const adminUserId = adminUserSecret?.user_id ?? null;
-
-  // Find lead by Instagram-scoped sender ID
+  // Find lead by Instagram-scoped sender ID, restricted to the owner's leads.
   type LeadRow = Database["public"]["Tables"]["leads"]["Row"];
   const { data: leads } = (await supabase
     .from("leads")
     .select("id")
+    .eq("user_id", ownerUserId)
     .eq("instagram_scoped_id", parsed.senderId)
     .limit(1)) as unknown as { data: Pick<LeadRow, "id">[] | null };
 
   let leadId = leads?.[0]?.id ?? null;
 
-  // If no direct lead match, check if previous messages from/to this sender
-  // were already linked to a lead (search both "from" and "to" title patterns).
-  // Outbound replies use "Instagram DM to {id}", inbound use "Instagram DM from {id}".
+  // If no direct lead match, reuse the lead linked to the owner's previous
+  // messages from/to this sender. Outbound replies use "Instagram DM to {id}",
+  // inbound use "Instagram DM from {id}".
   if (!leadId) {
-    let linkedActivity: { lead_id: string } | null = null;
-
-    // Try "from" first (inbound from this sender was already linked)
-    const { data: fromMatch } = (await supabase
-      .from("activities")
-      .select("lead_id")
-      .eq("type", ActivityType.INSTAGRAM_MESSAGE)
-      .eq("title", `Instagram DM from ${parsed.senderId}`)
-      .not("lead_id", "is", null)
-      .limit(1)
-      .maybeSingle()) as unknown as { data: { lead_id: string } | null };
-
-    if (fromMatch?.lead_id) {
-      linkedActivity = fromMatch;
-    } else {
-      // Try "to" (we sent an outbound to this sender, so it's the same lead)
-      const { data: toMatch } = (await supabase
+    for (const title of [
+      `Instagram DM from ${parsed.senderId}`,
+      `Instagram DM to ${parsed.senderId}`,
+    ]) {
+      const { data: linked } = (await supabase
         .from("activities")
         .select("lead_id")
+        .eq("user_id", ownerUserId)
         .eq("type", ActivityType.INSTAGRAM_MESSAGE)
-        .eq("title", `Instagram DM to ${parsed.senderId}`)
+        .eq("title", title)
         .not("lead_id", "is", null)
         .limit(1)
         .maybeSingle()) as unknown as { data: { lead_id: string } | null };
 
-      if (toMatch?.lead_id) {
-        linkedActivity = toMatch;
+      if (linked?.lead_id) {
+        leadId = linked.lead_id;
+        break;
       }
-    }
-
-    if (linkedActivity?.lead_id) {
-      leadId = linkedActivity.lead_id;
     }
   }
 
   try {
     // Direct insert with service role key — repository requireUser() won't
     // work in webhook context because there's no authenticated user session.
-    if (!adminUserId) {
-      logger.error("No admin user with Instagram integration found — cannot create activity");
-    } else {
-      const { error: activityError } = await supabase
-        .from("activities")
-        .insert({
-          user_id: adminUserId,
-          type: ActivityType.INSTAGRAM_MESSAGE,
-          title: `Instagram DM from ${parsed.senderId}`,
-          description: parsed.text,
-          lead_id: leadId ?? undefined,
-          attachments: [
-            {
-              name: "instagram_message",
-              url: "",
-              path: "",
-              size: 0,
-              type: "instagram/message",
-            },
-          ],
-        } as never);
+    const { error: activityError } = await supabase
+      .from("activities")
+      .insert({
+        user_id: ownerUserId,
+        type: ActivityType.INSTAGRAM_MESSAGE,
+        title: `Instagram DM from ${parsed.senderId}`,
+        description: parsed.text,
+        lead_id: leadId ?? undefined,
+        attachments: [
+          {
+            name: "instagram_message",
+            url: "",
+            path: "",
+            size: 0,
+            type: "instagram/message",
+          },
+        ],
+      } as never);
 
-      if (activityError) {
-        logger.error("Failed to insert activity from webhook", { error: activityError });
-      }
+    if (activityError) {
+      logger.error("Failed to insert activity from webhook", { error: activityError });
     }
   } catch (error) {
     logger.error("Failed to create activity from webhook", { error });
@@ -196,4 +180,86 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ status: "received" }, { status: 200 });
+}
+
+type AdminClient = ReturnType<typeof createClient<Database>>;
+
+/**
+ * The recipient id is interpolated into a PostgREST or() filter, so it must
+ * not contain filter metacharacters (commas, dots, parentheses, quotes).
+ */
+const SAFE_ID = /^[A-Za-z0-9_-]+$/;
+
+type OwnerResolution =
+  | { kind: "found"; userId: string }
+  | { kind: "none" }
+  | { kind: "lookup_failed" };
+
+/**
+ * Resolves which user owns the Instagram account that received a message.
+ *
+ * 1. Match the recipient id against instagram_ig_id or instagram_page_id.
+ * 2. If nothing matches and exactly one user has Instagram connected, use
+ *    that user: the id stored by some login flows (app-scoped /me id) can
+ *    differ from the id Meta sends in webhooks, and with a single integrated
+ *    user there is no other tenant the message could belong to.
+ * 3. Otherwise there is no owner. Guessing between several users would leak
+ *    one user's messages into another user's account.
+ *
+ * A failed query yields "lookup_failed" instead of being mistaken for
+ * "no match", so the caller can ask Meta to retry.
+ */
+async function resolveIntegrationOwner(
+  supabase: AdminClient,
+  recipientId: string | undefined
+): Promise<OwnerResolution> {
+  type SecretRow = { user_id: string };
+  type Result = { data: SecretRow[] | null; error: { message: string } | null };
+
+  if (recipientId && SAFE_ID.test(recipientId)) {
+    const { data: matches, error } = (await supabase
+      .from("user_secrets")
+      .select("user_id")
+      .or(`instagram_ig_id.eq.${recipientId},instagram_page_id.eq.${recipientId}`)
+      .limit(2)) as unknown as Result;
+
+    if (error) {
+      logger.error("Instagram webhook owner lookup failed", { recipientId, error: error.message });
+      return { kind: "lookup_failed" };
+    }
+    if (matches?.length === 1) return { kind: "found", userId: matches[0].user_id };
+    if (matches && matches.length > 1) {
+      logger.error("Instagram webhook recipient matches several users; message dropped", {
+        recipientId,
+      });
+      return { kind: "none" };
+    }
+  }
+
+  const { data: integrated, error } = (await supabase
+    .from("user_secrets")
+    .select("user_id")
+    .not("instagram_ig_id", "is", null)
+    .limit(2)) as unknown as Result;
+
+  if (error) {
+    logger.error("Instagram webhook integrated-users lookup failed", {
+      recipientId,
+      error: error.message,
+    });
+    return { kind: "lookup_failed" };
+  }
+
+  if (integrated?.length === 1) {
+    logger.warn("Instagram webhook recipient did not match; using the only integrated user", {
+      recipientId,
+    });
+    return { kind: "found", userId: integrated[0].user_id };
+  }
+
+  logger.error("Instagram webhook recipient has no owner; message dropped", {
+    recipientId,
+    integratedUsers: integrated?.length ?? 0,
+  });
+  return { kind: "none" };
 }

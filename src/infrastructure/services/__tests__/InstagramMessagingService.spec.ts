@@ -240,6 +240,66 @@ describe("InstagramMessagingService", () => {
       expect(result).toBeNull();
     });
 
+    it("should expose the recipient (business account) id in the legacy format", () => {
+      const result = service.parseIncomingMessage({
+        entry: [
+          {
+            id: "entry-acct-1",
+            messaging: [
+              {
+                sender: { id: "s-1" },
+                recipient: { id: "biz-acct-1" },
+                message: { mid: "m-1", text: "hi" },
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(result!.recipientId).toBe("biz-acct-1");
+    });
+
+    it("should fall back to entry.id as recipient when recipient is missing", () => {
+      const legacy = service.parseIncomingMessage({
+        entry: [
+          { id: "entry-acct-1", messaging: [{ sender: { id: "s-1" }, message: { mid: "m-1", text: "hi" } }] },
+        ],
+      });
+      const v25 = service.parseIncomingMessage({
+        entry: [
+          {
+            id: "entry-acct-2",
+            changes: [{ field: "messages", value: { sender: { id: "s-2" }, message: { mid: "m-2", text: "hi" } } }],
+          },
+        ],
+      });
+
+      expect(legacy!.recipientId).toBe("entry-acct-1");
+      expect(v25!.recipientId).toBe("entry-acct-2");
+    });
+
+    it("should expose the recipient id in the v25 changes format", () => {
+      const result = service.parseIncomingMessage({
+        entry: [
+          {
+            id: "entry-acct-2",
+            changes: [
+              {
+                field: "messages",
+                value: {
+                  sender: { id: "s-2" },
+                  recipient: { id: "biz-acct-2" },
+                  message: { mid: "m-2", text: "hi" },
+                },
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(result!.recipientId).toBe("biz-acct-2");
+    });
+
     it("should parse Instagram Graph API v25.0 changes format", () => {
       const payload = {
         entry: [
