@@ -1,0 +1,31 @@
+[api]
+enabled = true
+hostname = "127.0.0.1"
+port = 54321
+exec_spawn_pool_size = 2
+
+[db]
+enabled = true
+hostname = "127.0.0.1"
+port = 54322
+major_version = 15
+
+[auth]
+enabled = true
+hostname = "127.0.0.1"
+port = 54323
+
+[storage]
+enabled = true
+hostname = "127.0.0.1"
+port = 54324
+
+[realtime]
+enabled = true
+hostname = "127.0.0.1"
+port = 54325
+
+[pooler]
+enabled = true
+hostname = "127.0.0.1"
+port = 54328
