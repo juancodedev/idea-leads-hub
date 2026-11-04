@@ -26,11 +26,16 @@ export interface DeliverMessageDeps {
   execMarkSent: (input: MarkSentSqlInput) => Promise<Message>;
 }
 
+/** Send context as callers pass it; the recipient defaults to the conversation's participant. */
+export type DeliverSendContext = Omit<SendContext, "recipientId"> & {
+  recipientId?: string;
+};
+
 export interface DeliverMessageInput {
   conversationId: string;
   body: string;
   origin: MessageOrigin;
-  sendContext: SendContext;
+  sendContext: DeliverSendContext;
 }
 
 export class DeliverMessage {
@@ -68,7 +73,11 @@ export class DeliverMessage {
       readAt: null,
     });
 
-    const outcome = await channel.send(input.sendContext, {
+    const sendContext: SendContext = {
+      ...input.sendContext,
+      recipientId: input.sendContext.recipientId ?? conversation.externalId,
+    };
+    const outcome = await channel.send(sendContext, {
       conversationId: conversation.id,
       body: input.body,
       origin: input.origin,

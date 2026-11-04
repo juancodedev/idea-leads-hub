@@ -1,5 +1,38 @@
+import { GraphApiError } from "./GraphApiError";
+
 export interface SendDMResult {
   messageId: string;
+}
+
+export interface SendDMOptions {
+  /** Aborts the Graph request (e.g. `AbortSignal.timeout(15000)`). */
+  signal?: AbortSignal;
+}
+
+interface GraphErrorBody {
+  error?: { message?: string; code?: number; error_subcode?: number; type?: string };
+}
+
+/**
+ * Builds the GraphApiError for a non-OK send response, keeping the message
+ * text callers match on: `${prefix}: ${error.message || statusText}`.
+ */
+async function toGraphApiError(response: Response, prefix: string): Promise<GraphApiError> {
+  let errorDetail: string;
+  let graphError: GraphErrorBody["error"];
+  try {
+    const errorBody = (await response.json()) as GraphErrorBody;
+    graphError = errorBody?.error;
+    errorDetail = graphError?.message || response.statusText;
+  } catch {
+    errorDetail = response.statusText || `HTTP ${response.status}`;
+  }
+  return new GraphApiError(`${prefix}: ${errorDetail}`, {
+    status: response.status,
+    code: typeof graphError?.code === "number" ? graphError.code : null,
+    subcode: typeof graphError?.error_subcode === "number" ? graphError.error_subcode : null,
+    type: typeof graphError?.type === "string" ? graphError.type : null,
+  });
 }
 
 export interface ParsedMessage {
@@ -94,12 +127,15 @@ export class InstagramMessagingService {
    * @param recipientIgSid Recipient's Instagram-scoped ID
    * @param text Message text
    * @param pageAccessToken Page Access Token for auth
+   * @param options Optional abort signal
+   * @throws GraphApiError on a non-OK response
    */
   async sendDM(
     igId: string,
     recipientIgSid: string,
     text: string,
-    pageAccessToken: string
+    pageAccessToken: string,
+    options: SendDMOptions = {}
   ): Promise<SendDMResult> {
     const isSelfMessage = igId === recipientIgSid;
     const url = `https://graph.facebook.com/v25.0/${igId}/messages`;
@@ -113,19 +149,11 @@ export class InstagramMessagingService {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
+      ...(options.signal ? { signal: options.signal } : {}),
     });
 
     if (!response.ok) {
-      let errorDetail: string;
-      try {
-        const errorBody = (await response.json()) as {
-          error?: { message?: string; code?: number; type?: string };
-        };
-        errorDetail = errorBody?.error?.message || response.statusText;
-      } catch {
-        errorDetail = response.statusText || `HTTP ${response.status}`;
-      }
-      throw new Error(`Failed to send Instagram DM: ${errorDetail}`);
+      throw await toGraphApiError(response, "Failed to send Instagram DM");
     }
 
     const body = (await response.json()) as { message_id: string };
@@ -138,12 +166,15 @@ export class InstagramMessagingService {
    *
    * NOTE: Does NOT support self-messaging (igId === recipientIgSid) — that
    * is a Facebook Graph API quirk not present in the Instagram Graph API.
+   *
+   * @throws GraphApiError on a non-OK response
    */
   async sendDMViaInstagramLogin(
     igId: string,
     recipientIgSid: string,
     text: string,
-    instagramUserToken: string
+    instagramUserToken: string,
+    options: SendDMOptions = {}
   ): Promise<SendDMResult> {
     const url = `https://graph.instagram.com/v25.0/${igId}/messages`;
 
@@ -156,19 +187,11 @@ export class InstagramMessagingService {
         Authorization: `Bearer ${instagramUserToken}`,
       },
       body: JSON.stringify(payload),
+      ...(options.signal ? { signal: options.signal } : {}),
     });
 
     if (!response.ok) {
-      let errorDetail: string;
-      try {
-        const errorBody = (await response.json()) as {
-          error?: { message?: string; code?: number; type?: string };
-        };
-        errorDetail = errorBody?.error?.message || response.statusText;
-      } catch {
-        errorDetail = response.statusText || `HTTP ${response.status}`;
-      }
-      throw new Error(`Failed to send Instagram DM via Business Login: ${errorDetail}`);
+      throw await toGraphApiError(response, "Failed to send Instagram DM via Business Login");
     }
 
     const body = (await response.json()) as { message_id: string };

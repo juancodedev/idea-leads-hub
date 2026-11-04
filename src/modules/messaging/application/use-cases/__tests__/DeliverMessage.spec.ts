@@ -3,14 +3,10 @@
  *
  * DeliverMessage (S7 single delivery path, S8 legacy activity).
  */
-import { DeliverMessage } from "../DeliverMessage";
+import { DeliverMessage, DeliverSendContext } from "../DeliverMessage";
 import { MessageOrigin } from "../../../domain/enums/MessageOrigin";
 import { MessageStatus } from "../../../domain/enums/MessageStatus";
-import {
-  MessagingChannel,
-  SendContext,
-  SendOutcome,
-} from "../../../domain/ports/MessagingChannel";
+import { MessagingChannel, SendOutcome } from "../../../domain/ports/MessagingChannel";
 import { Channel } from "../../../domain/enums/Channel";
 import { NotFoundError } from "@/infrastructure/repositories/errors";
 import { InMemoryMessagingStore } from "../../../testing/InMemoryMessagingStore";
@@ -20,11 +16,7 @@ describe("DeliverMessage", () => {
   let conversationId: string;
   let send: jest.Mock<Promise<SendOutcome>>;
 
-  const sendContext: SendContext = {
-    userId: "user_1",
-    token: "token",
-    authType: "facebook",
-  };
+  let sendContext: DeliverSendContext;
 
   const makeUseCase = () => {
     const channel: MessagingChannel = {
@@ -64,6 +56,12 @@ describe("DeliverMessage", () => {
       unreadCount: 3,
     }).id;
     send = jest.fn();
+    sendContext = {
+      userId: "user_1",
+      token: "token",
+      authType: "facebook",
+      accountId: "ig_business_1",
+    };
   });
 
   it("sends through the channel and stores the message as sent with its Graph id", async () => {
@@ -71,7 +69,7 @@ describe("DeliverMessage", () => {
 
     const message = await deliver();
 
-    expect(send).toHaveBeenCalledWith(sendContext, {
+    expect(send).toHaveBeenCalledWith(expect.objectContaining(sendContext), {
       conversationId,
       body: "Hola",
       origin: MessageOrigin.HUMAN,
@@ -86,6 +84,32 @@ describe("DeliverMessage", () => {
       lastMessagePreview: "Hola",
       unreadCount: 3,
     });
+  });
+
+  it("sends to the conversation's participant when the caller omits the recipient", async () => {
+    send.mockResolvedValue({ ok: true, externalId: "m_1" });
+
+    await deliver();
+
+    expect(send).toHaveBeenCalledWith(
+      {
+        userId: "user_1",
+        token: "token",
+        authType: "facebook",
+        accountId: "ig_business_1",
+        recipientId: "123",
+      },
+      expect.anything()
+    );
+  });
+
+  it("keeps the recipient the caller passes", async () => {
+    send.mockResolvedValue({ ok: true, externalId: "m_1" });
+    sendContext = { ...sendContext, recipientId: "explicit_rcpt" };
+
+    await deliver();
+
+    expect(send.mock.calls[0][0].recipientId).toBe("explicit_rcpt");
   });
 
   it("stores the pending row before calling the channel", async () => {

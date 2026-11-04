@@ -384,6 +384,8 @@ LANGUAGE plpgsql
 SECURITY INVOKER
 SET search_path = public
 AS $$
+#variable_conflict use_column
+-- (the OUT columns share the table's column names; they resolve to columns)
 BEGIN
   RETURN QUERY
   UPDATE public.webhook_events
@@ -400,6 +402,32 @@ BEGIN
     FOR UPDATE SKIP LOCKED
   )
   RETURNING event_id, provider, payload, attempts;
+END;
+$$;
+
+-- 8.4b Start the background run's attempt on one event (ADR-6): increments
+-- attempts and takes the 2-minute lease in one statement, only while the
+-- event is still received. No row returned = missing or already handled.
+CREATE OR REPLACE FUNCTION public.messaging_start_attempt(p_event_id text)
+RETURNS TABLE (
+  event_id text,
+  attempts int,
+  payload jsonb
+)
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public
+AS $$
+#variable_conflict use_column
+-- (the OUT columns share the table's column names; they resolve to columns)
+BEGIN
+  RETURN QUERY
+  UPDATE public.webhook_events
+  SET attempts = attempts + 1,
+      last_attempt_at = now()
+  WHERE event_id = p_event_id
+    AND status = 'received'
+  RETURNING event_id, attempts, payload;
 END;
 $$;
 

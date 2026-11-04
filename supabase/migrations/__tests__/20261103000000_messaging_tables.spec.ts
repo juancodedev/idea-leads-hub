@@ -130,6 +130,30 @@ describe("Messaging tables migration (20261103000000)", () => {
     expect(claimRetry).toMatch(/SET attempts = attempts \+ 1,\s+last_attempt_at = now\(\)/);
   });
 
+  it("should start a background attempt atomically with messaging_start_attempt", () => {
+    const start = sql.indexOf("CREATE OR REPLACE FUNCTION public.messaging_start_attempt(p_event_id text)");
+    expect(start).toBeGreaterThan(-1);
+    const fn = sql.slice(start, sql.indexOf("$$;", start));
+
+    expect(fn).toContain("RETURNS TABLE (\n  event_id text,\n  attempts int,\n  payload jsonb\n)");
+    expect(fn).toContain("SECURITY INVOKER");
+    expect(fn).toContain("SET search_path = public");
+    // increments attempts and takes the lease in the same statement, only while received
+    expect(fn).toMatch(/SET attempts = attempts \+ 1,\s+last_attempt_at = now\(\)/);
+    expect(fn).toMatch(/WHERE event_id = p_event_id\s+AND status = 'received'/);
+    expect(fn).toContain("RETURNING event_id, attempts, payload");
+  });
+
+  it("should resolve RETURNS TABLE name clashes to columns in the webhook claim functions", () => {
+    // OUT columns named like table columns are ambiguous in PL/pgSQL (42702)
+    // unless the function resolves them to the column.
+    for (const fn of ["messaging_claim_retry", "messaging_start_attempt"]) {
+      const start = sql.indexOf(`CREATE OR REPLACE FUNCTION public.${fn}`);
+      const body = sql.slice(start, sql.indexOf("$$;", start));
+      expect(body).toContain("#variable_conflict use_column");
+    }
+  });
+
   it("should not modify or delete legacy activities (rollout safety)", () => {
     expect(sql).not.toMatch(/DELETE FROM public\.activities/);
     expect(sql).not.toMatch(/UPDATE public\.activities SET/);

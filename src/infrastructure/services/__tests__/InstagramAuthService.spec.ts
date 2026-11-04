@@ -170,6 +170,84 @@ describe("InstagramAuthService", () => {
         "Failed to store Instagram token"
       );
     });
+
+    describe("channel_accounts sync (ADR-7)", () => {
+      let errorSpy: jest.SpyInstance;
+
+      beforeEach(() => {
+        errorSpy = jest.spyOn(console, "error").mockImplementation(() => undefined);
+      });
+
+      afterEach(() => {
+        errorSpy.mockRestore();
+      });
+
+      it("upserts the user's instagram channel account after storing the token", async () => {
+        mockUpsert.mockResolvedValue({ data: null, error: null });
+
+        await service.storeToken(userId, tokenData);
+
+        expect(mockFrom.mock.calls.map((c) => c[0])).toEqual(["user_secrets", "channel_accounts"]);
+        expect(mockUpsert).toHaveBeenNthCalledWith(
+          2,
+          {
+            user_id: userId,
+            channel: "instagram",
+            external_account_id: "ig-123456",
+            page_id: "page-789",
+            status: "connected",
+          },
+          { onConflict: "channel,external_account_id" }
+        );
+      });
+
+      it("stores a null page id when the connection has none", async () => {
+        mockUpsert.mockResolvedValue({ data: null, error: null });
+
+        await service.storeToken(userId, { ...tokenData, pageId: "" });
+
+        expect(mockUpsert).toHaveBeenNthCalledWith(
+          2,
+          expect.objectContaining({ page_id: null }),
+          { onConflict: "channel,external_account_id" }
+        );
+      });
+
+      it("does not fail when the channel account upsert returns an error", async () => {
+        mockUpsert
+          .mockResolvedValueOnce({ data: null, error: null })
+          .mockResolvedValueOnce({ data: null, error: { message: "rls denied" } });
+
+        await expect(service.storeToken(userId, tokenData)).resolves.toBeUndefined();
+        expect(errorSpy).toHaveBeenCalled();
+      });
+
+      it("does not fail when the channel account upsert throws", async () => {
+        mockUpsert
+          .mockResolvedValueOnce({ data: null, error: null })
+          .mockRejectedValueOnce(new Error("network down"));
+
+        await expect(service.storeToken(userId, tokenData)).resolves.toBeUndefined();
+        expect(errorSpy).toHaveBeenCalled();
+      });
+
+      it("skips the channel account while the connection has no Instagram account id yet", async () => {
+        mockUpsert.mockResolvedValue({ data: null, error: null });
+
+        await service.storeToken(userId, { ...tokenData, igId: "" });
+
+        expect(mockFrom.mock.calls.map((c) => c[0])).toEqual(["user_secrets"]);
+      });
+
+      it("does not touch channel accounts when storing the token fails", async () => {
+        mockUpsert.mockResolvedValue({ data: null, error: { message: "Upsert failed" } });
+
+        await expect(service.storeToken(userId, tokenData)).rejects.toThrow(
+          "Failed to store Instagram token"
+        );
+        expect(mockFrom.mock.calls.map((c) => c[0])).toEqual(["user_secrets"]);
+      });
+    });
   });
 
   describe("refreshToken", () => {

@@ -6,6 +6,7 @@ const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
 import { InstagramMessagingService } from "../InstagramMessagingService";
+import { GraphApiError } from "../GraphApiError";
 
 describe("InstagramMessagingService", () => {
   let service: InstagramMessagingService;
@@ -143,6 +144,99 @@ describe("InstagramMessagingService", () => {
       await expect(
         service.sendDMViaInstagramLogin(igId, recipientIgSid, text, instagramUserToken)
       ).rejects.toThrow("Network failure");
+    });
+  });
+
+  describe("typed Graph errors (ADR-8)", () => {
+    const graphErrorResponse = (status: number, body: unknown) =>
+      ({
+        ok: false,
+        status,
+        statusText: "Bad Request",
+        json: async () => body,
+      }) as Response;
+
+    const oauthBody = {
+      error: {
+        message: "Invalid OAuth access token",
+        code: 190,
+        error_subcode: 463,
+        type: "OAuthException",
+      },
+    };
+
+    it("sendDM throws a GraphApiError with status, code, subcode and type", async () => {
+      mockFetch.mockResolvedValueOnce(graphErrorResponse(400, oauthBody));
+
+      const error = await service
+        .sendDM("ig-1", "rcpt-1", "hi", "token")
+        .catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(GraphApiError);
+      expect(error).toMatchObject({
+        status: 400,
+        code: 190,
+        subcode: 463,
+        type: "OAuthException",
+      });
+    });
+
+    it("sendDM keeps the exact previous error message", async () => {
+      mockFetch.mockResolvedValueOnce(graphErrorResponse(400, oauthBody));
+
+      await expect(service.sendDM("ig-1", "rcpt-1", "hi", "token")).rejects.toThrow(
+        new Error("Failed to send Instagram DM: Invalid OAuth access token")
+      );
+    });
+
+    it("sendDM falls back to the status text when the body is not JSON", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 502,
+        statusText: "Bad Gateway",
+        json: async () => {
+          throw new SyntaxError("not json");
+        },
+      } as unknown as Response);
+
+      const error = await service
+        .sendDM("ig-1", "rcpt-1", "hi", "token")
+        .catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(GraphApiError);
+      expect((error as Error).message).toBe("Failed to send Instagram DM: Bad Gateway");
+      expect(error).toMatchObject({ status: 502, code: null });
+    });
+
+    it("sendDMViaInstagramLogin throws a GraphApiError with the exact previous message", async () => {
+      mockFetch.mockResolvedValueOnce(
+        graphErrorResponse(403, {
+          error: { message: "Missing permission", code: 200, type: "OAuthException" },
+        })
+      );
+
+      const error = await service
+        .sendDMViaInstagramLogin("ig-1", "rcpt-1", "hi", "token")
+        .catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(GraphApiError);
+      expect((error as Error).message).toBe(
+        "Failed to send Instagram DM via Business Login: Missing permission"
+      );
+      expect(error).toMatchObject({ status: 403, code: 200, subcode: null });
+    });
+
+    it("passes an abort signal to fetch when one is given", async () => {
+      const controller = new AbortController();
+      mockFetch.mockResolvedValue({ ok: true, json: async () => ({ message_id: "m" }) });
+
+      await service.sendDM("ig-1", "rcpt-1", "hi", "token", { signal: controller.signal });
+      await service.sendDMViaInstagramLogin("ig-1", "rcpt-1", "hi", "token", {
+        signal: controller.signal,
+      });
+
+      expect(mockFetch.mock.calls[0][1].signal).toBe(controller.signal);
+      expect(mockFetch.mock.calls[1][1].signal).toBe(controller.signal);
     });
   });
 
