@@ -5,5 +5,10 @@ export interface MessageRepository {
   findByExternalId(externalId: string): Promise<Message | null>;
   findByConversation(conversationId: string): Promise<Message[]>;
   create(message: Omit<Message, "id" | "createdAt" | "updatedAt">): Promise<Message>;
-  update(id: string, patch: Partial<Message>): Promise<Message>;
+  /**
+   * Marks the message failed only while it is still `pending`, and returns
+   * the row as it ends up. A row an echo already made `sent` is returned
+   * unchanged (never downgraded).
+   */
+  markFailedIfPending(id: string, error: string, hint: string): Promise<Message>;
 }
