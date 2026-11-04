@@ -121,6 +121,15 @@ describe("Messaging tables migration (20261103000000)", () => {
     expect(sql).toContain("LIMIT p_limit");
   });
 
+  it("should lease claimed events so an overlapping sweep cannot reclaim them for 2 minutes", () => {
+    expect(sql).toMatch(/last_attempt_at timestamptz/);
+    const claimRetry = sql.slice(sql.indexOf("FUNCTION public.messaging_claim_retry"));
+    expect(claimRetry).toContain(
+      "COALESCE(last_attempt_at, received_at) < now() - interval '2 minutes'"
+    );
+    expect(claimRetry).toMatch(/SET attempts = attempts \+ 1,\s+last_attempt_at = now\(\)/);
+  });
+
   it("should not modify or delete legacy activities (rollout safety)", () => {
     expect(sql).not.toMatch(/DELETE FROM public\.activities/);
     expect(sql).not.toMatch(/UPDATE public\.activities SET/);

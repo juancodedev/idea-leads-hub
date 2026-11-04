@@ -75,7 +75,10 @@ CREATE TABLE IF NOT EXISTS public.webhook_events (
   status text NOT NULL DEFAULT 'received' CHECK (status IN ('received', 'processed', 'ignored', 'failed')),
   attempts int NOT NULL DEFAULT 0 CHECK (attempts >= 0),
   payload jsonb NOT NULL,
-  received_at timestamptz NOT NULL DEFAULT now()
+  received_at timestamptz NOT NULL DEFAULT now(),
+  -- Lease: set when a run starts an attempt, so another run does not pick the
+  -- event up again for 2 minutes (the claim lock ends when its function commits).
+  last_attempt_at timestamptz
 );
 
 CREATE INDEX IF NOT EXISTS webhook_events_status_idx
@@ -384,13 +387,14 @@ AS $$
 BEGIN
   RETURN QUERY
   UPDATE public.webhook_events
-  SET attempts = attempts + 1
+  SET attempts = attempts + 1,
+      last_attempt_at = now()
   WHERE event_id IN (
     SELECT event_id
     FROM public.webhook_events
     WHERE status = 'received'
       AND attempts < 3
-      AND received_at < now() - interval '2 minutes'
+      AND COALESCE(last_attempt_at, received_at) < now() - interval '2 minutes'
     ORDER BY received_at ASC
     LIMIT p_limit
     FOR UPDATE SKIP LOCKED

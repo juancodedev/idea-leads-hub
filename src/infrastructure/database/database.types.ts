@@ -592,6 +592,7 @@ export interface Database {
           attempts: number;
           payload: any;
           received_at: string;
+          last_attempt_at: string | null;
         };
         Insert: {
           event_id: string;
@@ -600,6 +601,7 @@ export interface Database {
           attempts?: number;
           payload: any;
           received_at?: string;
+          last_attempt_at?: string | null;
         };
         Update: {
           event_id?: string;
@@ -608,6 +610,7 @@ export interface Database {
           attempts?: number;
           payload?: any;
           received_at?: string;
+          last_attempt_at?: string | null;
         };
       };
     };
