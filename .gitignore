@@ -37,6 +37,7 @@ next-env.d.ts
 
 # Supabase temp files
 supabase/.temp/*
+supabase/.branches/
 
 # test coverage
 coverage/
