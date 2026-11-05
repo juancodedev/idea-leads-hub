@@ -152,6 +152,21 @@ BEGIN
   PERFORM pg_temp.check(pg_temp.unread(2), '2', 'sync: unknown activity is a no-op');
 END $$;
 
+-- ---------------------------------------------------------------------------
+-- 3. unread_count can never be stored below 0 (S1, migration 20261105000001)
+-- ---------------------------------------------------------------------------
+DO $$
+DECLARE v_state text := 'ok';
+BEGIN
+  BEGIN
+    UPDATE public.conversations SET unread_count = -1 WHERE id = 'd4000000-0000-0000-0000-000000000003';
+  EXCEPTION WHEN OTHERS THEN
+    v_state := SQLSTATE;
+  END;
+  PERFORM pg_temp.check(v_state, '23514', 'check: unread_count = -1 raises check_violation');
+  PERFORM pg_temp.check(pg_temp.unread(3), '1', 'check: rejected write left the counter unchanged');
+END $$;
+
 \echo 'read_state: ALL CHECKS PASSED'
 
 ROLLBACK;
