@@ -1,5 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { Database } from "@/infrastructure/database/database.types";
+import { logger } from "@/lib/logger";
 import { ChannelAccount } from "../../domain/entities/ChannelAccount";
 import { Channel } from "../../domain/enums/Channel";
 import { ChannelAccountRepository } from "../../domain/ports/ChannelAccountRepository";
@@ -25,8 +26,18 @@ export class SupabaseChannelAccountRepository implements ChannelAccountRepositor
   }
 
   /**
-   * Matches `external_account_id` or `page_id` (ADR-7). Unsafe ids return
-   * null without querying, so they never reach the `.or()` filter.
+   * Resolves the account that received a webhook (ADR-7), with the same
+   * owner rules as the previous webhook:
+   *
+   * 1. Match `external_account_id` or `page_id`. Unsafe ids return null
+   *    without querying, so they never reach the `.or()` filter.
+   * 2. Matches owned by more than one user return null: guessing would leak
+   *    one tenant's messages into another tenant's account.
+   * 3. No match: when exactly one account of the channel is connected, use it
+   *    (some login flows store an app-scoped id that differs from the id Meta
+   *    sends in webhooks; with one connected user there is no other tenant).
+   *
+   * Query errors throw, so the event stays retryable.
    */
   async findByExternalAccountId(
     channel: Channel,
@@ -42,9 +53,41 @@ export class SupabaseChannelAccountRepository implements ChannelAccountRepositor
     if (error) raise("channel_accounts.findByExternalAccountId", error);
 
     const rows = (data ?? []) as ChannelAccountRow[];
+    if (new Set(rows.map((r) => r.user_id)).size > 1) {
+      logger.error("Channel account id matches several users; event dropped", {
+        channel,
+        externalAccountId,
+      });
+      return null;
+    }
+
     const row =
       rows.find((r) => r.external_account_id === externalAccountId) ?? rows[0] ?? null;
-    return row ? ChannelAccountMapper.toDomain(row) : null;
+    if (row) return ChannelAccountMapper.toDomain(row);
+
+    return this.findOnlyConnectedAccount(channel, externalAccountId);
+  }
+
+  private async findOnlyConnectedAccount(
+    channel: Channel,
+    externalAccountId: string
+  ): Promise<ChannelAccount | null> {
+    const { data, error } = await this.db
+      .from(TABLE)
+      .select("*")
+      .eq("channel", channel)
+      .eq("status", "connected")
+      .limit(2);
+    if (error) raise("channel_accounts.findOnlyConnectedAccount", error);
+
+    const rows = (data ?? []) as ChannelAccountRow[];
+    if (rows.length !== 1) return null;
+
+    logger.warn("Channel account id did not match; using the only connected account", {
+      channel,
+      externalAccountId,
+    });
+    return ChannelAccountMapper.toDomain(rows[0]);
   }
 
   async findByUserId(userId: string): Promise<ChannelAccount[]> {

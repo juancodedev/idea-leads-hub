@@ -1,293 +1,267 @@
 /**
  * @jest-environment node
+ *
+ * POST /api/webhook/instagram acknowledges Meta quickly (S3): verify the
+ * signature, claim the event id once, schedule processing in the background
+ * and answer 200. GET keeps the verification handshake.
  */
 
 process.env.META_VERIFY_TOKEN = "test_verify_token_123";
 process.env.META_APP_SECRET = "test_app_secret";
-process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
-process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key";
 
 const mockVerifyMetaSignature = jest.fn();
-const mockParseIncomingMessage = jest.fn();
 
 jest.mock("@/infrastructure/services/InstagramMessagingService", () => ({
   InstagramMessagingService: jest.fn().mockImplementation(() => ({
     verifyMetaSignature: mockVerifyMetaSignature,
-    parseIncomingMessage: mockParseIncomingMessage,
   })),
 }));
 
-// Shared mock chain that supports deep chaining (eq, not, limit, etc.)
-// Each filter method returns a new object with all filter methods available,
-// so chaining .eq().eq().not().limit().maybeSingle() works.
-jest.mock("@supabase/supabase-js", () => {
-  const mockMaybeSingle = jest.fn().mockResolvedValue({ data: { user_id: "admin-user-1" }, error: null });
-
-  function chain(...keys: string[]): Record<string, jest.Mock> {
-    const c: Record<string, jest.Mock> = {};
-    const methods = ["eq", "not", "limit", "ilike", "order", "select", "single"];
-    for (const m of methods) {
-      c[m] = jest.fn((..._args: unknown[]) => c);
-    }
-    c.maybeSingle = mockMaybeSingle;
-    return c;
-  }
-
-  const mockSelect = jest.fn(() => chain());
-  const mockInsert = jest.fn(() => ({ select: mockSelect, single: jest.fn().mockResolvedValue({ data: { id: "new-lead-id" }, error: null }) }));
-  const mockFrom = jest.fn(() => ({ select: mockSelect, insert: mockInsert }));
-  return {
-    createClient: jest.fn(() => ({ from: mockFrom })),
-  };
-});
-
-const mockActivityCreate = jest.fn();
-mockActivityCreate.mockResolvedValue({
-  id: "activity-1",
-  type: "INSTAGRAM_MESSAGE",
-  title: "Instagram DM from sender-123",
-  description: "Hello!",
-  leadId: null,
-  userId: "system",
-  attachments: [],
-  createdAt: new Date(),
-  updatedAt: new Date(),
-});
-
-jest.mock("@/infrastructure/repositories/SupabaseLeadRepository", () => ({
-  SupabaseLeadRepository: jest.fn().mockImplementation(() => ({
-    getById: jest.fn(),
-    getAll: jest.fn(),
-  })),
+const mockCreateAdminClient = jest.fn(() => ({ admin: true }));
+jest.mock("@/infrastructure/database/admin", () => ({
+  createAdminClient: () => mockCreateAdminClient(),
 }));
 
-jest.mock("@/modules/activities/infrastructure/repositories/SupabaseActivityRepository", () => ({
-  SupabaseActivityRepository: jest.fn().mockImplementation(() => ({
-    create: mockActivityCreate,
-  })),
+const mockClaim = jest.fn();
+const mockProcess = jest.fn();
+const mockMessagingModule = jest.fn(() => ({
+  webhookEventRepository: { claim: mockClaim },
+  processWebhookEvent: { execute: mockProcess },
+}));
+jest.mock("@/modules/messaging", () => ({
+  messagingModule: (...args: unknown[]) => mockMessagingModule(...(args as [])),
 }));
 
+const backgroundTasks: Array<() => Promise<void>> = [];
+jest.mock("@/lib/runtime/background", () => ({
+  runInBackground: (task: () => Promise<void>) => {
+    backgroundTasks.push(task);
+  },
+}));
+
+import { createHash } from "crypto";
 import { NextRequest } from "next/server";
 import { GET, POST } from "../route";
-import { ActivityType } from "@/modules/activities/domain/enums/ActivityType";
 
-// Mock crypto.subtle for signature verification tests
-const originalSubtle = crypto.subtle;
+const PAYLOAD = JSON.stringify({
+  object: "instagram",
+  entry: [
+    {
+      id: "page-1",
+      messaging: [
+        {
+          sender: { id: "ig-sender-456" },
+          recipient: { id: "page-1" },
+          message: { mid: "ig-msg-789", text: "Hello from Instagram!" },
+          timestamp: 1721084400000,
+        },
+      ],
+    },
+  ],
+});
+const EVENT_ID = `sha:${createHash("sha256").update(PAYLOAD).digest("hex")}`;
+
+function post(body: string = PAYLOAD, signature: string | null = "sha256=valid") {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (signature !== null) headers["X-Hub-Signature-256"] = signature;
+  return new NextRequest("http://localhost:3000/api/webhook/instagram", {
+    method: "POST",
+    headers,
+    body,
+  });
+}
+
+function handshake(params: Record<string, string>) {
+  const url = new URL("http://localhost:3000/api/webhook/instagram");
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  return new NextRequest(url.toString());
+}
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  backgroundTasks.length = 0;
+  process.env.META_APP_SECRET = "test_app_secret";
+  mockVerifyMetaSignature.mockResolvedValue(true);
+  mockClaim.mockResolvedValue({ eventId: EVENT_ID });
+  mockProcess.mockResolvedValue("processed");
+});
 
 describe("GET /api/webhook/instagram", () => {
-  it("should return challenge when verify_token matches", async () => {
-    const url = new URL("http://localhost:3000/api/webhook/instagram");
-    url.searchParams.set("hub.mode", "subscribe");
-    url.searchParams.set("hub.verify_token", "test_verify_token_123");
-    url.searchParams.set("hub.challenge", "challenge_value_42");
-
-    const request = new NextRequest(url.toString());
-    const response = await GET(request);
+  it("returns the challenge when the verify token matches", async () => {
+    const response = await GET(
+      handshake({
+        "hub.mode": "subscribe",
+        "hub.verify_token": "test_verify_token_123",
+        "hub.challenge": "challenge_value_42",
+      })
+    );
 
     expect(response.status).toBe(200);
-    const text = await response.text();
-    expect(text).toBe("challenge_value_42");
+    expect(await response.text()).toBe("challenge_value_42");
   });
 
-  it("should return 403 when verify_token does not match", async () => {
-    const url = new URL("http://localhost:3000/api/webhook/instagram");
-    url.searchParams.set("hub.mode", "subscribe");
-    url.searchParams.set("hub.verify_token", "wrong_token");
-    url.searchParams.set("hub.challenge", "challenge_value_42");
-
-    const request = new NextRequest(url.toString());
-    const response = await GET(request);
+  it("returns 403 when the verify token does not match", async () => {
+    const response = await GET(
+      handshake({
+        "hub.mode": "subscribe",
+        "hub.verify_token": "wrong_token",
+        "hub.challenge": "challenge_value_42",
+      })
+    );
 
     expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: "Verification failed" });
   });
 
-  it("should return 403 when hub.mode is not subscribe", async () => {
-    const url = new URL("http://localhost:3000/api/webhook/instagram");
-    url.searchParams.set("hub.mode", "unsubscribe");
-    url.searchParams.set("hub.verify_token", "test_verify_token_123");
-    url.searchParams.set("hub.challenge", "challenge_value_42");
-
-    const request = new NextRequest(url.toString());
-    const response = await GET(request);
+  it("returns 403 when hub.mode is not subscribe", async () => {
+    const response = await GET(
+      handshake({
+        "hub.mode": "unsubscribe",
+        "hub.verify_token": "test_verify_token_123",
+        "hub.challenge": "challenge_value_42",
+      })
+    );
 
     expect(response.status).toBe(403);
   });
 });
 
 describe("POST /api/webhook/instagram", () => {
-  beforeEach(() => {
-    mockVerifyMetaSignature.mockClear();
-    mockParseIncomingMessage.mockClear();
-    mockActivityCreate.mockClear();
-  });
+  describe("valid event", () => {
+    it("claims the body-hash event id, answers 200 and schedules processing once", async () => {
+      const response = await POST(post());
 
-  it("should process valid webhook event and create activity", async () => {
-    jest.setTimeout(10000);
-    mockVerifyMetaSignature.mockResolvedValue(true);
-    mockParseIncomingMessage.mockReturnValue({
-      senderId: "ig-sender-456",
-      messageId: "ig-msg-789",
-      text: "Hello from Instagram!",
-      timestamp: "2026-07-15T12:00:00.000Z",
-    });
-    mockActivityCreate.mockResolvedValue({
-      id: "activity-1",
-      type: ActivityType.INSTAGRAM_MESSAGE,
-      title: "Instagram DM from ig-sender-456",
-      description: "Hello from Instagram!",
-      leadId: null,
-      userId: "system",
-      attachments: [],
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ status: "received" });
+      expect(mockMessagingModule).toHaveBeenCalledWith(
+        { admin: true },
+        expect.objectContaining({ channel: expect.anything() })
+      );
+      expect(mockClaim).toHaveBeenCalledTimes(1);
+      expect(mockClaim).toHaveBeenCalledWith(EVENT_ID, "instagram", JSON.parse(PAYLOAD));
+      expect(backgroundTasks).toHaveLength(1);
     });
 
-    const request = new NextRequest(
-      "http://localhost:3000/api/webhook/instagram",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Hub-Signature-256": "sha256=valid_signature_hex",
-        },
-        body: JSON.stringify({
-          entry: [
-            {
-              id: "page-1",
-              messaging: [
-                {
-                  sender: { id: "ig-sender-456" },
-                  message: { mid: "ig-msg-789", text: "Hello from Instagram!" },
-                  timestamp: 1721084400000,
-                },
-              ],
-            },
-          ],
-        }),
-      }
-    );
+    it("does not process before the response; the background task processes the event", async () => {
+      await POST(post());
 
-    const response = await POST(request);
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body.status).toBe("received");
-    expect(mockVerifyMetaSignature).toHaveBeenCalled();
-    expect(mockParseIncomingMessage).toHaveBeenCalled();
-  });
-
-  it("should return 403 when signature is invalid", async () => {
-    mockVerifyMetaSignature.mockResolvedValue(false);
-
-    const request = new NextRequest(
-      "http://localhost:3000/api/webhook/instagram",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Hub-Signature-256": "sha256=invalid_signature",
-        },
-        body: JSON.stringify({ entry: [{ messaging: [{}] }] }),
-      }
-    );
-
-    const response = await POST(request);
-
-    expect(response.status).toBe(403);
-    expect(mockVerifyMetaSignature).toHaveBeenCalled();
-    expect(mockParseIncomingMessage).not.toHaveBeenCalled();
-    expect(mockActivityCreate).not.toHaveBeenCalled();
-  });
-
-  it("should return 200 and ignore non-message events", async () => {
-    mockVerifyMetaSignature.mockResolvedValue(true);
-    mockParseIncomingMessage.mockReturnValue(null);
-
-    const request = new NextRequest(
-      "http://localhost:3000/api/webhook/instagram",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Hub-Signature-256": "sha256=valid_signature",
-        },
-        body: JSON.stringify({
-          entry: [
-            {
-              id: "page-1",
-              changes: [{ field: "mention" }],
-            },
-          ],
-        }),
-      }
-    );
-
-    const response = await POST(request);
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body.status).toBe("ignored");
-    expect(body).not.toHaveProperty("debug");
-    expect(mockActivityCreate).not.toHaveBeenCalled();
-  });
-
-  describe("hardening", () => {
-    const originalFetch = global.fetch;
-    const fetchSpy = jest.fn();
-
-    beforeEach(() => {
-      fetchSpy.mockReset();
-      global.fetch = fetchSpy as unknown as typeof fetch;
+      expect(mockProcess).not.toHaveBeenCalled();
+      await backgroundTasks[0]();
+      expect(mockProcess).toHaveBeenCalledTimes(1);
+      expect(mockProcess).toHaveBeenCalledWith(EVENT_ID);
     });
 
-    afterAll(() => {
-      global.fetch = originalFetch;
+    it("verifies the exact raw bytes Meta signed", async () => {
+      await POST(post());
+
+      const [bytes, signature] = mockVerifyMetaSignature.mock.calls[0];
+      expect(new TextDecoder().decode(bytes as ArrayBuffer)).toBe(PAYLOAD);
+      expect(signature).toBe("sha256=valid");
     });
 
-    function invalidSignatureRequest() {
-      return new NextRequest("http://localhost:3000/api/webhook/instagram", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Hub-Signature-256": "sha256=invalid_signature",
-        },
-        body: JSON.stringify({ entry: [{ messaging: [{ message: { text: "secret" } }] }] }),
-      });
-    }
+    it("also acknowledges payloads without messages; processing decides they are ignored", async () => {
+      const body = JSON.stringify({ object: "instagram", entry: [{ id: "page-1", changes: [{ field: "mention" }] }] });
+
+      const response = await POST(post(body));
+
+      expect(response.status).toBe(200);
+      expect(mockClaim).toHaveBeenCalledTimes(1);
+      expect(backgroundTasks).toHaveLength(1);
+    });
+  });
+
+  describe("re-delivered event", () => {
+    it("answers 200 without scheduling processing when the event id is already claimed", async () => {
+      mockClaim.mockResolvedValue(null);
+
+      const response = await POST(post());
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ status: "duplicate" });
+      expect(backgroundTasks).toHaveLength(0);
+      expect(mockProcess).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("signature", () => {
+    it("answers 401 and stores nothing when the signature does not match", async () => {
+      mockVerifyMetaSignature.mockResolvedValue(false);
+
+      const response = await POST(post(PAYLOAD, "sha256=invalid"));
+
+      expect(response.status).toBe(401);
+      expect(await response.json()).toEqual({ error: "Invalid signature" });
+      expect(mockCreateAdminClient).not.toHaveBeenCalled();
+      expect(mockClaim).not.toHaveBeenCalled();
+      expect(backgroundTasks).toHaveLength(0);
+    });
+
+    it("answers 401 and stores nothing when the signature header is missing", async () => {
+      const response = await POST(post(PAYLOAD, null));
+
+      expect(response.status).toBe(401);
+      expect(mockVerifyMetaSignature).not.toHaveBeenCalled();
+      expect(mockClaim).not.toHaveBeenCalled();
+    });
+
+    it("fails closed with 401 when no app secret is configured", async () => {
+      const { InstagramMessagingService } = jest.requireActual(
+        "@/infrastructure/services/InstagramMessagingService"
+      );
+      const real = new InstagramMessagingService();
+      mockVerifyMetaSignature.mockImplementation((bytes: ArrayBuffer, sig: string) =>
+        real.verifyMetaSignature(bytes, sig)
+      );
+      delete process.env.META_APP_SECRET;
+      delete process.env.INSTAGRAM_APP_SECRET;
+      const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+      const response = await POST(post(PAYLOAD, `sha256=${"0".repeat(64)}`));
+
+      errorSpy.mockRestore();
+      expect(response.status).toBe(401);
+      expect(mockClaim).not.toHaveBeenCalled();
+    });
 
     it("does not expose debug data or HMAC values on an invalid signature", async () => {
       mockVerifyMetaSignature.mockResolvedValue(false);
 
-      const response = await POST(invalidSignatureRequest());
-      const body = await response.json();
+      const response = await POST(post(PAYLOAD, "sha256=invalid"));
 
-      expect(response.status).toBe(403);
-      expect(body).toEqual({ error: "Invalid signature" });
+      expect(await response.json()).toEqual({ error: "Invalid signature" });
     });
+  });
 
-    it("does not write to the database on an invalid signature", async () => {
-      mockVerifyMetaSignature.mockResolvedValue(false);
-
-      await POST(invalidSignatureRequest());
-
-      expect(fetchSpy).not.toHaveBeenCalled();
-    });
-
-    it("returns 400 for a malformed JSON body with a valid signature", async () => {
-      mockVerifyMetaSignature.mockResolvedValue(true);
-
-      const response = await POST(
-        new NextRequest("http://localhost:3000/api/webhook/instagram", {
-          method: "POST",
-          headers: { "X-Hub-Signature-256": "sha256=valid_signature" },
-          body: "{not-json",
-        })
-      );
+  describe("failures", () => {
+    it("returns 400 for a malformed JSON body with a valid signature and stores nothing", async () => {
+      const response = await POST(post("{not-json"));
 
       expect(response.status).toBe(400);
       expect(await response.json()).toEqual({ error: "Invalid payload" });
-      expect(mockParseIncomingMessage).not.toHaveBeenCalled();
-      expect(mockActivityCreate).not.toHaveBeenCalled();
+      expect(mockClaim).not.toHaveBeenCalled();
+      expect(backgroundTasks).toHaveLength(0);
+    });
+
+    it("answers 500 so Meta retries when the claim insert fails", async () => {
+      mockClaim.mockRejectedValue(new Error("webhook_events.claim: connection refused"));
+
+      const response = await POST(post());
+
+      expect(response.status).toBe(500);
+      expect(await response.json()).toEqual({ error: "Temporary failure" });
+      expect(backgroundTasks).toHaveLength(0);
+    });
+
+    it("answers 500 when the admin client is not configured", async () => {
+      mockCreateAdminClient.mockImplementationOnce(() => {
+        throw new Error("Supabase admin client is not configured");
+      });
+
+      const response = await POST(post());
+
+      expect(response.status).toBe(500);
+      expect(await response.json()).toEqual({ error: "Server configuration error" });
+      expect(mockClaim).not.toHaveBeenCalled();
     });
   });
 });

@@ -120,6 +120,60 @@ describe("SupabaseChannelAccountRepository", () => {
     ).resolves.toBeNull();
   });
 
+  it("returns null when the id matches accounts of several users (tenant guard)", async () => {
+    const db = createSupabaseQueryMock();
+    db.respond({
+      data: [
+        { ...accountRow, id: "acc_a", user_id: "user_a", external_account_id: "shared" },
+        { ...accountRow, id: "acc_b", user_id: "user_b", external_account_id: "ig_b", page_id: "shared" },
+      ],
+    });
+
+    const account = await new SupabaseChannelAccountRepository(db.client).findByExternalAccountId(
+      Channel.INSTAGRAM,
+      "shared"
+    );
+
+    expect(account).toBeNull();
+    expect(db.queries).toHaveLength(1);
+  });
+
+  it("falls back to the only connected account when the id matches nothing (ADR-7)", async () => {
+    const db = createSupabaseQueryMock();
+    db.respond({ data: [] }, { data: [accountRow] });
+
+    const account = await new SupabaseChannelAccountRepository(db.client).findByExternalAccountId(
+      Channel.INSTAGRAM,
+      "ig_professional"
+    );
+
+    expect(account?.id).toBe("acc_1");
+    expect(db.callsOf(1)).toEqual([
+      ["select", "*"],
+      ["eq", "channel", "instagram"],
+      ["eq", "status", "connected"],
+      ["limit", 2],
+    ]);
+  });
+
+  it("does not fall back when several accounts are connected", async () => {
+    const db = createSupabaseQueryMock();
+    db.respond({ data: [] }, { data: [accountRow, { ...accountRow, id: "acc_2", user_id: "user_2" }] });
+
+    await expect(
+      new SupabaseChannelAccountRepository(db.client).findByExternalAccountId(Channel.INSTAGRAM, "ig_9")
+    ).resolves.toBeNull();
+  });
+
+  it("throws when the fallback lookup fails, so the event is retried", async () => {
+    const db = createSupabaseQueryMock();
+    db.respond({ data: [] }, { error: { message: "timeout" } });
+
+    await expect(
+      new SupabaseChannelAccountRepository(db.client).findByExternalAccountId(Channel.INSTAGRAM, "ig_9")
+    ).rejects.toThrow("timeout");
+  });
+
   it.each([["a,b"], ["x.eq.1"], ["id)"], [""], ["ig 1"]])(
     "returns null without querying for an unsafe id %p",
     async (unsafe) => {
