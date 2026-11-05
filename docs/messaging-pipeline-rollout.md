@@ -19,7 +19,7 @@ rollout, ADR-7 channel accounts, ADR-9 `legacy_activity_id`).
 | 4 | Verify | Pending | Queries below; every user with Instagram credentials must have a `channel_accounts` row. |
 | 5 | Deploy `feature/messaging-pipeline` | Pending, **gated on step 4** | Run the backfill + query 4.1 again right before the deploy. The new webhook resolves owners from `channel_accounts` only. |
 | 6 | Run the backfill again (catch-up) | Pending | Copies activities the old code wrote between steps 3 and 5. Record the summary. |
-| 7 | Meta `message_echoes` subscription, `CRON_SECRET`, `SUPABASE_SERVICE_ROLE_KEY` | Pending | See README. |
+| 7 | Meta `messages` webhook field (carries echoes), `CRON_SECRET`, `SUPABASE_SERVICE_ROLE_KEY` | Done 2026-11-05 | See README. |
 | 8 | Cron slice (retry sweep schedule) | In the branch (T9), separate commit | `worker.ts` entry + `[triggers] crons = ["*/5 * * * *"]`; needs `CRON_SECRET`. Reverts independently. |
 
 ## Why this order
@@ -198,7 +198,10 @@ A further run at any time is a no-op (`messages_copied = 0`).
 
 ## Step 7 — Meta and secrets
 
-- Subscribe the Meta app to `message_echoes` (echo handling, S6).
+- Keep the Meta app subscribed to the `messages` webhook field. With Instagram
+  Login there is no separate `message_echoes` field: messages the account sends
+  from the Instagram app arrive under `messages` with `is_echo: true`, which the
+  channel parser turns into echo events (S6).
 - Set `CRON_SECRET` and `SUPABASE_SERVICE_ROLE_KEY` as Worker secrets
   (`npx wrangler secret put ...`, see README).
 
