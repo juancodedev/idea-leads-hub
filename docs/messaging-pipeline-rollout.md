@@ -20,7 +20,7 @@ rollout, ADR-7 channel accounts, ADR-9 `legacy_activity_id`).
 | 5 | Deploy `feature/messaging-pipeline` | Pending, **gated on step 4** | Run the backfill + query 4.1 again right before the deploy. The new webhook resolves owners from `channel_accounts` only. |
 | 6 | Run the backfill again (catch-up) | Pending | Copies activities the old code wrote between steps 3 and 5. Record the summary. |
 | 7 | Meta `message_echoes` subscription, `CRON_SECRET`, `SUPABASE_SERVICE_ROLE_KEY` | Pending | See README. |
-| 8 | Cron slice (retry sweep schedule) | Pending | Ships separately (T9); reverts independently. |
+| 8 | Cron slice (retry sweep schedule) | In the branch (T9), separate commit | `worker.ts` entry + `[triggers] crons = ["*/5 * * * *"]`; needs `CRON_SECRET`. Reverts independently. |
 
 ## Why this order
 
@@ -231,8 +231,10 @@ LIMIT 50;
   recipient id in the ignored payloads
   (`payload->'entry'->0->'messaging'->0->'recipient'->>'id'`).
 - `received` events older than 2 minutes with `attempts < 3` are retried by
-  the sweep (`GET /api/webhook/instagram/sweep`, Cron slice). Until the Cron
-  slice ships, call it by hand with `Authorization: Bearer <CRON_SECRET>`.
+  the sweep (`GET /api/webhook/instagram/sweep`), which the Worker Cron trigger
+  calls every 5 minutes through `worker.ts`. Cron runs appear in Workers Logs;
+  a missing `CRON_SECRET` logs "Scheduled sweep skipped". To retry by hand,
+  call it with `Authorization: Bearer <CRON_SECRET>`.
 - `failed` events ran out of attempts (3). Inspect the logs before replaying.
 - Processed and ignored events are purged after 30 days.
 
