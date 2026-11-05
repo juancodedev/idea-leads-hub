@@ -4,6 +4,11 @@
  * Tenant isolation for the Instagram webhook: an inbound message must be
  * attributed to the user who owns the receiving Instagram account, and lead
  * linking must never cross user boundaries.
+ *
+ * Runs the real route, messaging module, repositories and channel parser
+ * against an in-memory stand-in for supabase-js; the SQL functions the
+ * module calls are modelled after their migration (message + legacy activity
+ * written with the conversation's user_id and lead_id).
  */
 
 process.env.META_APP_SECRET = "test_app_secret";
@@ -14,83 +19,151 @@ type Row = Record<string, unknown>;
 type Filter = (row: Row) => boolean;
 
 const db: Record<string, Row[]> = {};
+let nextId = 1;
+const NOW = "2026-11-04T10:00:00.000Z";
 
 /** When set, queries for which it returns true resolve with a PostgREST error. */
-let failWhen: ((table: string, usedOr: boolean) => boolean) | null = null;
+let failWhen: ((table: string) => boolean) | null = null;
+const dbError = { message: "canceling statement due to statement timeout" };
 
 /** Minimal in-memory stand-in for the supabase-js query builder. */
 function query(table: string) {
   const filters: Filter[] = [];
   let max = Infinity;
-  let usedOr = false;
-  const failed = () => failWhen?.(table, usedOr) ?? false;
-  const run = () => (db[table] ?? []).filter((r) => filters.every((f) => f(r))).slice(0, max);
-  const dbError = { message: "canceling statement due to statement timeout" };
+  let op: "select" | "upsert" | "update" | "insert" = "select";
+  let values: Row = {};
+  let conflictCols: string[] = [];
+  let returning = false;
+  const rows = () => (db[table] ??= []);
+
+  function execute(): { data: unknown; error: unknown } {
+    if (failWhen?.(table)) return { data: null, error: dbError };
+    if (op === "upsert") {
+      const clash = rows().find((r) => conflictCols.every((c) => r[c] === values[c]));
+      if (clash) return { data: [], error: null };
+      const row = { id: `id-${nextId++}`, created_at: NOW, updated_at: NOW, ...values };
+      rows().push(row);
+      return { data: returning ? [row] : null, error: null };
+    }
+    if (op === "insert") {
+      const row = { id: `id-${nextId++}`, created_at: NOW, updated_at: NOW, ...values };
+      rows().push(row);
+      return { data: [row], error: null };
+    }
+    const matched = rows().filter((r) => filters.every((f) => f(r)));
+    if (op === "update") matched.forEach((r) => Object.assign(r, values));
+    return { data: matched.slice(0, max), error: null };
+  }
 
   const builder = {
-    select: () => builder,
+    select: () => {
+      returning = true;
+      return builder;
+    },
+    upsert: (row: Row, opts: { onConflict: string }) => {
+      op = "upsert";
+      values = row;
+      conflictCols = opts.onConflict.split(",");
+      return builder;
+    },
+    update: (patch: Row) => {
+      op = "update";
+      values = patch;
+      return builder;
+    },
+    insert: (row: Row) => {
+      op = "insert";
+      values = row;
+      return builder;
+    },
     eq: (col: string, val: unknown) => {
       filters.push((r) => r[col] === val);
       return builder;
     },
-    not: (col: string, op: string, val: unknown) => {
-      if (op === "is" && val === null) filters.push((r) => r[col] != null);
-      return builder;
-    },
     or: (expr: string) => {
-      usedOr = true;
       const clauses = expr.split(",").map((c) => {
-        const [col, op, ...rest] = c.split(".");
-        if (op !== "eq") throw new Error(`unsupported or-op ${op}`);
+        const [col, operator, ...rest] = c.split(".");
+        if (operator !== "eq") throw new Error(`unsupported or-op ${operator}`);
         return { col, val: rest.join(".") };
       });
       filters.push((r) => clauses.some(({ col, val }) => r[col] === val));
       return builder;
     },
+    order: () => builder,
     limit: (n: number) => {
       max = n;
       return builder;
     },
     maybeSingle: async () => {
-      if (failed()) return { data: null, error: dbError };
-      const rows = run();
-      if (rows.length > 1) return { data: null, error: { message: "multiple rows" } };
-      return { data: rows[0] ?? null, error: null };
+      const { data, error } = execute();
+      if (error) return { data: null, error };
+      const list = data as Row[];
+      if (list.length > 1) return { data: null, error: { message: "multiple rows" } };
+      return { data: list[0] ?? null, error: null };
+    },
+    single: async () => {
+      const { data, error } = execute();
+      if (error) return { data: null, error };
+      return { data: (data as Row[])[0] ?? null, error: null };
     },
     then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
-      Promise.resolve(failed() ? { data: null, error: dbError } : { data: run(), error: null }).then(
-        resolve,
-        reject
-      ),
-    insert: async (row: Row) => {
-      (db[table] ??= []).push(row);
-      return { error: null };
-    },
+      Promise.resolve(execute()).then(resolve, reject),
   };
   return builder;
 }
 
+/** The messaging SQL functions the inbound path calls (migration 20261103000000). */
+async function rpc(fn: string, args: Row) {
+  if (fn === "messaging_start_attempt") {
+    const event = (db.webhook_events ?? []).find(
+      (e) => e.event_id === args.p_event_id && e.status === "received"
+    );
+    if (!event) return { data: [], error: null };
+    event.attempts = (event.attempts as number) + 1;
+    return { data: [{ event_id: event.event_id, attempts: event.attempts, payload: event.payload }], error: null };
+  }
+  if (fn === "messaging_ingest_inbound") {
+    const conversation = (db.conversations ?? []).find((c) => c.id === args.p_conversation_id)!;
+    const messageId = `msg-${nextId++}`;
+    (db.messages ??= []).push({
+      id: messageId,
+      user_id: conversation.user_id,
+      conversation_id: conversation.id,
+      direction: "in",
+      external_id: args.p_external_id,
+      body: args.p_body,
+    });
+    (db.activities ??= []).push({
+      user_id: conversation.user_id,
+      lead_id: conversation.lead_id,
+      type: "INSTAGRAM_MESSAGE",
+      title: (args.p_legacy as Row).title,
+      description: args.p_body,
+    });
+    return { data: { inserted: true, message_id: messageId }, error: null };
+  }
+  throw new Error(`unexpected rpc ${fn}`);
+}
+
 jest.mock("@supabase/supabase-js", () => ({
-  createClient: jest.fn(() => ({ from: (table: string) => query(table) })),
+  createClient: jest.fn(() => ({ from: (table: string) => query(table), rpc })),
 }));
 
-const mockVerify = jest.fn().mockResolvedValue(true);
-jest.mock("@/infrastructure/services/InstagramMessagingService", () => {
-  const actual = jest.requireActual("@/infrastructure/services/InstagramMessagingService");
-  return {
-    InstagramMessagingService: jest.fn().mockImplementation(() => {
-      const real = new actual.InstagramMessagingService();
-      return {
-        verifyMetaSignature: mockVerify,
-        parseIncomingMessage: real.parseIncomingMessage.bind(real),
-      };
-    }),
-  };
-});
+jest.mock("@/infrastructure/services/InstagramMessagingService", () => ({
+  InstagramMessagingService: jest.fn().mockImplementation(() => ({
+    verifyMetaSignature: jest.fn().mockResolvedValue(true),
+  })),
+}));
+
+const backgroundTasks: Array<() => Promise<void>> = [];
+jest.mock("@/lib/runtime/background", () => ({
+  runInBackground: (task: () => Promise<void>) => {
+    backgroundTasks.push(task);
+  },
+}));
 
 import { NextRequest } from "next/server";
 import { POST } from "../route";
-import { ActivityType } from "@/modules/activities/domain/enums/ActivityType";
 
 function inbound(recipientId: string, senderId = "sender-1") {
   return new NextRequest("http://localhost:3000/api/webhook/instagram", {
@@ -101,11 +174,12 @@ function inbound(recipientId: string, senderId = "sender-1") {
       entry: [
         {
           id: recipientId,
+          time: 1721084400000,
           messaging: [
             {
               sender: { id: senderId },
               recipient: { id: recipientId },
-              message: { mid: "mid-1", text: "Hola" },
+              message: { mid: `mid-${recipientId}`, text: "Hola" },
               timestamp: 1721084400000,
             },
           ],
@@ -115,32 +189,65 @@ function inbound(recipientId: string, senderId = "sender-1") {
   });
 }
 
+/** Posts the delivery and runs the processing it scheduled. */
+async function deliver(recipientId: string) {
+  const response = await POST(inbound(recipientId));
+  for (const task of backgroundTasks.splice(0)) await task();
+  return response;
+}
+
 const inboundActivities = () =>
   (db.activities ?? []).filter((a) => a.title === "Instagram DM from sender-1");
+const eventStatus = () => (db.webhook_events ?? [])[0]?.status;
+
+function account(id: string, userId: string, igId: string, pageId: string | null, status = "connected") {
+  return {
+    id,
+    user_id: userId,
+    channel: "instagram",
+    external_account_id: igId,
+    page_id: pageId,
+    display_name: null,
+    status,
+    created_at: NOW,
+    updated_at: NOW,
+  };
+}
 
 beforeEach(() => {
   failWhen = null;
+  backgroundTasks.length = 0;
   for (const k of Object.keys(db)) delete db[k];
-  db.user_secrets = [
-    { user_id: "user-a", instagram_ig_id: "ig-a", instagram_page_id: "page-a" },
-    { user_id: "user-b", instagram_ig_id: "ig-b", instagram_page_id: "page-b" },
+  db.channel_accounts = [
+    account("acc-a", "user-a", "ig-a", "page-a"),
+    account("acc-b", "user-b", "ig-b", "page-b"),
   ];
+  db.webhook_events = [];
+  db.conversations = [];
   db.leads = [];
   db.activities = [];
+  // The webhook_events default status/attempts come from the table definition.
+  const originalPush = db.webhook_events.push.bind(db.webhook_events);
+  db.webhook_events.push = (...events: Row[]) =>
+    originalPush(...events.map((e) => ({ status: "received", attempts: 0, ...e })));
 });
 
 describe("POST /api/webhook/instagram — tenant isolation", () => {
-  it("attributes the message to the user whose instagram_ig_id matches the recipient", async () => {
-    const res = await POST(inbound("ig-b"));
+  it("attributes the message to the user whose account id matches the recipient", async () => {
+    const res = await deliver("ig-b");
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ status: "received" });
     expect(inboundActivities()).toHaveLength(1);
     expect(inboundActivities()[0].user_id).toBe("user-b");
+    expect(db.conversations).toEqual([
+      expect.objectContaining({ user_id: "user-b", account_id: "acc-b", external_id: "sender-1" }),
+    ]);
+    expect(eventStatus()).toBe("processed");
   });
 
-  it("also matches the recipient against instagram_page_id", async () => {
-    await POST(inbound("page-a"));
+  it("also matches the recipient against the account page id", async () => {
+    await deliver("page-a");
 
     expect(inboundActivities()).toHaveLength(1);
     expect(inboundActivities()[0].user_id).toBe("user-a");
@@ -152,7 +259,7 @@ describe("POST /api/webhook/instagram — tenant isolation", () => {
       { id: "lead-of-b", user_id: "user-b", instagram_scoped_id: "sender-1" },
     ];
 
-    await POST(inbound("ig-b"));
+    await deliver("ig-b");
 
     expect(inboundActivities()[0].lead_id).toBe("lead-of-b");
   });
@@ -160,94 +267,95 @@ describe("POST /api/webhook/instagram — tenant isolation", () => {
   it("does not link a lead owned by another user", async () => {
     db.leads = [{ id: "lead-of-a", user_id: "user-a", instagram_scoped_id: "sender-1" }];
 
-    await POST(inbound("ig-b"));
+    await deliver("ig-b");
 
     expect(inboundActivities()[0].user_id).toBe("user-b");
-    expect(inboundActivities()[0].lead_id).toBeUndefined();
+    expect(inboundActivities()[0].lead_id).toBeNull();
   });
 
-  it("only reuses lead links from the owning user's previous activities", async () => {
-    db.activities = [
+  it("never reuses another user's conversation or its lead link for the same participant", async () => {
+    db.conversations = [
       {
+        id: "conv-of-a",
         user_id: "user-a",
-        type: ActivityType.INSTAGRAM_MESSAGE,
-        title: "Instagram DM to sender-1",
+        account_id: "acc-a",
+        channel: "instagram",
+        external_id: "sender-1",
         lead_id: "lead-of-a",
+        unread_count: 0,
+        metadata: {},
+        created_at: NOW,
+        updated_at: NOW,
       },
     ];
 
-    await POST(inbound("ig-b"));
+    await deliver("ig-b");
 
     expect(inboundActivities()).toHaveLength(1);
     expect(inboundActivities()[0].user_id).toBe("user-b");
-    expect(inboundActivities()[0].lead_id).toBeUndefined();
+    expect(inboundActivities()[0].lead_id).toBeNull();
+    expect(db.messages).toEqual([expect.objectContaining({ user_id: "user-b" })]);
   });
 
-  it("drops the message when the recipient matches no user and several are integrated", async () => {
-    const res = await POST(inbound("ig-unknown"));
+  it("drops the message when the recipient matches no account and several are connected", async () => {
+    const res = await deliver("ig-unknown");
 
     expect(res.status).toBe(200);
     expect(inboundActivities()).toHaveLength(0);
+    expect(eventStatus()).toBe("ignored");
   });
 
-  it("falls back to the only integrated user when the recipient id does not match", async () => {
-    db.user_secrets = [{ user_id: "user-a", instagram_ig_id: "app-scoped-id", instagram_page_id: "app-scoped-id" }];
+  it("falls back to the only connected account when the recipient id does not match", async () => {
+    db.channel_accounts = [
+      account("acc-a", "user-a", "app-scoped-id", "app-scoped-id"),
+      account("acc-legacy", "user-b", "legacy:user-b", null, "disconnected"),
+    ];
 
-    await POST(inbound("ig-professional-id"));
+    await deliver("ig-professional-id");
 
     expect(inboundActivities()).toHaveLength(1);
     expect(inboundActivities()[0].user_id).toBe("user-a");
   });
 
-  it("drops the message when the recipient id matches more than one user", async () => {
-    db.user_secrets = [
-      { user_id: "user-a", instagram_ig_id: "shared-id", instagram_page_id: "page-a" },
-      { user_id: "user-b", instagram_ig_id: "ig-b", instagram_page_id: "shared-id" },
+  it("drops the message when the recipient id matches accounts of more than one user", async () => {
+    db.channel_accounts = [
+      account("acc-a", "user-a", "shared-id", "page-a"),
+      account("acc-b", "user-b", "ig-b", "shared-id"),
     ];
 
-    const res = await POST(inbound("shared-id"));
+    const res = await deliver("shared-id");
 
     expect(res.status).toBe(200);
     expect(inboundActivities()).toHaveLength(0);
+    expect(eventStatus()).toBe("ignored");
   });
 
   it("never uses a recipient id with filter syntax in the lookup", async () => {
-    // A crafted id like "x,instagram_ig_id.eq.ig-a" would inject an extra
+    // A crafted id like "x,external_account_id.eq.ig-a" would inject an extra
     // clause into the PostgREST or() filter and match another user's row.
-    // It must be ignored, and with several integrated users the message is
-    // dropped rather than guessed.
-    const res = await POST(inbound("x,instagram_ig_id.eq.ig-a"));
+    const res = await deliver("x,external_account_id.eq.ig-a");
 
     expect(res.status).toBe(200);
     expect(inboundActivities()).toHaveLength(0);
   });
 
-  it("returns 500 so Meta retries when the recipient lookup fails", async () => {
-    failWhen = (table, usedOr) => table === "user_secrets" && usedOr;
+  it("keeps the event for the retry sweep when the owner lookup fails", async () => {
+    failWhen = (table) => table === "channel_accounts";
 
-    const res = await POST(inbound("ig-b"));
-
-    expect(res.status).toBe(500);
-    expect(await res.json()).toEqual({ error: "Temporary failure" });
-    expect(inboundActivities()).toHaveLength(0);
-  });
-
-  it("returns 500 so Meta retries when the integrated-users lookup fails", async () => {
-    failWhen = (table, usedOr) => table === "user_secrets" && !usedOr;
-
-    const res = await POST(inbound("ig-unknown"));
-
-    expect(res.status).toBe(500);
-    expect(await res.json()).toEqual({ error: "Temporary failure" });
-    expect(inboundActivities()).toHaveLength(0);
-  });
-
-  it("creates no activity when no user has Instagram connected", async () => {
-    db.user_secrets = [];
-
-    const res = await POST(inbound("ig-a"));
+    const res = await deliver("ig-b");
 
     expect(res.status).toBe(200);
     expect(inboundActivities()).toHaveLength(0);
+    expect(db.webhook_events[0]).toEqual(expect.objectContaining({ status: "received", attempts: 1 }));
+  });
+
+  it("creates no activity when no account is connected", async () => {
+    db.channel_accounts = [];
+
+    const res = await deliver("ig-a");
+
+    expect(res.status).toBe(200);
+    expect(inboundActivities()).toHaveLength(0);
+    expect(eventStatus()).toBe("ignored");
   });
 });

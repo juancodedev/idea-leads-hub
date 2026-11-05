@@ -1,260 +1,278 @@
 /**
  * @jest-environment node
+ *
+ * /api/messages on the messaging model (S10, ADR-11): a key resolves to a
+ * set of conversations; GET, DELETE and PATCH (link) act on the whole set
+ * and keep the pre-pipeline response contract.
  */
+import { UnauthorizedError } from "@/infrastructure/repositories/errors";
+import { InMemoryMessagingStore } from "@/modules/messaging/testing/InMemoryMessagingStore";
+import { inMemoryMessagingModule } from "@/modules/messaging/testing/inMemoryMessagingModule";
+import { MessageDirection } from "@/modules/messaging/domain/enums/MessageDirection";
+import { MessageStatus } from "@/modules/messaging/domain/enums/MessageStatus";
 
-// ── Shared queue via globalThis (hoist-safe) ──────────────────────────
-// jest.mock is hoisted above variable declarations. To share state between
-// the mock factory and test code, we use globalThis which is always present.
+jest.mock("@/lib/api/with-auth", () => ({
+  withAuth: jest.fn(),
+}));
 
-beforeEach(() => {
-  jest.clearAllMocks();
-  (globalThis as any).__MSG_TEST_QUEUE__ = [];
-});
-
-jest.mock("@/lib/api/with-auth", () => {
-  function buildChain(queueRef: Array<() => any>) {
-    const mocks: Record<string, jest.Mock> = {};
-
-    function consume() {
-      const fn = queueRef.shift();
-      return fn ? fn() : { data: null, error: null };
-    }
-
-    const chain = new Proxy(
-      {},
-      {
-        get(_target: any, prop: string) {
-          if (prop === "then") {
-            return (resolve: (v: any) => void) => resolve(consume());
-          }
-          const builder = new Set(["from", "select", "delete", "update", "eq", "is", "ilike"]);
-          if (builder.has(prop)) {
-            if (!mocks[prop]) mocks[prop] = jest.fn().mockReturnValue(chain);
-            return mocks[prop];
-          }
-          if (prop === "order" || prop === "maybeSingle" || prop === "single") {
-            if (!mocks[prop])
-              mocks[prop] = jest.fn().mockImplementation(() =>
-                Promise.resolve(consume())
-              );
-            return mocks[prop];
-          }
-          if (!mocks[prop]) mocks[prop] = jest.fn().mockReturnValue(chain);
-          return mocks[prop];
-        },
-      }
-    );
-
-    return chain;
-  }
-
-  // Get the queue from globalThis — set by beforeEach, populated by pushResult()
-  function getQueue() {
-    return ((globalThis as any).__MSG_TEST_QUEUE__ ?? []) as Array<() => any>;
-  }
-
-  const from = jest.fn().mockImplementation(() => buildChain(getQueue()));
-
-  return {
-    withAuth: jest.fn().mockResolvedValue({
-      supabase: { from },
-      user: { id: "user-1", email: "test@example.com" },
-    }),
-  };
-});
-
-jest.mock("@/modules/activities/domain/enums/ActivityType", () => ({
-  ActivityType: { INSTAGRAM_MESSAGE: "INSTAGRAM_MESSAGE" },
+let mockMessaging: ReturnType<typeof inMemoryMessagingModule>;
+jest.mock("@/modules/messaging", () => ({
+  messagingModule: jest.fn(() => mockMessaging),
 }));
 
 import { NextRequest } from "next/server";
+import { withAuth } from "@/lib/api/with-auth";
+import { messagingModule } from "@/modules/messaging";
 import { GET, DELETE, PATCH } from "../route";
 
-// ── Test helpers ───────────────────────────────────────────────────────
+const userSupabase = { tag: "user-client" };
+let store: InMemoryMessagingStore;
 
-function pushResult(data: any) {
-  const q = (globalThis as any).__MSG_TEST_QUEUE__;
-  if (q) q.push(() => data);
-}
+beforeEach(() => {
+  jest.clearAllMocks();
+  store = new InMemoryMessagingStore();
+  mockMessaging = inMemoryMessagingModule(store);
+  (withAuth as jest.Mock).mockResolvedValue({
+    supabase: userSupabase,
+    user: { id: "user_1", email: "test@example.com" },
+  });
+});
 
-// ── GET ────────────────────────────────────────────────────────────────
+const at = (iso: string) => new Date(iso);
+
+const get = (key?: string) =>
+  GET(
+    new NextRequest(
+      `http://localhost:3000/api/messages${key ? `?key=${encodeURIComponent(key)}` : ""}`
+    )
+  );
+
+const del = (key?: string) =>
+  DELETE(
+    new NextRequest(
+      `http://localhost:3000/api/messages${key ? `?key=${encodeURIComponent(key)}` : ""}`,
+      { method: "DELETE" }
+    )
+  );
+
+const link = (body: unknown) =>
+  PATCH(
+    new NextRequest("http://localhost:3000/api/messages", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    })
+  );
 
 describe("GET /api/messages", () => {
+  it("returns 401 without a session", async () => {
+    (withAuth as jest.Mock).mockRejectedValueOnce(new UnauthorizedError("No autorizado"));
+    expect((await get("lead:lead_1")).status).toBe(401);
+  });
+
   it("returns 400 when key param is missing", async () => {
-    const req = new NextRequest("http://localhost:3000/api/messages");
-    const res = await GET(req);
+    const res = await get();
     expect(res.status).toBe(400);
-    const body = await res.json();
-    expect(body.error).toContain("key query param");
+    expect((await res.json()).error).toContain("key query param");
   });
 
   it("returns 400 for invalid key format", async () => {
-    const req = new NextRequest("http://localhost:3000/api/messages?key=invalid:123");
-    const res = await GET(req);
+    const res = await get("invalid:123");
     expect(res.status).toBe(400);
-    const body = await res.json();
-    expect(body.error).toContain("Invalid key format");
+    expect((await res.json()).error).toContain("Invalid key format");
   });
 
-  it("returns messages for a linked (lead:) key", async () => {
-    pushResult({
-      data: [
-        { id: "act-1", title: "Instagram DM from 12345", description: "Hola!", created_at: "2026-07-22T10:00:00Z" },
-        { id: "act-2", title: "Instagram DM to 12345", description: "Cómo estás?", created_at: "2026-07-22T10:05:00Z" },
-      ],
-      error: null,
+  it("merges the messages of every conversation of a lead key, oldest first, keeping the response fields", async () => {
+    const lead = store.addLead();
+    const c1 = store.addConversation({ leadId: lead.id, accountId: "acc_a", externalId: "111" });
+    const c2 = store.addConversation({ leadId: lead.id, accountId: "acc_b", externalId: "111" });
+    store.addMessage({
+      conversationId: c2.id,
+      direction: MessageDirection.OUTBOUND,
+      status: MessageStatus.FAILED,
+      body: "reply",
+      errorMessage: "Invalid OAuth access token",
+      hint: "Token vencido: reconectá Instagram",
+      createdAt: at("2026-11-04T11:00:00Z"),
+    });
+    const first = store.addMessage({
+      conversationId: c1.id,
+      direction: MessageDirection.INBOUND,
+      status: MessageStatus.RECEIVED,
+      body: "Hola",
+      createdAt: at("2026-11-04T10:00:00Z"),
     });
 
-    const req = new NextRequest("http://localhost:3000/api/messages?key=lead:lead-1");
-    const res = await GET(req);
-    expect(res.status).toBe(200);
+    const res = await get(`lead:${lead.id}`);
     const body = await res.json();
-    expect(body).toHaveLength(2);
-    expect(body[0].direction).toBe("inbound");
-    expect(body[1].direction).toBe("outbound");
+
+    expect(res.status).toBe(200);
+    expect(messagingModule).toHaveBeenCalledWith(userSupabase);
+    expect(body).toEqual([
+      {
+        id: first.id,
+        text: "Hola",
+        direction: "inbound",
+        timestamp: "2026-11-04T10:00:00.000Z",
+        status: "received",
+        errorMessage: null,
+        hint: null,
+      },
+      expect.objectContaining({
+        text: "reply",
+        direction: "outbound",
+        timestamp: "2026-11-04T11:00:00.000Z",
+        status: "failed",
+        errorMessage: "Invalid OAuth access token",
+        hint: "Token vencido: reconectá Instagram",
+      }),
+    ]);
   });
 
-  it("returns messages for an unlinked key", async () => {
-    pushResult({
-      data: [
-        { id: "act-3", title: "Instagram DM from 99999", description: "Interested", created_at: "2026-07-22T11:00:00Z" },
-      ],
-      error: null,
-    });
+  it("returns the messages of an unlinked key", async () => {
+    const c = store.addConversation({ externalId: "222" });
+    store.addMessage({ conversationId: c.id, direction: MessageDirection.INBOUND, body: "hey" });
 
-    const req = new NextRequest("http://localhost:3000/api/messages?key=unlinked:99999");
-    const res = await GET(req);
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body).toHaveLength(1);
-    expect(body[0].direction).toBe("inbound");
+    const body = await (await get("unlinked:222")).json();
+
+    expect(body.map((m: { text: string }) => m.text)).toEqual(["hey"]);
   });
 
-  it("returns empty array when no messages", async () => {
-    pushResult({ data: [], error: null });
-    const req = new NextRequest("http://localhost:3000/api/messages?key=lead:nonexistent");
-    const res = await GET(req);
+  it("returns an empty array for another user's key", async () => {
+    const foreign = store.addConversation({ userId: "user_2", externalId: "333" });
+    store.addMessage({ userId: "user_2", conversationId: foreign.id });
+
+    const res = await get("unlinked:333");
+
     expect(res.status).toBe(200);
-    expect((await res.json())).toEqual([]);
+    expect(await res.json()).toEqual([]);
   });
 
   it("returns 500 on database error", async () => {
-    pushResult({ data: null, error: new Error("DB failed") });
-    const req = new NextRequest("http://localhost:3000/api/messages?key=lead:lead-1");
-    const res = await GET(req);
+    jest.spyOn(mockMessaging.getInboxMessages, "execute").mockRejectedValue(new Error("db"));
+
+    const res = await get("lead:lead_1");
+
     expect(res.status).toBe(500);
+    expect((await res.json()).error).toBe("Error al cargar los mensajes");
   });
 });
 
-// ── DELETE ─────────────────────────────────────────────────────────────
-
 describe("DELETE /api/messages", () => {
+  it("returns 401 without a session", async () => {
+    (withAuth as jest.Mock).mockRejectedValueOnce(new UnauthorizedError("No autorizado"));
+    expect((await del("lead:lead_1")).status).toBe(401);
+  });
+
   it("returns 400 when key param is missing", async () => {
-    const req = new NextRequest("http://localhost:3000/api/messages", { method: "DELETE" });
-    const res = await DELETE(req);
-    expect(res.status).toBe(400);
+    expect((await del()).status).toBe(400);
   });
 
   it("returns 400 for invalid key", async () => {
-    const req = new NextRequest("http://localhost:3000/api/messages?key=bad:key", { method: "DELETE" });
-    const res = await DELETE(req);
-    expect(res.status).toBe(400);
+    expect((await del("bad")).status).toBe(400);
   });
 
-  it("deletes linked conversation", async () => {
-    pushResult({ error: null });
-    const req = new NextRequest("http://localhost:3000/api/messages?key=lead:lead-1", { method: "DELETE" });
-    const res = await DELETE(req);
+  it("deletes every conversation of a lead key, their messages and the lead's legacy activities", async () => {
+    const lead = store.addLead();
+    const c1 = store.addConversation({ leadId: lead.id, accountId: "acc_a" });
+    const c2 = store.addConversation({ leadId: lead.id, accountId: "acc_b" });
+    store.addMessage({ conversationId: c1.id });
+    store.addMessage({ conversationId: c2.id });
+    store.addLegacyActivity({ leadId: lead.id });
+    const other = store.addConversation({ externalId: "999" });
+
+    const res = await del(`lead:${lead.id}`);
+
     expect(res.status).toBe(200);
-    expect((await res.json()).success).toBe(true);
+    expect(await res.json()).toEqual({ success: true });
+    expect(store.conversations.map((c) => c.id)).toEqual([other.id]);
+    expect(store.messages).toEqual([]);
+    expect(store.activities).toEqual([]);
   });
 
-  it("deletes unlinked conversation", async () => {
-    pushResult({ error: null });
-    const req = new NextRequest("http://localhost:3000/api/messages?key=unlinked:99999", { method: "DELETE" });
-    const res = await DELETE(req);
+  it("deletes an unlinked conversation and its legacy activities", async () => {
+    store.addConversation({ externalId: "444" });
+    store.addLegacyActivity({ title: "Instagram DM to 444" });
+
+    const res = await del("unlinked:444");
+
     expect(res.status).toBe(200);
+    expect(store.conversations).toEqual([]);
+    expect(store.activities).toEqual([]);
+  });
+
+  it("does not delete another user's conversation", async () => {
+    store.addConversation({ userId: "user_2", externalId: "555" });
+
+    const res = await del("unlinked:555");
+
+    expect(res.status).toBe(200);
+    expect(store.conversations).toHaveLength(1);
   });
 
   it("returns 500 on db error", async () => {
-    pushResult({ error: new Error("Delete failed") });
-    const req = new NextRequest("http://localhost:3000/api/messages?key=lead:lead-1", { method: "DELETE" });
-    const res = await DELETE(req);
+    jest.spyOn(mockMessaging.deleteInboxConversations, "execute").mockRejectedValue(new Error("db"));
+
+    const res = await del("lead:lead_1");
+
     expect(res.status).toBe(500);
+    expect((await res.json()).error).toBe("Error al eliminar la conversación");
   });
 });
 
-// ── PATCH ──────────────────────────────────────────────────────────────
-
 describe("PATCH /api/messages (link to lead)", () => {
+  it("returns 401 without a session", async () => {
+    (withAuth as jest.Mock).mockRejectedValueOnce(new UnauthorizedError("No autorizado"));
+    expect((await link({ key: "unlinked:1", leadId: "lead_1" })).status).toBe(401);
+  });
+
   it("returns 400 when missing params", async () => {
-    const req = new NextRequest("http://localhost:3000/api/messages", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "unlinked:123" }),
-    });
-    const res = await PATCH(req);
+    const res = await link({ key: "unlinked:1" });
     expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("key and leadId are required");
   });
 
   it("returns 400 for invalid key", async () => {
-    const req = new NextRequest("http://localhost:3000/api/messages", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "bad:123", leadId: "lead-1" }),
-    });
-    const res = await PATCH(req);
-    expect(res.status).toBe(400);
+    expect((await link({ key: "bad:1", leadId: "lead_1" })).status).toBe(400);
   });
 
   it("returns alreadyLinked for lead: key", async () => {
-    const req = new NextRequest("http://localhost:3000/api/messages", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "lead:lead-1", leadId: "lead-1" }),
-    });
-    const res = await PATCH(req);
+    const res = await link({ key: "lead:lead_1", leadId: "lead_1" });
     expect(res.status).toBe(200);
-    expect((await res.json()).alreadyLinked).toBe(true);
+    expect(await res.json()).toEqual({ success: true, alreadyLinked: true });
   });
 
-  it("returns 404 when lead not found", async () => {
-    pushResult({ data: null, error: null });
-    const req = new NextRequest("http://localhost:3000/api/messages", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "unlinked:99999", leadId: "nonexistent" }),
-    });
-    const res = await PATCH(req);
+  it("returns 404 when the lead is not the user's", async () => {
+    const foreignLead = store.addLead({ userId: "user_2" });
+    store.addConversation({ externalId: "666" });
+
+    const res = await link({ key: "unlinked:666", leadId: foreignLead.id });
+
     expect(res.status).toBe(404);
+    expect((await res.json()).error).toBe("Lead no encontrado");
+    expect(store.conversations[0].leadId).toBeNull();
   });
 
-  it("links unlinked messages successfully", async () => {
-    pushResult({ data: { id: "lead-1" }, error: null }); // lead check
-    pushResult({ error: null }); // update
+  it("links every unlinked conversation of the participant and their legacy activities", async () => {
+    const lead = store.addLead();
+    store.addConversation({ externalId: "777", accountId: "acc_a" });
+    store.addConversation({ externalId: "777", accountId: "acc_b" });
+    store.addLegacyActivity({ title: "Instagram DM from 777" });
 
-    const req = new NextRequest("http://localhost:3000/api/messages", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "unlinked:99999", leadId: "lead-1" }),
-    });
-    const res = await PATCH(req);
+    const res = await link({ key: "unlinked:777", leadId: lead.id });
+
     expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.success).toBe(true);
-    expect(body.alreadyLinked).toBe(false);
+    expect(await res.json()).toEqual({ success: true, alreadyLinked: false });
+    expect(store.conversations.map((c) => c.leadId)).toEqual([lead.id, lead.id]);
+    expect(store.activities[0].leadId).toBe(lead.id);
   });
 
   it("returns 500 on update error", async () => {
-    pushResult({ data: { id: "lead-1" }, error: null }); // lead check
-    pushResult({ error: new Error("Update failed") }); // update fails
+    jest.spyOn(mockMessaging.linkInboxConversations, "execute").mockRejectedValue(new Error("db"));
 
-    const req = new NextRequest("http://localhost:3000/api/messages", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "unlinked:99999", leadId: "lead-1" }),
-    });
-    const res = await PATCH(req);
+    const res = await link({ key: "unlinked:888", leadId: "lead_1" });
+
     expect(res.status).toBe(500);
+    expect((await res.json()).error).toBe("Error al vincular la conversación");
   });
 });

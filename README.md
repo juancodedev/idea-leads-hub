@@ -91,6 +91,8 @@ Para más detalles, consulta la [Guía de Arquitectura](./docs/architecture.md).
     -   `META_APP_SECRET`: Secreto de la app en Meta Developers.
     -   `META_VERIFY_TOKEN`: Token de verificación para el webhook de Meta.
     -   `TOKEN_ENCRYPTION_KEY`: Clave AES-256 (32 caracteres) para encriptar tokens en Supabase.
+    -   `SUPABASE_SERVICE_ROLE_KEY`: Clave service role que usan el webhook y el barrido de reintentos (nunca en el cliente).
+    -   `CRON_SECRET`: Secreto que exige `GET /api/webhook/instagram/sweep` en `Authorization: Bearer <CRON_SECRET>`. Sin él, el endpoint responde 401.
 
 5.  **Preparar la Base de Datos**:
     Ejecuta las migraciones de la carpeta `supabase/migrations` en el SQL Editor de tu proyecto Supabase para crear las tablas, políticas de RLS y funciones necesarias.
@@ -269,6 +271,7 @@ npx wrangler secret put META_APP_ID
 npx wrangler secret put META_APP_SECRET
 npx wrangler secret put META_VERIFY_TOKEN
 npx wrangler secret put TOKEN_ENCRYPTION_KEY
+npx wrangler secret put CRON_SECRET
 ```
 
 O desde [Cloudflare Dashboard](https://dash.cloudflare.com) → Workers & Pages → idea-leads-hub → Settings → Variables.

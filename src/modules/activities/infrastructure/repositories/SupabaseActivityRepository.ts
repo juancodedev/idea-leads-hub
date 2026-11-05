@@ -178,6 +178,7 @@ export class SupabaseActivityRepository extends BaseRepository implements Activi
    *  row matches 0 rows and .single() surfaces PGRST116 → NotFoundError
    *  (404). Ownership is RLS-based (matches the Ideas module convention). */
   async markRead(id: string): Promise<Activity> {
+    await this.syncConversationRead(id, true);
     const { data, error } = await this.supabase
       .from('activities')
       .update({ read_at: new Date().toISOString() } as never)
@@ -193,6 +194,7 @@ export class SupabaseActivityRepository extends BaseRepository implements Activi
   /** Clears `read_at` only — status/completed untouched (BR-3). Guarded to
    *  INSTAGRAM_MESSAGE rows (same DB-level filter as markRead). */
   async markUnread(id: string): Promise<Activity> {
+    await this.syncConversationRead(id, false);
     const { data, error } = await this.supabase
       .from('activities')
       .update({ read_at: null } as never)
@@ -203,6 +205,23 @@ export class SupabaseActivityRepository extends BaseRepository implements Activi
 
     if (error) this.handleError(error);
     return ActivityMapper.toDomain(data);
+  }
+
+  /**
+   * Keeps the messaging badge in sync (S12): adjusts the linked conversation's
+   * `unread_count` only when this activity's `read_at` is about to change.
+   * Must run before the `read_at` write, because it compares against the
+   * current value. A no-op for activities not linked to a message.
+   */
+  private async syncConversationRead(id: string, read: boolean): Promise<void> {
+    const { error } = await (this.supabase as unknown as {
+      rpc: (
+        fn: string,
+        args: Record<string, unknown>
+      ) => Promise<{ error: { message: string; code?: string } | null }>;
+    }).rpc('messaging_sync_legacy_read', { p_activity_id: id, p_read: read });
+
+    if (error) this.handleError(error);
   }
 
   /** INSTAGRAM_MESSAGE rows with `read_at IS NULL` — the unread marker (BR-3). */

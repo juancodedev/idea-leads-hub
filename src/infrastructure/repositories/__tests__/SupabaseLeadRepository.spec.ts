@@ -6,7 +6,8 @@
  *                  instagramHandle, instagramScopedId, jobTitle, phone, company
  */
 
-import { SupabaseLeadRepository } from '../SupabaseLeadRepository';
+import { ConflictError, DatabaseError } from '../errors';
+import { SupabaseLeadRepository, LEAD_HAS_CONVERSATIONS_MESSAGE } from '../SupabaseLeadRepository';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../database/database.types';
 
@@ -23,8 +24,11 @@ const fakeSupabase = {
   auth: { getUser: mockGetUser },
 } as unknown as SupabaseClient<Database>;
 
+const mockDeleteQuery = jest.fn();
+
 const mockQueryBuilder = {
   update: mockUpdate,
+  delete: mockDeleteQuery,
   eq: mockEq,
   select: mockSelect,
   single: mockSingle,
@@ -62,6 +66,7 @@ beforeEach(() => {
   // Chain: from().update().eq().select().single()
   mockFrom.mockReturnValue(mockQueryBuilder);
   mockUpdate.mockReturnValue(mockQueryBuilder);
+  mockDeleteQuery.mockReturnValue(mockQueryBuilder);
   mockEq.mockReturnValue(mockQueryBuilder);
   mockSelect.mockReturnValue(mockQueryBuilder);
   mockSingle.mockResolvedValue({ data: defaultLeadRow, error: null });
@@ -237,3 +242,48 @@ describe('SupabaseLeadRepository.update()', () => {
     }
   });
 });
+
+describe('SupabaseLeadRepository.delete()', () => {
+  it('should delete the lead by id', async () => {
+    mockEq.mockResolvedValueOnce({ error: null });
+
+    await createRepo().delete('lead-1');
+
+    expect(mockFrom).toHaveBeenCalledWith('leads');
+    expect(mockDeleteQuery).toHaveBeenCalled();
+    expect(mockEq).toHaveBeenCalledWith('id', 'lead-1');
+  });
+
+  it('should refuse with a ConflictError explaining why when Instagram conversations reference the lead', async () => {
+    mockEq.mockResolvedValueOnce({
+      error: {
+        code: '23503',
+        message:
+          'update or delete on table "leads" violates foreign key constraint "conversations_lead_id_fkey" on table "conversations"',
+      },
+    });
+
+    const result = createRepo().delete('lead-1');
+
+    await expect(result).rejects.toBeInstanceOf(ConflictError);
+    await expect(createRepoDeleteMessage()).resolves.toBe(LEAD_HAS_CONVERSATIONS_MESSAGE);
+  });
+
+  it('should keep reporting other database errors as DatabaseError', async () => {
+    mockEq.mockResolvedValueOnce({ error: { code: '42501', message: 'permission denied' } });
+
+    await expect(createRepo().delete('lead-1')).rejects.toBeInstanceOf(DatabaseError);
+  });
+});
+
+async function createRepoDeleteMessage(): Promise<string> {
+  mockEq.mockResolvedValueOnce({
+    error: { code: '23503', message: 'violates foreign key constraint "conversations_lead_id_fkey"' },
+  });
+  try {
+    await createRepo().delete('lead-1');
+    return '';
+  } catch (error) {
+    return (error as Error).message;
+  }
+}

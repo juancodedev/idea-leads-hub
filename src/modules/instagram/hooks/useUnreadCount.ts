@@ -10,24 +10,23 @@ let channelCounter = 0;
 /**
  * Returns the count of unread Instagram messages and a reset function.
  *
- * Uses Supabase Realtime to listen for new INSTAGRAM_MESSAGE inserts
- * and increments the counter immediately. Also polls every 30s as a
- * fallback if Realtime is not available.
+ * The count is the sum of `conversations.unread_count` (S12). Supabase
+ * Realtime INSERT/UPDATE events on the user's conversations trigger a
+ * refetch (ADR-11); polling every 30s is the fallback when Realtime is not
+ * available.
  *
  * @param enabled — false to skip subscription (e.g. on login pages)
  */
 export function useUnreadCount(enabled = true) {
   const [count, setCount] = React.useState(0);
-  const countRef = React.useRef<number>(0);
   const [initialLoading, setInitialLoading] = React.useState(true);
 
-  // Fetch initial count
+  // Fetch the current count
   const fetchCount = React.useCallback(async () => {
     try {
       const res = await fetch("/api/activities/unread");
       if (res.ok) {
         const data = await res.json();
-        countRef.current = data.count ?? 0;
         setCount(data.count ?? 0);
       }
     } catch {
@@ -46,7 +45,9 @@ export function useUnreadCount(enabled = true) {
   React.useEffect(() => {
     if (!enabled) return;
 
-    // Fetch initial count
+    let cancelled = false;
+    let channel: { unsubscribe: () => unknown } | null = null;
+
     fetchCount();
 
     const supabase = createClient();
@@ -56,23 +57,29 @@ export function useUnreadCount(enabled = true) {
     //  the stale channel from the first mount and fail to add callbacks)
     const channelName = `instagram-unread-${++channelCounter}`;
 
-    // Try Realtime subscription
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "activities",
-          filter: "type=eq.INSTAGRAM_MESSAGE",
-        },
-        () => {
-          countRef.current += 1;
-          setCount(countRef.current);
-        }
-      )
-      .subscribe();
+    supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        const userId = data?.user?.id;
+        if (cancelled || !userId) return;
+        const filter = `user_id=eq.${userId}`;
+        channel = supabase
+          .channel(channelName)
+          .on(
+            "postgres_changes",
+            { event: "INSERT", schema: "public", table: "conversations", filter },
+            () => fetchCount()
+          )
+          .on(
+            "postgres_changes",
+            { event: "UPDATE", schema: "public", table: "conversations", filter },
+            () => fetchCount()
+          )
+          .subscribe();
+      })
+      .catch(() => {
+        // Realtime unavailable — polling still keeps the badge fresh
+      });
 
     // Fallback polling — also picks up any missed events
     const intervalId = setInterval(() => {
@@ -80,7 +87,8 @@ export function useUnreadCount(enabled = true) {
     }, POLL_INTERVAL_MS);
 
     return () => {
-      channel.unsubscribe();
+      cancelled = true;
+      channel?.unsubscribe();
       clearInterval(intervalId);
     };
   }, [enabled, fetchCount]);

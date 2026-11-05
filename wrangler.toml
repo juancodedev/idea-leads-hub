@@ -1,5 +1,5 @@
 name = "idea-leads-hub-1"
-main = ".open-next/worker.js"
+main = "worker.ts"
 compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat"]
 
@@ -16,6 +16,12 @@ NEXT_PUBLIC_SUPABASE_URL = "https://xsqyftoblnsjkavhldcm.supabase.co"
 #   wrangler secret put META_APP_SECRET
 #   wrangler secret put META_VERIFY_TOKEN
 #   wrangler secret put TOKEN_ENCRYPTION_KEY
+#   wrangler secret put CRON_SECRET          (retry sweep, see [triggers])
+#   wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+
+# Instagram webhook retry sweep (worker.ts `scheduled` → /api/webhook/instagram/sweep)
+[triggers]
+crons = ["*/5 * * * *"]
 
 [assets]
 directory = ".open-next/assets"

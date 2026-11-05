@@ -58,6 +58,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { LeadQuickView } from './LeadQuickView';
 import { ScoreBadge } from './ScoreBadge';
+import { notifyLeadDeleteError } from './notifyLeadDeleteError';
 import { toast } from 'sonner';
 import { useLeadRepository } from '@/ui/providers/RepositoryProvider';
 import { useLeadsStore } from '../store/useLeadsStore';
@@ -151,7 +152,8 @@ export function LeadsTable({ leads: initialLeads, stages, allTags, total, page, 
       });
     } catch (error) {
       console.error('Error deleting lead:', error);
-      toast.error('Error al eliminar el lead');
+      setDeleteConfirmId(null);
+      notifyLeadDeleteError(error);
     }
   };
 

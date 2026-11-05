@@ -1,49 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiHandler } from "@/lib/api/api-handler";
 import { withAuth } from "@/lib/api/with-auth";
-import { SupabaseActivityRepository } from "@/modules/activities/infrastructure/repositories/SupabaseActivityRepository";
-import { ActivityType } from "@/modules/activities/domain/enums/ActivityType";
+import { messagingModule } from "@/modules/messaging";
+import { toInboxMessageResponse } from "@/modules/messaging/presentation/httpResponses";
 
 export const runtime = "nodejs";
 
-interface ConversationMessage {
-  id: string;
-  text: string;
-  direction: "inbound" | "outbound";
-  timestamp: string;
-}
-
+/** Messages of every conversation of the lead, oldest first (S10). */
 export const GET = apiHandler(
-  async (
-      request: NextRequest,
-    context: { params: Promise<{ id: string }> }
-  ) => {
+  async (request: NextRequest, context: { params: Promise<{ id: string }> }) => {
     const { id } = await context.params;
-    const { supabase } = await withAuth(request);
-    const repo = new SupabaseActivityRepository(supabase);
+    const { supabase, user } = await withAuth(request);
 
-    const activities = await repo.getForLead(id);
+    const messages = await messagingModule(supabase).getInboxMessages.execute(user.id, {
+      kind: "lead",
+      leadId: id,
+    });
 
-    const messages: ConversationMessage[] = activities
-      .filter((a) => a.type === ActivityType.INSTAGRAM_MESSAGE)
-      .map((a) => {
-        // Determine direction by title convention
-        // "Instagram DM to ..." = outbound, "Instagram DM from ..." = inbound
-        const direction = a.title.startsWith("Instagram DM from")
-          ? ("inbound" as const)
-          : ("outbound" as const);
-
-        return {
-          id: a.id,
-          text: a.description || a.title,
-          direction,
-          timestamp: a.createdAt.toISOString(),
-        };
-      })
-      .sort(
-        (a, b) => a.timestamp.localeCompare(b.timestamp)
-      );
-
-    return NextResponse.json(messages, { status: 200 });
+    return NextResponse.json(messages.map(toInboxMessageResponse), { status: 200 });
   }
 );

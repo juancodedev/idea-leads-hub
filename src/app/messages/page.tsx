@@ -29,7 +29,9 @@ import { toast } from "sonner";
 /* ---------- types ---------- */
 
 interface Conversation {
+  /** Inbox key: "lead:<leadId>" or "unlinked:<participantId>". */
   id: string;
+  conversationIds?: string[];
   leadId: string | null;
   leadName: string;
   instagramHandle: string | null;
@@ -49,6 +51,9 @@ interface ConversationMessage {
   text: string;
   direction: "inbound" | "outbound";
   timestamp: string;
+  status?: string;
+  errorMessage?: string | null;
+  hint?: string | null;
 }
 
 /* ---------- helpers ---------- */
@@ -161,41 +166,16 @@ export default function MessagesPage() {
       );
 
       try {
-        let activityIds: string[] = [];
-
-        if (conv.isLinked && conv.leadId) {
-          const res = await fetch(`/api/activities?leadId=${conv.leadId}`);
-          if (!res.ok) return;
-
-          const activities: Array<{ id: string; readAt: string | null; type: string }> =
-            await res.json();
-
-          // Read marker is the source of truth (BR-3): read never implies
-          // completion and completion never implies read.
-          activityIds = activities
-            .filter((a) => !a.readAt && a.type === "INSTAGRAM_MESSAGE")
-            .map((a) => a.id);
-        } else if (!conv.isLinked && conv.instagramScopedId) {
-          // Unlinked — find unread messages by sender/recipient ID
-          const res = await fetch(
-            `/api/activities?type=INSTAGRAM_MESSAGE&unread=true&unlinkedId=${conv.instagramScopedId}`
-          );
-          if (!res.ok) return;
-
-          const activities: Array<{ id: string }> = await res.json();
-          activityIds = activities.map((a) => a.id);
-        }
-
-        await Promise.all(
-          activityIds.map((id) =>
-            fetch(`/api/activities/${id}/read`, { method: "PATCH" })
-          )
-        );
+        await fetch("/api/messages/read", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: conv.id }),
+        });
       } catch {
         // Silent
       }
     },
-    [conversations]
+    []
   );
 
   /* ---------- select conversation ---------- */
@@ -342,14 +322,18 @@ export default function MessagesPage() {
       } else {
         const err = await res.json().catch(() => ({}));
         console.error("Send failed:", err);
-        toast.error("Error al enviar el mensaje");
+        toast.error(err.hint ? `Error al enviar el mensaje: ${err.hint}` : "Error al enviar el mensaje");
+        // The failed message is stored in the conversation: refresh the thread
+        if (!selectedConv.isLinked && selectedConv.id) {
+          fetchUnlinkedMessages(selectedConv.id);
+        }
       }
     } catch {
       toast.error("Error al enviar el mensaje");
     } finally {
       setSending(false);
     }
-  }, [selectedConv, messageText, fetchConversations]);
+  }, [selectedConv, messageText, fetchConversations, fetchUnlinkedMessages]);
 
   /* ---------- keyboard send ---------- */
 

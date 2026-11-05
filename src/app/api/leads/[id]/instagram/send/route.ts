@@ -4,10 +4,14 @@ import { apiHandler } from "@/lib/api/api-handler";
 import { withAuth } from "@/lib/api/with-auth";
 import { SupabaseLeadRepository } from "@/infrastructure/repositories/SupabaseLeadRepository";
 import { InstagramAuthService } from "@/infrastructure/services/InstagramAuthService";
-import { InstagramMessagingService, type SendDMResult } from "@/infrastructure/services/InstagramMessagingService";
+import { InstagramMessagingService } from "@/infrastructure/services/InstagramMessagingService";
 import { logger } from "@/lib/logger";
-import { SupabaseActivityRepository } from "@/modules/activities/infrastructure/repositories/SupabaseActivityRepository";
-import { ActivityType } from "@/modules/activities/domain/enums/ActivityType";
+import { messagingModule } from "@/modules/messaging";
+import { MessageOrigin } from "@/modules/messaging/domain/enums/MessageOrigin";
+import {
+  instagramSendContext,
+  toSendResponse,
+} from "@/modules/messaging/presentation/httpResponses";
 
 export const runtime = "nodejs";
 
@@ -87,59 +91,24 @@ export const POST = apiHandler(
       );
     }
 
-    // Send the DM via the correct API path based on auth type
-    let result: SendDMResult;
-    try {
-      if (tokenData.authType === "instagram_business_login") {
-        result = await messagingService.sendDMViaInstagramLogin(
-          tokenData.igId,
-          recipientId,
-          text,
-          tokenData.userToken
-        );
-      } else {
-        result = await messagingService.sendDM(
-          tokenData.igId,
-          recipientId,
-          text,
-          tokenData.token
-        );
-      }
-    } catch (sendError: any) {
+    const message = await messagingModule(supabase).sendToParticipant.execute({
+      userId: user.id,
+      participantId: recipientId,
+      leadId: lead.id,
+      body: text,
+      origin: MessageOrigin.HUMAN,
+      sendContext: instagramSendContext(user.id, tokenData),
+    });
+
+    const response = toSendResponse(message);
+    if (response.status === 502) {
       logger.error("Instagram send failed", {
-        error: sendError.message,
+        error: response.body.error,
         igId: tokenData.igId,
         recipientId,
         authType: tokenData.authType,
-        tokenPrefix: tokenData.token?.substring(0, 8),
       });
-      return NextResponse.json(
-        { error: sendError.message || "Error al enviar mensaje de Instagram" },
-        { status: 502 }
-      );
     }
-
-    // Create outbound activity record
-    const activityRepo = new SupabaseActivityRepository(supabase);
-    await activityRepo.create({
-      type: ActivityType.INSTAGRAM_MESSAGE,
-      title: `Instagram DM to ${recipientId}`,
-      description: text,
-      leadId: lead.id,
-      attachments: [
-        {
-          name: "instagram_message",
-          url: "",
-          path: "",
-          size: 0,
-          type: "instagram/message",
-        },
-      ],
-    });
-
-    return NextResponse.json(
-      { messageId: result.messageId },
-      { status: 200 }
-    );
+    return NextResponse.json(response.body, { status: response.status });
   }
 );

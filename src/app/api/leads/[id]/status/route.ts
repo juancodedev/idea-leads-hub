@@ -6,8 +6,8 @@ import { NotFoundError } from '@/infrastructure/repositories/errors';
 import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLeadRepository';
 import { SupabasePipelineRepository } from '@/infrastructure/repositories/SupabasePipelineRepository';
 import { InstagramAuthService } from '@/infrastructure/services/InstagramAuthService';
-import { InstagramMessagingService } from '@/infrastructure/services/InstagramMessagingService';
 import { InstagramAutoTrigger } from '@/modules/instagram/InstagramAutoTrigger';
+import { messagingModule } from '@/modules/messaging';
 
 export const runtime = 'nodejs';
 
@@ -64,14 +64,8 @@ export const PATCH = apiHandler(async (request: NextRequest, context: { params: 
   // Fire-and-forget: auto-DM on status transition (non-blocking)
   try {
     const authService = new InstagramAuthService(supabase);
-    const messagingService = new InstagramMessagingService();
-    const trigger = new InstagramAutoTrigger();
-    const sent = await trigger.maybeSendAutoDm(
-      existing,
-      status,
-      authService,
-      messagingService
-    );
+    const trigger = new InstagramAutoTrigger(messagingModule(supabase).sendToParticipant);
+    const sent = await trigger.maybeSendAutoDm(existing, status, authService);
     if (sent) {
       console.info(`Instagram auto-DM sent for lead ${existing.id}`);
     }

@@ -440,6 +440,179 @@ export interface Database {
           created_at?: string;
         };
       };
+      channel_accounts: {
+        Row: {
+          id: string;
+          user_id: string;
+          channel: string;
+          external_account_id: string;
+          page_id: string | null;
+          display_name: string | null;
+          status: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          channel: string;
+          external_account_id: string;
+          page_id?: string | null;
+          display_name?: string | null;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          channel?: string;
+          external_account_id?: string;
+          page_id?: string | null;
+          display_name?: string | null;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      conversations: {
+        Row: {
+          id: string;
+          user_id: string;
+          lead_id: string | null;
+          account_id: string | null;
+          channel: string;
+          external_id: string;
+          participant_name: string | null;
+          last_inbound_at: string | null;
+          last_message_at: string | null;
+          last_message_preview: string | null;
+          unread_count: number;
+          metadata: any;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          lead_id?: string | null;
+          account_id?: string | null;
+          channel?: string;
+          external_id: string;
+          participant_name?: string | null;
+          last_inbound_at?: string | null;
+          last_message_at?: string | null;
+          last_message_preview?: string | null;
+          unread_count?: number;
+          metadata?: any;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          lead_id?: string | null;
+          account_id?: string | null;
+          channel?: string;
+          external_id?: string;
+          participant_name?: string | null;
+          last_inbound_at?: string | null;
+          last_message_at?: string | null;
+          last_message_preview?: string | null;
+          unread_count?: number;
+          metadata?: any;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      messages: {
+        Row: {
+          id: string;
+          user_id: string;
+          conversation_id: string;
+          direction: string;
+          origin: string | null;
+          type: string;
+          body: string | null;
+          external_id: string | null;
+          status: string;
+          error_message: string | null;
+          hint: string | null;
+          legacy_activity_id: string | null;
+          raw_payload: any;
+          created_at: string;
+          delivered_at: string | null;
+          read_at: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          conversation_id: string;
+          direction: string;
+          origin?: string | null;
+          type?: string;
+          body?: string | null;
+          external_id?: string | null;
+          status?: string;
+          error_message?: string | null;
+          hint?: string | null;
+          legacy_activity_id?: string | null;
+          raw_payload?: any;
+          created_at?: string;
+          delivered_at?: string | null;
+          read_at?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          conversation_id?: string;
+          direction?: string;
+          origin?: string | null;
+          type?: string;
+          body?: string | null;
+          external_id?: string | null;
+          status?: string;
+          error_message?: string | null;
+          hint?: string | null;
+          legacy_activity_id?: string | null;
+          raw_payload?: any;
+          created_at?: string;
+          delivered_at?: string | null;
+          read_at?: string | null;
+          updated_at?: string;
+        };
+      };
+      webhook_events: {
+        Row: {
+          event_id: string;
+          provider: string;
+          status: string;
+          attempts: number;
+          payload: any;
+          received_at: string;
+          last_attempt_at: string | null;
+        };
+        Insert: {
+          event_id: string;
+          provider: string;
+          status?: string;
+          attempts?: number;
+          payload: any;
+          received_at?: string;
+          last_attempt_at?: string | null;
+        };
+        Update: {
+          event_id?: string;
+          provider?: string;
+          status?: string;
+          attempts?: number;
+          payload?: any;
+          received_at?: string;
+          last_attempt_at?: string | null;
+        };
+      };
     };
     Enums: {};
   };
@@ -460,4 +633,8 @@ export namespace Tables {
   export type Notes = Database['public']['Tables']['notes']['Row'];
   export type AuditLogs = Database['public']['Tables']['audit_logs']['Row'];
   export type UserSecrets = Database['public']['Tables']['user_secrets']['Row'];
+  export type ChannelAccounts = Database['public']['Tables']['channel_accounts']['Row'];
+  export type Conversations = Database['public']['Tables']['conversations']['Row'];
+  export type Messages = Database['public']['Tables']['messages']['Row'];
+  export type WebhookEvents = Database['public']['Tables']['webhook_events']['Row'];
 }

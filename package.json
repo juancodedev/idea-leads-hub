@@ -15,6 +15,7 @@
     "prepare": "husky",
     "test": "jest",
     "test:watch": "jest --watch",
+    "test:db": "supabase start && supabase db reset --local && bash supabase/tests/run.sh",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "supabase:types": "supabase gen types --lang=ts --linked > src/infrastructure/database/database.types.ts"

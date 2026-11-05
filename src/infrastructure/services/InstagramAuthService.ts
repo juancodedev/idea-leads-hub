@@ -1,5 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { Database } from "../database/database.types";
+import { logger } from "@/lib/logger";
 
 type UserSecretRow = Database["public"]["Tables"]["user_secrets"]["Row"];
 
@@ -80,6 +81,42 @@ export class InstagramAuthService {
 
     if (error) {
       throw new Error("Failed to store Instagram token: " + error.message);
+    }
+
+    await this.syncChannelAccount(userId, tokenData);
+  }
+
+  /**
+   * Keeps the user's `channel_accounts` row in step with the stored
+   * connection (ADR-7), so webhooks resolve the owner from it. Best effort:
+   * the token is already stored, so a failure here is logged, never thrown.
+   * Skipped while the connection has no Instagram account id yet.
+   */
+  private async syncChannelAccount(
+    userId: string,
+    tokenData: StoreTokenData
+  ): Promise<void> {
+    if (!tokenData.igId) return;
+
+    try {
+      const { error } = await (this.supabase.from("channel_accounts") as any).upsert(
+        {
+          user_id: userId,
+          channel: "instagram",
+          external_account_id: tokenData.igId,
+          page_id: tokenData.pageId || null,
+          status: "connected",
+        },
+        { onConflict: "channel,external_account_id" }
+      );
+      if (error) {
+        logger.error("Failed to sync Instagram channel account", {
+          userId,
+          error: error.message,
+        });
+      }
+    } catch (error) {
+      logger.error("Failed to sync Instagram channel account", { userId, error });
     }
   }
 

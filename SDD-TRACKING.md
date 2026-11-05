@@ -43,6 +43,31 @@ existing project language (Spanish). Code identifiers/comments stay in English.
 - **Objective**: the email modal currently only has recipient, subject, and body.
   It must also allow attaching files to send.
 
+### 4. `messaging-pipeline` — IN PROGRESS (apply: T1–T4 done)
+
+- **Area**: Instagram DM / Messenger (later WhatsApp): webhook, data model, send path, `/messages` inbox
+- **Objective**: port the messaging pipeline patterns from `builder-crm` (conversations/messages
+  tables, webhook idempotency, echo dedup, 24h window with `HUMAN_AGENT`, single `DeliverMessage`
+  path, delivery statuses) into the hexagonal architecture of this repo, as a `MessagingChannel`
+  port with Meta adapters.
+- **Source analysis**: [`docs/mejoras-mensajeria-desde-builder-crm.md`](docs/mejoras-mensajeria-desde-builder-crm.md)
+  (comparison, 7 phases, WhatsApp reference, handoff section).
+- **Status**: exploration ✅ → proposal ✅ (approved 2026-11-03 —
+  [`openspec/changes/messaging-pipeline/proposal.md`](openspec/changes/messaging-pipeline/proposal.md))
+  → spec ✅ (approved 2026-11-03 — `specs/{messaging-pipeline,api-rest,activity-status}`)
+  → design ✅ (Judgment Day APPROVED round 1, 13 warnings incorporated — `design.md` §9,
+  `judgment-day.md`; approved 2026-11-03) → tasks ✅ (T1–T10) → apply (T1–T4 done; T5 next)
+  → verify → archive
+- **Decision (2026-11-03)**: option (a) — new `conversations`/`messages`/`webhook_events` tables
+  (plus `channel_accounts`) and migrate existing `INSTAGRAM_MESSAGE` activities into them; activities
+  remain only as lead timeline events. This supersedes the `activities`-as-message-store choice in
+  `openspec/changes/instagram-messaging/design.md`. Rejected: (b) new tables without migrating history,
+  (c) keep activities and add `mid`/direction columns.
+- **Carry-forward**: 14-digit migration names; Phase 1 touches persisted data → full SDD lane with review.
+
 ## Sequencing
 
-Tasks are executed one change at a time, in order: 1 → 2 → 3.
+Tasks are executed one change at a time, in order: 1 → 4 → 2 → 3.
+
+- 2026-11-03: `messaging-pipeline` (4) moved ahead of the attachment changes (2, 3) — the current
+  webhook duplicates messages on Meta retries, so delaying it grows the data to clean during migration.

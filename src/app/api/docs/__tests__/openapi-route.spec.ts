@@ -41,4 +41,49 @@ describe("GET /api/docs/openapi.json", () => {
     expect(activitySchema.readAt).toBeDefined();
     expect(activitySchema.completed.deprecated).toBe(true);
   });
+
+  it("should document the messaging surface (S11): endpoints and Conversation, Message, SendOutcome schemas", async () => {
+    const response = await GET(new NextRequest("http://localhost:3000/api/docs/openapi.json"));
+    const body = await response.json();
+    const { paths, components } = body;
+
+    // Every endpoint added or modified by the messaging pipeline.
+    expect(paths["/api/instagram/send"].post).toBeDefined();
+    expect(paths["/api/leads/{id}/instagram/send"].post).toBeDefined();
+    expect(paths["/api/instagram/conversations"].get).toBeDefined();
+    expect(paths["/api/leads/{id}/instagram/conversation"].get).toBeDefined();
+    expect(paths["/api/messages"].get).toBeDefined();
+    expect(paths["/api/messages"].delete).toBeDefined();
+    expect(paths["/api/messages"].patch).toBeDefined();
+    expect(paths["/api/messages/read"].patch).toBeDefined();
+    expect(paths["/api/activities/unread"].get).toBeDefined();
+    expect(paths["/api/webhook/instagram"].post.responses[401]).toBeDefined();
+
+    // Sweep documented with its 401 response.
+    expect(paths["/api/webhook/instagram/sweep"].get.responses[401]).toBeDefined();
+
+    // Send failures: 502 with { error, hint }.
+    for (const path of ["/api/instagram/send", "/api/leads/{id}/instagram/send"]) {
+      const failure = paths[path].post.responses[502].content["application/json"].schema;
+      expect(failure.$ref).toBe("#/components/schemas/SendFailure");
+    }
+    expect(components.schemas.SendFailure.required).toEqual(["error", "hint"]);
+
+    // PATCH /api/messages/read takes { key }.
+    const readBody = paths["/api/messages/read"].patch.requestBody.content["application/json"].schema;
+    expect(readBody.required).toEqual(["key"]);
+
+    // Messaging schemas.
+    expect(Object.keys(components.schemas.Conversation.properties)).toEqual(
+      expect.arrayContaining(["id", "conversationIds", "leadId", "lastMessage", "unreadCount", "isLinked"])
+    );
+    expect(Object.keys(components.schemas.Message.properties)).toEqual(
+      expect.arrayContaining(["id", "text", "direction", "timestamp", "status", "errorMessage", "hint"])
+    );
+    expect(components.schemas.SendOutcome.oneOf).toHaveLength(2);
+    expect(paths["/api/leads/{id}/instagram/conversation"].get.responses[200].content["application/json"].schema.items.$ref).toBe(
+      "#/components/schemas/Message"
+    );
+  });
 });
+
