@@ -1266,7 +1266,8 @@ const openapi = {
       },
       delete: {
         summary: "Eliminar lead",
-        description: "Elimina un lead por su ID.",
+        description:
+          "Elimina un lead por su ID. Se rechaza con 409 si el lead tiene conversaciones de Instagram asociadas.",
         tags: ["Leads"],
         security: [{ supabaseAuth: [] }],
         parameters: [
@@ -1281,6 +1282,18 @@ const openapi = {
           204: { description: "Lead eliminado (sin contenido)" },
           401: { description: "No autorizado" },
           404: { description: "Lead no encontrado" },
+          409: {
+            description: "El lead tiene conversaciones de Instagram asociadas y no se puede eliminar",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: { error: { type: "string" } },
+                  required: ["error"],
+                },
+              },
+            },
+          },
           500: { description: "Error interno del servidor" },
         },
       },

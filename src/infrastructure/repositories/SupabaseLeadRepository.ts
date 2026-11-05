@@ -3,6 +3,15 @@ import { Lead, CreateLeadDTO, UpdateLeadDTO } from "../../core/domain/Lead";
 import { LeadRepository, LeadSearchParams, PaginatedResult } from "../../core/ports/LeadRepository";
 import { Database } from "../database/database.types";
 import { BaseRepository } from "./BaseRepository";
+import { ConflictError } from "./errors";
+
+/** Postgres foreign_key_violation. */
+const FOREIGN_KEY_VIOLATION = '23503';
+
+/** Shown to the user when a lead cannot be deleted because conversations reference it. */
+export const LEAD_HAS_CONVERSATIONS_MESSAGE =
+  'No se puede eliminar el lead porque tiene conversaciones de Instagram asociadas. ' +
+  'Eliminá o desvinculá esas conversaciones desde Mensajes y volvé a intentarlo.';
 
 type LeadRow = Database['public']['Tables']['leads']['Row'];
 type TagRow = Database['public']['Tables']['tags']['Row'];
@@ -206,6 +215,12 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
       .delete()
       .eq('id', id);
 
+    // Instagram conversations reference the lead without ON DELETE, so a lead
+    // with conversations cannot be deleted. Surface that as a 409 the UI can
+    // show as a warning instead of a generic database error.
+    if (error?.code === FOREIGN_KEY_VIOLATION) {
+      throw new ConflictError(LEAD_HAS_CONVERSATIONS_MESSAGE);
+    }
     if (error) this.handleError(error);
   }
 

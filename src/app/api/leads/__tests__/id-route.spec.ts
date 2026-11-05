@@ -140,6 +140,22 @@ describe("DELETE /api/leads/[id]", () => {
     expect(mockDelete).toHaveBeenCalledWith("lead-1");
   });
 
+  it("should return 409 with the reason when the lead still has Instagram conversations", async () => {
+    const { ConflictError } = jest.requireActual("@/infrastructure/repositories/errors");
+    mockGetById.mockResolvedValue(mockLead);
+    mockDelete.mockRejectedValue(
+      new ConflictError("No se puede eliminar el lead porque tiene conversaciones de Instagram asociadas.")
+    );
+
+    const request = new NextRequest("http://localhost:3000/api/leads/lead-1", { method: "DELETE" });
+    const response = await DELETE(request, { params: { id: "lead-1" } });
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: "No se puede eliminar el lead porque tiene conversaciones de Instagram asociadas.",
+    });
+  });
+
   it("should return 404 when lead not found", async () => {
     mockGetById.mockResolvedValue(null);
 
