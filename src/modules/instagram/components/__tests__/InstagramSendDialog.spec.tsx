@@ -108,6 +108,29 @@ describe("InstagramSendDialog", () => {
     });
   });
 
+  it("shows the send hint from a 502 response", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 502,
+      json: async () => ({
+        error: "Error validating access token",
+        hint: "Token vencido: reconectá Instagram",
+      }),
+    });
+
+    render(<InstagramSendDialog {...defaultProps} />);
+    fireEvent.change(screen.getByPlaceholderText(/escribí tu mensaje/i), {
+      target: { value: "Test message" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /enviar/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Token vencido: reconectá Instagram \(Error validating access token\)/)
+      ).toBeInTheDocument();
+    });
+  });
+
   it("clears textarea after successful send", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,

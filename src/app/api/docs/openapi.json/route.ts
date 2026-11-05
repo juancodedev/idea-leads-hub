@@ -790,8 +790,9 @@ const openapi = {
     },
     "/api/activities/unread": {
       get: {
-        summary: "Contar actividades no leídas",
-        description: "Cuenta mensajes de Instagram con read_at IS NULL (BR-3).",
+        summary: "Contar mensajes de Instagram no leídos",
+        description:
+          "Badge de no leídos: suma de conversations.unread_count de las conversaciones del usuario. Las transiciones de estado de actividades no lo modifican.",
         tags: ["Activities"],
         security: [{ supabaseAuth: [] }],
         responses: {
@@ -1413,7 +1414,8 @@ const openapi = {
     "/api/leads/{id}/instagram/send": {
       post: {
         summary: "Enviar mensaje de Instagram a un lead",
-        description: "Envía un DM de Instagram a un lead a través de la API de Meta. Requiere Instagram conectado.",
+        description:
+          "Envía un DM de Instagram a un lead por la ruta única de entrega (DeliverMessage), en la conversación del lead (se crea si no existe). Requiere Instagram conectado.",
         tags: ["Leads", "Instagram"],
         security: [{ supabaseAuth: [] }],
         parameters: [
@@ -1440,21 +1442,31 @@ const openapi = {
         },
         responses: {
           200: {
-            description: "Mensaje enviado",
+            description: "Mensaje enviado (estado sent)",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/SendSuccess" } } },
+          },
+          400: {
+            description:
+              "Error de validación, lead sin identificador de Instagram, o handle no resoluble (needsManualId: true)",
             content: {
               "application/json": {
                 schema: {
                   type: "object",
                   properties: {
-                    messageId: { type: "string" },
+                    error: { type: "string" },
+                    tip: { type: "string" },
+                    needsManualId: { type: "boolean" },
                   },
                 },
               },
             },
           },
-          400: { description: "Error de validación" },
-          401: { description: "No autorizado" },
           404: { description: "Lead no encontrado" },
+          401: { description: "No autorizado" },
+          502: {
+            description: "Instagram rechazó el envío; el mensaje queda en la conversación con estado failed",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/SendFailure" } } },
+          },
           500: { description: "Error interno del servidor" },
         },
       },
@@ -1462,7 +1474,8 @@ const openapi = {
     "/api/leads/{id}/instagram/conversation": {
       get: {
         summary: "Obtener conversación de Instagram",
-        description: "Obtiene el historial de mensajes de Instagram de un lead, ordenado cronológicamente.",
+        description:
+          "Mensajes de todas las conversaciones del lead (tabla messages), ordenados del más antiguo al más reciente.",
         tags: ["Leads", "Instagram"],
         security: [{ supabaseAuth: [] }],
         parameters: [
@@ -1480,13 +1493,12 @@ const openapi = {
               "application/json": {
                 schema: {
                   type: "array",
-                  items: { $ref: "#/components/schemas/Activity" },
+                  items: { $ref: "#/components/schemas/Message" },
                 },
               },
             },
           },
           401: { description: "No autorizado" },
-          404: { description: "Lead no encontrado" },
           500: { description: "Error interno del servidor" },
         },
       },
@@ -1523,11 +1535,196 @@ const openapi = {
       },
       post: {
         summary: "Recibir evento de webhook de Instagram",
-        description: "Recibe mensajes entrantes de Instagram desde Meta y los registra como actividades en el CRM.",
+        description:
+          "Verifica X-Hub-Signature-256, registra el evento en webhook_events (idempotente), responde 200 y procesa en segundo plano.",
         tags: ["Instagram"],
         responses: {
-          200: { description: "Evento recibido" },
-          403: { description: "Firma inválida" },
+          200: { description: "Evento recibido (status: received) o duplicado (status: duplicate)" },
+          400: { description: "Payload inválido" },
+          401: { description: "Firma ausente o inválida, o secreto de la app no configurado" },
+          500: { description: "No se pudo registrar el evento; Meta reintenta" },
+        },
+      },
+    },
+    "/api/webhook/instagram/sweep": {
+      get: {
+        summary: "Reprocesar eventos de webhook pendientes",
+        description:
+          "Reintenta hasta 5 eventos en estado received con más de 2 minutos y menos de 3 intentos. Protegido con Authorization: Bearer <CRON_SECRET>.",
+        tags: ["Instagram"],
+        responses: {
+          200: { description: "Resumen del barrido" },
+          401: { description: "Secreto ausente o inválido" },
+          500: { description: "Error de configuración o del barrido" },
+        },
+      },
+    },
+    "/api/instagram/send": {
+      post: {
+        summary: "Enviar mensaje de Instagram a un participante",
+        description: "Envía un DM a un IGSID por la ruta única de entrega (DeliverMessage).",
+        tags: ["Instagram"],
+        security: [{ supabaseAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["text", "recipientId"],
+                properties: {
+                  text: { type: "string", minLength: 1 },
+                  recipientId: { type: "string", minLength: 1, description: "IGSID del destinatario" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Mensaje enviado (estado sent)",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/SendSuccess" } } },
+          },
+          400: { description: "Error de validación" },
+          401: { description: "No autorizado" },
+          502: {
+            description: "Instagram rechazó el envío; el mensaje queda en la conversación con estado failed",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/SendFailure" } } },
+          },
+          500: { description: "Error interno del servidor" },
+        },
+      },
+    },
+    "/api/instagram/conversations": {
+      get: {
+        summary: "Bandeja de conversaciones de Instagram",
+        description:
+          "Una entrada por clave (lead:<leadId> o unlinked:<igsid>), con unreadCount sumado sobre sus conversaciones, ordenadas por último mensaje.",
+        tags: ["Instagram"],
+        security: [{ supabaseAuth: [] }],
+        responses: {
+          200: {
+            description: "Conversaciones",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    conversations: { type: "array", items: { $ref: "#/components/schemas/Conversation" } },
+                  },
+                },
+              },
+            },
+          },
+          401: { description: "No autorizado" },
+          500: { description: "Error interno del servidor" },
+        },
+      },
+    },
+    "/api/messages": {
+      get: {
+        summary: "Mensajes de una clave de bandeja",
+        description: "Mensajes de todas las conversaciones de la clave, del más antiguo al más reciente.",
+        tags: ["Instagram"],
+        security: [{ supabaseAuth: [] }],
+        parameters: [{ $ref: "#/components/parameters/InboxKeyQuery" }],
+        responses: {
+          200: {
+            description: "Mensajes",
+            content: {
+              "application/json": {
+                schema: { type: "array", items: { $ref: "#/components/schemas/Message" } },
+              },
+            },
+          },
+          400: { description: "Falta key o formato inválido" },
+          401: { description: "No autorizado" },
+          500: { description: "Error interno del servidor" },
+        },
+      },
+      delete: {
+        summary: "Eliminar una conversación de la bandeja",
+        description:
+          "Elimina las actividades legacy de Instagram de la clave y sus conversaciones (los mensajes se eliminan en cascada).",
+        tags: ["Instagram"],
+        security: [{ supabaseAuth: [] }],
+        parameters: [{ $ref: "#/components/parameters/InboxKeyQuery" }],
+        responses: {
+          200: {
+            description: "Eliminada",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/SuccessResponse" } } },
+          },
+          400: { description: "Falta key o formato inválido" },
+          401: { description: "No autorizado" },
+          500: { description: "Error interno del servidor" },
+        },
+      },
+      patch: {
+        summary: "Vincular una conversación a un lead",
+        description:
+          "Asigna lead_id a las conversaciones unlinked:<igsid> y a sus actividades legacy. Una clave lead: devuelve alreadyLinked: true.",
+        tags: ["Instagram"],
+        security: [{ supabaseAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["key", "leadId"],
+                properties: {
+                  key: { type: "string", example: "unlinked:17841400000000000" },
+                  leadId: { type: "string", format: "uuid" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Vinculada",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: { success: { type: "boolean" }, alreadyLinked: { type: "boolean" } },
+                },
+              },
+            },
+          },
+          400: { description: "Faltan parámetros o formato inválido" },
+          401: { description: "No autorizado" },
+          404: { description: "Lead no encontrado" },
+          500: { description: "Error interno del servidor" },
+        },
+      },
+    },
+    "/api/messages/read": {
+      patch: {
+        summary: "Marcar una conversación como leída",
+        description:
+          "Pone unread_count = 0 en todas las conversaciones de la clave y read_at en sus actividades legacy no leídas.",
+        tags: ["Instagram"],
+        security: [{ supabaseAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["key"],
+                properties: { key: { type: "string", example: "lead:3f1c2a9e-0000-0000-0000-000000000000" } },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Marcada como leída",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/SuccessResponse" } } },
+          },
+          400: { description: "Falta key o formato inválido" },
+          401: { description: "No autorizado" },
           500: { description: "Error interno del servidor" },
         },
       },
@@ -1542,7 +1739,87 @@ const openapi = {
         description: "Token de acceso (JWT) de Supabase Auth. Formato: Bearer <token>",
       },
     },
+    parameters: {
+      InboxKeyQuery: {
+        name: "key",
+        in: "query",
+        required: true,
+        description: 'Clave de bandeja: "lead:<leadId>" o "unlinked:<igsid>"; resuelve a un conjunto de conversaciones.',
+        schema: { type: "string" },
+      },
+    },
     schemas: {
+      // ── Messaging ─────────────────────────────────────────
+      Conversation: {
+        type: "object",
+        description: "Entrada de la bandeja: el conjunto de conversaciones detrás de una clave.",
+        properties: {
+          id: { type: "string", description: 'Clave: "lead:<leadId>" o "unlinked:<igsid>"' },
+          conversationIds: { type: "array", items: { type: "string", format: "uuid" } },
+          leadId: { type: "string", format: "uuid", nullable: true },
+          leadName: { type: "string" },
+          instagramHandle: { type: "string", nullable: true },
+          instagramScopedId: { type: "string", nullable: true },
+          lastMessage: {
+            type: "object",
+            properties: {
+              text: { type: "string" },
+              timestamp: { type: "string", format: "date-time" },
+              direction: { type: "string", enum: ["inbound", "outbound"] },
+            },
+          },
+          unreadCount: { type: "integer", minimum: 0 },
+          isConnected: { type: "boolean" },
+          isLinked: { type: "boolean" },
+        },
+      },
+      Message: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          text: { type: "string" },
+          direction: { type: "string", enum: ["inbound", "outbound"] },
+          timestamp: { type: "string", format: "date-time" },
+          status: {
+            type: "string",
+            enum: ["received", "pending", "sent", "delivered", "read", "failed"],
+          },
+          errorMessage: { type: "string", nullable: true },
+          hint: { type: "string", nullable: true, description: "Sugerencia accionable cuando el envío falló" },
+        },
+      },
+      SendSuccess: {
+        type: "object",
+        required: ["messageId"],
+        properties: { messageId: { type: "string", nullable: true, description: "Id del mensaje en Instagram (mid); null si Meta no lo devolvió" } },
+      },
+      SendFailure: {
+        type: "object",
+        required: ["error", "hint"],
+        properties: {
+          error: { type: "string" },
+          hint: { type: "string", nullable: true, example: "Token vencido: reconectá Instagram" },
+        },
+      },
+      SendOutcome: {
+        description: "Resultado del canal al enviar: ok con el id externo, o error con hint.",
+        oneOf: [
+          {
+            type: "object",
+            required: ["ok", "externalId"],
+            properties: { ok: { type: "boolean", enum: [true] }, externalId: { type: "string" } },
+          },
+          {
+            type: "object",
+            required: ["ok", "error", "hint"],
+            properties: {
+              ok: { type: "boolean", enum: [false] },
+              error: { type: "string" },
+              hint: { type: "string" },
+            },
+          },
+        ],
+      },
       // ── Auth ──────────────────────────────────────────────
       LoginRequest: {
         type: "object",

@@ -1,21 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { apiHandler } from '@/lib/api/api-handler';
 import { withAuth } from '@/lib/api/with-auth';
-import { SupabaseActivityRepository } from '@/modules/activities/infrastructure/repositories/SupabaseActivityRepository';
+import { messagingModule } from '@/modules/messaging';
 
 export const runtime = 'nodejs';
 
 /**
  * GET /api/activities/unread
- * Returns the count of unread Instagram message activities, computed on the
- * read marker (`read_at IS NULL`) via the repo verb — the single source of
- * truth shared with the badge, conversations list, and page selection (BR-3).
+ * Unread Instagram badge (S12): the sum of `conversations.unread_count` over
+ * the user's conversations. Activity status transitions never touch it.
  */
 export const GET = apiHandler(async (_request: NextRequest) => {
   const { supabase, user } = await withAuth(_request);
 
-  const repo = new SupabaseActivityRepository(supabase);
-  const count = await repo.getUnreadCount(user.id);
+  const count = await messagingModule(supabase).countUnreadMessages.execute(user.id);
 
   return NextResponse.json({ count }, { status: 200 });
 });

@@ -1,4 +1,5 @@
 import { Conversation } from "../entities/Conversation";
+import { InboxKey } from "../values/InboxKey";
 
 export type NewConversation = Omit<Conversation, "id" | "createdAt" | "updatedAt">;
 
@@ -17,4 +18,14 @@ export interface ConversationRepository {
    */
   findOrCreate(conversation: NewConversation): Promise<Conversation>;
   update(id: string, patch: Partial<Conversation>): Promise<Conversation>;
+  /** The user's conversations, most recent `last_message_at` first. */
+  listByUser(userId: string): Promise<Conversation[]>;
+  /** The set of the user's conversations an inbox key resolves to (ADR-11). */
+  findByInboxKey(userId: string, key: InboxKey): Promise<Conversation[]>;
+  /** Sets `lead_id` on the user's conversations with these ids. */
+  linkToLead(userId: string, conversationIds: string[], leadId: string): Promise<void>;
+  /** Deletes the user's conversations with these ids (messages cascade). */
+  deleteByIds(userId: string, conversationIds: string[]): Promise<void>;
+  /** Sum of `unread_count` over the user's conversations (S12 badge). */
+  sumUnreadCount(userId: string): Promise<number>;
 }

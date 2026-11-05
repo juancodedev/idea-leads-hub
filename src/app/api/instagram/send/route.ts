@@ -3,10 +3,13 @@ import { z } from "zod";
 import { apiHandler } from "@/lib/api/api-handler";
 import { withAuth } from "@/lib/api/with-auth";
 import { InstagramAuthService } from "@/infrastructure/services/InstagramAuthService";
-import { InstagramMessagingService, type SendDMResult } from "@/infrastructure/services/InstagramMessagingService";
 import { logger } from "@/lib/logger";
-import { SupabaseActivityRepository } from "@/modules/activities/infrastructure/repositories/SupabaseActivityRepository";
-import { ActivityType } from "@/modules/activities/domain/enums/ActivityType";
+import { messagingModule } from "@/modules/messaging";
+import { MessageOrigin } from "@/modules/messaging/domain/enums/MessageOrigin";
+import {
+  instagramSendContext,
+  toSendResponse,
+} from "@/modules/messaging/presentation/httpResponses";
 
 export const runtime = "nodejs";
 
@@ -15,77 +18,34 @@ const SendMessageSchema = z.object({
   recipientId: z.string().min(1, "Recipient Instagram ID is required"),
 });
 
-export const POST = apiHandler(
-  async (request: NextRequest) => {
-    const { supabase, user } = await withAuth(request);
-    const body = await request.json();
-    const { text, recipientId } = SendMessageSchema.parse(body);
+/**
+ * POST /api/instagram/send — sends to a participant through DeliverMessage
+ * (S7). 200 `{ messageId }` when sent; 502 `{ error, hint }` when Graph rejects it.
+ */
+export const POST = apiHandler(async (request: NextRequest) => {
+  const { supabase, user } = await withAuth(request);
+  const body = await request.json();
+  const { text, recipientId } = SendMessageSchema.parse(body);
 
-    // Resolve auth token
-    const authService = new InstagramAuthService(supabase);
-    const tokenData = await authService.getToken(user.id);
+  const tokenData = await new InstagramAuthService(supabase).getToken(user.id);
 
-    if (!recipientId) {
-      return NextResponse.json(
-        { error: "Recipient Instagram ID is required" },
-        { status: 400 }
-      );
-    }
+  const message = await messagingModule(supabase).sendToParticipant.execute({
+    userId: user.id,
+    participantId: recipientId,
+    leadId: null,
+    body: text,
+    origin: MessageOrigin.HUMAN,
+    sendContext: instagramSendContext(user.id, tokenData),
+  });
 
-    // Send the DM via the correct API path based on auth type
-    const messagingService = new InstagramMessagingService();
-
-    let result: SendDMResult;
-    try {
-      if (tokenData.authType === "instagram_business_login") {
-        result = await messagingService.sendDMViaInstagramLogin(
-          tokenData.igId,
-          recipientId,
-          text,
-          tokenData.userToken
-        );
-      } else {
-        result = await messagingService.sendDM(
-          tokenData.igId,
-          recipientId,
-          text,
-          tokenData.token
-        );
-      }
-    } catch (sendError: any) {
-      logger.error("Instagram send failed", {
-        error: sendError.message,
-        igId: tokenData.igId,
-        recipientId,
-        authType: tokenData.authType,
-        tokenPrefix: tokenData.token?.substring(0, 8),
-      });
-      return NextResponse.json(
-        { error: sendError.message || "Error al enviar mensaje de Instagram" },
-        { status: 502 }
-      );
-    }
-
-    // Create outbound activity — no leadId (unlinked conversation)
-    const activityRepo = new SupabaseActivityRepository(supabase);
-    await activityRepo.create({
-      type: ActivityType.INSTAGRAM_MESSAGE,
-      title: `Instagram DM to ${recipientId}`,
-      description: text,
-      attachments: [
-        {
-          name: "instagram_message",
-          url: "",
-          path: "",
-          size: 0,
-          type: "instagram/message",
-        },
-      ],
+  const response = toSendResponse(message);
+  if (response.status === 502) {
+    logger.error("Instagram send failed", {
+      error: response.body.error,
+      igId: tokenData.igId,
+      recipientId,
+      authType: tokenData.authType,
     });
-
-    return NextResponse.json(
-      { messageId: result.messageId },
-      { status: 200 }
-    );
   }
-);
+  return NextResponse.json(response.body, { status: response.status });
+});

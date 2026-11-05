@@ -42,6 +42,17 @@ export class SupabaseMessageRepository implements MessageRepository {
     return ((data ?? []) as MessageRow[]).map(MessageMapper.toDomain);
   }
 
+  async findByConversations(conversationIds: string[]): Promise<Message[]> {
+    if (conversationIds.length === 0) return [];
+    const { data, error } = await this.db
+      .from(TABLE)
+      .select("*")
+      .in("conversation_id", conversationIds)
+      .order("created_at", { ascending: true });
+    if (error) raise("messages.findByConversations", error);
+    return ((data ?? []) as MessageRow[]).map(MessageMapper.toDomain);
+  }
+
   async create(message: NewMessage): Promise<Message> {
     const { data, error } = await this.db
       .from(TABLE)

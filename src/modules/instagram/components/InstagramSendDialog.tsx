@@ -46,7 +46,9 @@ export function InstagramSendDialog({
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || 'Error al enviar el mensaje');
+        // 502 carries an actionable hint (e.g. "Token vencido: reconectá Instagram")
+        const detail = data.error || 'Error al enviar el mensaje';
+        throw new Error(data.hint ? `${data.hint} (${detail})` : detail);
       }
 
       setText('');

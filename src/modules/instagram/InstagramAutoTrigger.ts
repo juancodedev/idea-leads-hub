@@ -1,6 +1,10 @@
 import { Lead } from '@/core/domain/Lead';
 import { InstagramAuthService } from '@/infrastructure/services/InstagramAuthService';
 import { InstagramMessagingService } from '@/infrastructure/services/InstagramMessagingService';
+import { SendToParticipant } from '@/modules/messaging/application/use-cases/SendToParticipant';
+import { MessageOrigin } from '@/modules/messaging/domain/enums/MessageOrigin';
+import { MessageStatus } from '@/modules/messaging/domain/enums/MessageStatus';
+import { instagramSendContext } from '@/modules/messaging/presentation/httpResponses';
 
 const AUTO_DM_TEMPLATES: Record<string, string> = {
   Interesado:
@@ -11,16 +15,24 @@ const AUTO_DM_TEMPLATES: Record<string, string> = {
     'Gracias por tu tiempo. Si en el futuro surge algo, no dudes en contactarnos.',
 };
 
+/** The messaging send entry point (`messagingModule(supabase).sendToParticipant`). */
+export type AutoDmSender = Pick<SendToParticipant, 'execute'>;
+
 export class InstagramAutoTrigger {
+  constructor(private readonly sender: AutoDmSender) {}
+
   /**
-   * Check if a lead status transition should trigger an auto-DM.
-   * @returns true if a DM was sent, false otherwise
+   * Check if a lead status transition should trigger an auto-DM, and send it
+   * through DeliverMessage with origin `auto` (S7).
+   * `_messagingService` is unused (sends go through the messaging module) and
+   * kept only so existing callers keep compiling.
+   * @returns true if the DM ended sent, false otherwise
    */
   async maybeSendAutoDm(
     lead: Lead,
     newStatus: string,
     authService: InstagramAuthService,
-    messagingService: InstagramMessagingService
+    _messagingService?: InstagramMessagingService
   ): Promise<boolean> {
     // Must have an Instagram-scoped ID to send
     if (!lead.instagramScopedId) {
@@ -35,38 +47,38 @@ export class InstagramAutoTrigger {
 
     try {
       const tokenData = await authService.getToken(lead.userId);
-      const { igId, authType } = tokenData;
 
       // TODO: Check 24h conversation window before sending.
       // Meta's messaging policy requires an active user-initiated conversation
       // within the last 24 hours for MESSAGE_TAG sends. If outside the window
       // we need to fall back to a HANDOVER_PROTOCOL or ICE_BREAKER message.
       // For now, always attempt the send and log when it's outside the window.
-      if (!igId || !tokenData.token) {
+      if (!tokenData.igId || !tokenData.token) {
         console.info(
           `[InstagramAutoTrigger] Cannot send DM for lead ${lead.id}: missing token or IG ID (outside 24h window check placeholder)`
         );
         return false;
       }
 
-      const result = authType === "instagram_business_login"
-        ? await messagingService.sendDMViaInstagramLogin(
-            igId,
-            lead.instagramScopedId,
-            template,
-            tokenData.userToken
-          )
-        : await messagingService.sendDM(
-            igId,
-            lead.instagramScopedId,
-            template,
-            tokenData.token
-          );
+      const message = await this.sender.execute({
+        userId: lead.userId,
+        participantId: lead.instagramScopedId,
+        leadId: lead.id,
+        body: template,
+        origin: MessageOrigin.AUTO,
+        sendContext: instagramSendContext(lead.userId, tokenData),
+      });
+
+      if (message.status === MessageStatus.FAILED) {
+        console.info(
+          `[InstagramAutoTrigger] Could not send auto DM for lead ${lead.id}: ${message.errorMessage ?? 'send failed'}`
+        );
+        return false;
+      }
 
       console.info(
-        `[InstagramAutoTrigger] Auto DM sent for lead ${lead.id} (status → ${newStatus}): ${result.messageId}`
+        `[InstagramAutoTrigger] Auto DM sent for lead ${lead.id} (status → ${newStatus}): ${message.externalId}`
       );
-
       return true;
     } catch (error) {
       console.info(

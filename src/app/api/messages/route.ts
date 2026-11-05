@@ -1,108 +1,62 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiHandler } from "@/lib/api/api-handler";
 import { withAuth } from "@/lib/api/with-auth";
-import { ActivityType } from "@/modules/activities/domain/enums/ActivityType";
+import { logger } from "@/lib/logger";
+import { messagingModule } from "@/modules/messaging";
+import { parseInboxKey } from "@/modules/messaging/domain/values/InboxKey";
+import { toInboxMessageResponse } from "@/modules/messaging/presentation/httpResponses";
 
 export const runtime = "nodejs";
 
+const INVALID_KEY = 'Invalid key format — expected "lead:<id>" or "unlinked:<id>"';
+
 /* ------------------------------------------------------------------ */
 /*  GET /api/messages?key=<key>                                       */
-/*  Returns messages for a conversation.                              */
-/*  Key format: "lead:<leadId>" or "unlinked:<senderId>"              */
+/*  Messages of every conversation behind the key, oldest first.      */
+/*  Key format: "lead:<leadId>" or "unlinked:<participantId>"         */
 /* ------------------------------------------------------------------ */
 export const GET = apiHandler(async (request: NextRequest) => {
-  const { supabase } = await withAuth(request);
-  const { searchParams } = new URL(request.url);
-  const key = searchParams.get("key");
+  const { supabase, user } = await withAuth(request);
+  const raw = new URL(request.url).searchParams.get("key");
 
-  if (!key) {
+  if (!raw) {
     return NextResponse.json({ error: "key query param is required" }, { status: 400 });
   }
-
-  let messages: Array<{ id: string; text: string; direction: "inbound" | "outbound"; timestamp: string }> = [];
-
-  if (key.startsWith("lead:")) {
-    const leadId = key.replace("lead:", "");
-    const { data, error } = await supabase
-      .from("activities")
-      .select("*")
-      .eq("lead_id", leadId)
-      .eq("type", ActivityType.INSTAGRAM_MESSAGE)
-      .order("created_at", { ascending: true });
-
-    if (error) {
-      console.error("Error fetching conversation:", error);
-      return NextResponse.json({ error: "Error al cargar los mensajes" }, { status: 500 });
-    }
-
-    messages = (data ?? []).map((a: any) => ({
-      id: a.id,
-      text: a.description || a.title,
-      direction: a.title.startsWith("Instagram DM from") ? ("inbound" as const) : ("outbound" as const),
-      timestamp: a.created_at,
-    }));
-  } else if (key.startsWith("unlinked:")) {
-    const senderId = key.replace("unlinked:", "");
-    const { data, error } = await supabase
-      .from("activities")
-      .select("*")
-      .is("lead_id", null)
-      .eq("type", ActivityType.INSTAGRAM_MESSAGE)
-      .or(`title.ilike.Instagram DM from ${senderId},title.ilike.Instagram DM to ${senderId}`)
-      .order("created_at", { ascending: true });
-
-    if (error) {
-      console.error("Error fetching conversation:", error);
-      return NextResponse.json({ error: "Error al cargar los mensajes" }, { status: 500 });
-    }
-
-    messages = (data ?? []).map((a: any) => ({
-      id: a.id,
-      text: a.description || a.title,
-      direction: a.title.startsWith("Instagram DM from") ? ("inbound" as const) : ("outbound" as const),
-      timestamp: a.created_at,
-    }));
-  } else {
-    return NextResponse.json({ error: 'Invalid key format — expected "lead:<id>" or "unlinked:<id>"' }, { status: 400 });
+  const key = parseInboxKey(raw);
+  if (!key) {
+    return NextResponse.json({ error: INVALID_KEY }, { status: 400 });
   }
 
-  return NextResponse.json(messages, { status: 200 });
+  try {
+    const messages = await messagingModule(supabase).getInboxMessages.execute(user.id, key);
+    return NextResponse.json(messages.map(toInboxMessageResponse), { status: 200 });
+  } catch (error) {
+    logger.error("Error fetching conversation", { error: String(error) });
+    return NextResponse.json({ error: "Error al cargar los mensajes" }, { status: 500 });
+  }
 });
 
 /* ------------------------------------------------------------------ */
 /*  DELETE /api/messages?key=<key>                                    */
-/*  Deletes all Instagram message activities in a conversation.        */
+/*  Deletes the key's legacy activities and its conversations         */
+/*  (messages cascade).                                               */
 /* ------------------------------------------------------------------ */
 export const DELETE = apiHandler(async (request: NextRequest) => {
-  const { supabase } = await withAuth(request);
-  const { searchParams } = new URL(request.url);
-  const key = searchParams.get("key");
+  const { supabase, user } = await withAuth(request);
+  const raw = new URL(request.url).searchParams.get("key");
 
-  if (!key) {
+  if (!raw) {
     return NextResponse.json({ error: "key query param is required" }, { status: 400 });
   }
-
-  let query: any;
-
-  if (key.startsWith("lead:")) {
-    const leadId = key.replace("lead:", "");
-    query = supabase.from("activities").delete().eq("lead_id", leadId).eq("type", ActivityType.INSTAGRAM_MESSAGE);
-  } else if (key.startsWith("unlinked:")) {
-    const senderId = key.replace("unlinked:", "");
-    query = supabase
-      .from("activities")
-      .delete()
-      .is("lead_id", null)
-      .eq("type", ActivityType.INSTAGRAM_MESSAGE)
-      .or(`title.ilike.Instagram DM from ${senderId},title.ilike.Instagram DM to ${senderId}`);
-  } else {
-    return NextResponse.json({ error: 'Invalid key format — expected "lead:<id>" or "unlinked:<id>"' }, { status: 400 });
+  const key = parseInboxKey(raw);
+  if (!key) {
+    return NextResponse.json({ error: INVALID_KEY }, { status: 400 });
   }
 
-  const { error } = await query;
-
-  if (error) {
-    console.error("Error deleting conversation:", error);
+  try {
+    await messagingModule(supabase).deleteInboxConversations.execute(user.id, key);
+  } catch (error) {
+    logger.error("Error deleting conversation", { error: String(error) });
     return NextResponse.json({ error: "Error al eliminar la conversación" }, { status: 500 });
   }
 
@@ -110,49 +64,42 @@ export const DELETE = apiHandler(async (request: NextRequest) => {
 });
 
 /* ------------------------------------------------------------------ */
-/*  PATCH /api/messages/link                                          */
-/*  Body: { key: "unlinked:<senderId>", leadId: "<leadId>" }          */
-/*  Links unlinked messages to a lead.                                 */
+/*  PATCH /api/messages                                               */
+/*  Body: { key: "unlinked:<participantId>", leadId: "<leadId>" }     */
+/*  Links the key's conversations and legacy activities to a lead.    */
 /* ------------------------------------------------------------------ */
 export const PATCH = apiHandler(async (request: NextRequest) => {
-  const { supabase } = await withAuth(request);
-  const body = await request.json();
-  const { key, leadId } = body;
+  const { supabase, user } = await withAuth(request);
+  const { key: raw, leadId } = await request.json();
 
-  if (!key || !leadId) {
+  if (!raw || !leadId) {
     return NextResponse.json({ error: "key and leadId are required" }, { status: 400 });
   }
 
-  if (key.startsWith("lead:")) {
+  if (typeof raw === "string" && raw.startsWith("lead:")) {
     // Already linked — nothing to do
     return NextResponse.json({ success: true, alreadyLinked: true }, { status: 200 });
   }
 
-  if (!key.startsWith("unlinked:")) {
+  const key = typeof raw === "string" ? parseInboxKey(raw) : null;
+  if (!key || key.kind !== "unlinked" || typeof leadId !== "string") {
     return NextResponse.json({ error: 'Invalid key format — expected "unlinked:<id>"' }, { status: 400 });
   }
 
-  const senderId = key.replace("unlinked:", "");
-
-  // Verify the lead exists
-  const { data: lead, error: leadError } = await supabase.from("leads").select("id").eq("id", leadId).maybeSingle();
-
-  if (leadError || !lead) {
-    return NextResponse.json({ error: "Lead no encontrado" }, { status: 404 });
-  }
-
-  // Update all unlinked Instagram message activities from this sender to point to the lead
-  const { error: updateError } = await supabase
-    .from("activities")
-    .update({ lead_id: leadId } as never)
-    .is("lead_id", null)
-    .eq("type", ActivityType.INSTAGRAM_MESSAGE)
-    .or(`title.ilike.Instagram DM from ${senderId},title.ilike.Instagram DM to ${senderId}`);
-
-  if (updateError) {
-    console.error("Error linking conversation:", updateError);
+  let result;
+  try {
+    result = await messagingModule(supabase).linkInboxConversations.execute(
+      user.id,
+      key.participantId,
+      leadId
+    );
+  } catch (error) {
+    logger.error("Error linking conversation", { error: String(error) });
     return NextResponse.json({ error: "Error al vincular la conversación" }, { status: 500 });
   }
 
+  if (result === "lead_not_found") {
+    return NextResponse.json({ error: "Lead no encontrado" }, { status: 404 });
+  }
   return NextResponse.json({ success: true, alreadyLinked: false }, { status: 200 });
 });

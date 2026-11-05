@@ -16,7 +16,9 @@ import {
   ConversationRepository,
   NewConversation,
 } from "../domain/ports/ConversationRepository";
-import { LeadLookup } from "../domain/ports/LeadLookup";
+import { LeadLookup, LeadSummary } from "../domain/ports/LeadLookup";
+import { LegacyActivityRepository } from "../domain/ports/LegacyActivityRepository";
+import { InboxKey } from "../domain/values/InboxKey";
 import { MessageRepository } from "../domain/ports/MessageRepository";
 import {
   ClaimedWebhookEvent,
@@ -50,6 +52,7 @@ export class InMemoryMessagingStore {
   activities: LegacyActivity[] = [];
   events: WebhookEvent[] = [];
   leadsByScopedId = new Map<string, string>(); // `${userId}:${igsid}` -> leadId
+  leads: Array<LeadSummary & { userId: string }> = [];
   now = new Date("2026-11-04T12:00:00Z");
 
   addAccount(overrides: Partial<ChannelAccount> = {}): ChannelAccount {
@@ -131,6 +134,33 @@ export class InMemoryMessagingStore {
     return event;
   }
 
+  addLead(overrides: Partial<LeadSummary & { userId: string }> = {}) {
+    const lead = {
+      id: nextId("lead"),
+      userId: "user_1",
+      name: "Lead",
+      instagramHandle: null,
+      instagramScopedId: null,
+      ...overrides,
+    };
+    this.leads.push(lead);
+    return lead;
+  }
+
+  addLegacyActivity(overrides: Partial<LegacyActivity> = {}): LegacyActivity {
+    const activity: LegacyActivity = {
+      id: nextId("act"),
+      userId: "user_1",
+      leadId: null,
+      title: "Instagram DM from 123",
+      description: "Hola",
+      readAt: null,
+      ...overrides,
+    };
+    this.activities.push(activity);
+    return activity;
+  }
+
   legacyFor(messageId: string): LegacyActivity[] {
     const message = this.messages.find((m) => m.id === messageId);
     return this.activities.filter((a) => a.id === message?.legacyActivityId);
@@ -172,6 +202,59 @@ export class InMemoryMessagingStore {
         Object.assign(conversation, patch);
         return conversation;
       },
+      listByUser: async (userId) =>
+        this.conversations
+          .filter((c) => c.userId === userId)
+          .sort(
+            (a, b) =>
+              (b.lastMessageAt?.getTime() ?? -Infinity) -
+              (a.lastMessageAt?.getTime() ?? -Infinity)
+          ),
+      findByInboxKey: async (userId, key) =>
+        this.conversations.filter(
+          (c) => c.userId === userId && this.matchesKey(c, key)
+        ),
+      linkToLead: async (userId, ids, leadId) => {
+        for (const c of this.conversations) {
+          if (c.userId === userId && ids.includes(c.id)) c.leadId = leadId;
+        }
+      },
+      deleteByIds: async (userId, ids) => {
+        const deleted = new Set(
+          this.conversations
+            .filter((c) => c.userId === userId && ids.includes(c.id))
+            .map((c) => c.id)
+        );
+        this.conversations = this.conversations.filter((c) => !deleted.has(c.id));
+        // ON DELETE CASCADE
+        this.messages = this.messages.filter((m) => !deleted.has(m.conversationId));
+      },
+      sumUnreadCount: async (userId) =>
+        this.conversations
+          .filter((c) => c.userId === userId)
+          .reduce((sum, c) => sum + c.unreadCount, 0),
+    };
+  }
+
+  legacyActivityRepository(): LegacyActivityRepository {
+    const matches = (a: LegacyActivity, userId: string, participantId: string) =>
+      a.userId === userId &&
+      a.leadId === null &&
+      (a.title === `Instagram DM from ${participantId}` ||
+        a.title === `Instagram DM to ${participantId}`);
+    return {
+      deleteForKey: async (userId, key) => {
+        this.activities = this.activities.filter((a) =>
+          key.kind === "lead"
+            ? !(a.userId === userId && a.leadId === key.leadId)
+            : !matches(a, userId, key.participantId)
+        );
+      },
+      linkParticipantToLead: async (userId, participantId, leadId) => {
+        for (const a of this.activities) {
+          if (matches(a, userId, participantId)) a.leadId = leadId;
+        }
+      },
     };
   }
 
@@ -182,6 +265,10 @@ export class InMemoryMessagingStore {
         this.messages.find((m) => m.externalId === externalId) ?? null,
       findByConversation: async (conversationId) =>
         this.messages.filter((m) => m.conversationId === conversationId),
+      findByConversations: async (ids) =>
+        this.messages
+          .filter((m) => ids.includes(m.conversationId))
+          .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()),
       create: async (input) => this.addMessage(input),
       markFailedIfPending: async (id, error, hint) => {
         const message = this.messages.find((m) => m.id === id)!;
@@ -201,6 +288,12 @@ export class InMemoryMessagingStore {
     return {
       findLeadIdByInstagramScopedId: async (userId, igsid) =>
         this.leadsByScopedId.get(`${userId}:${igsid}`) ?? null,
+      findSummaries: async (userId, ids) =>
+        this.leads
+          .filter((l) => l.userId === userId && ids.includes(l.id))
+          .map(({ userId: _owner, ...summary }) => summary),
+      exists: async (userId, leadId) =>
+        this.leads.some((l) => l.userId === userId && l.id === leadId),
     };
   }
 
@@ -372,6 +465,12 @@ export class InMemoryMessagingStore {
   };
 
   // -------------------------------------------------------------- helpers
+
+  private matchesKey(c: Conversation, key: InboxKey) {
+    return key.kind === "lead"
+      ? c.leadId === key.leadId
+      : c.leadId === null && c.externalId === key.participantId;
+  }
 
   private findConversation(accountId: string, externalId: string) {
     return (

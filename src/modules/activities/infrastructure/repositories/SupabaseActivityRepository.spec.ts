@@ -28,8 +28,11 @@ const mockOr = jest.fn();
 const mockOrder = jest.fn();
 const mockRange = jest.fn();
 
+const mockRpc = jest.fn();
+
 const fakeSupabase = {
   from: mockFrom,
+  rpc: mockRpc,
   auth: { getUser: mockGetUser },
 } as unknown as SupabaseClient<Database>;
 
@@ -78,6 +81,7 @@ const igRow = { ...baseRow, type: ActivityType.INSTAGRAM_MESSAGE };
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockRpc.mockResolvedValue({ data: null, error: null });
   mockFrom.mockReturnValue(mockChain);
   mockUpdate.mockReturnValue(mockChain);
   mockEq.mockReturnValue(mockChain);
@@ -208,6 +212,48 @@ describe("SupabaseActivityRepository.markRead / markUnread (BR-3 guard + only re
     expect(payload).not.toHaveProperty("completed");
     expect(mockEq).toHaveBeenCalledWith("type", ActivityType.INSTAGRAM_MESSAGE);
     expect(result.readAt).toBeUndefined();
+  });
+});
+
+describe("SupabaseActivityRepository.markRead / markUnread (S12 conversation badge sync)", () => {
+  beforeEach(() => {
+    mockRpc.mockReset();
+    mockRpc.mockResolvedValue({ data: null, error: null });
+  });
+
+  it("should sync the linked conversation before setting read_at", async () => {
+    mockSingle.mockResolvedValue({ data: { ...igRow, read_at: "2024-06-01T10:00:00Z" }, error: null });
+
+    await createRepo().markRead("act-1");
+
+    expect(mockRpc).toHaveBeenCalledWith("messaging_sync_legacy_read", {
+      p_activity_id: "act-1",
+      p_read: true,
+    });
+    expect(mockRpc.mock.invocationCallOrder[0]).toBeLessThan(
+      mockUpdate.mock.invocationCallOrder[0]
+    );
+  });
+
+  it("should sync the linked conversation before clearing read_at", async () => {
+    mockSingle.mockResolvedValue({ data: { ...igRow, read_at: null }, error: null });
+
+    await createRepo().markUnread("act-1");
+
+    expect(mockRpc).toHaveBeenCalledWith("messaging_sync_legacy_read", {
+      p_activity_id: "act-1",
+      p_read: false,
+    });
+    expect(mockRpc.mock.invocationCallOrder[0]).toBeLessThan(
+      mockUpdate.mock.invocationCallOrder[0]
+    );
+  });
+
+  it("should not change read_at when the sync fails", async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { code: "XX000", message: "boom" } });
+
+    await expect(createRepo().markRead("act-1")).rejects.toBeDefined();
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 });
 
