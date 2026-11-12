@@ -64,6 +64,12 @@ export function LeadPopup({ lead, stages, open, onOpenChange, onLeadUpdated }: L
       linkedinUrl: lead.linkedinUrl || '',
       estimatedValue: lead.estimatedValue || undefined,
       nextFollowUp: lead.nextFollowUp || '',
+      externalId: lead.externalId || '',
+      city: lead.city || '',
+      industry: lead.industry || '',
+      opportunityScore: lead.opportunityScore ?? undefined,
+      rating: lead.rating ?? undefined,
+      reviewsCount: lead.reviewsCount ?? undefined,
       status: lead.status,
       source: lead.source || '',
       notes: lead.notes || '',
@@ -100,6 +106,12 @@ export function LeadPopup({ lead, stages, open, onOpenChange, onLeadUpdated }: L
           linkedinUrl: lead.linkedinUrl || '',
           estimatedValue: lead.estimatedValue || undefined,
           nextFollowUp: lead.nextFollowUp || '',
+          externalId: lead.externalId || '',
+          city: lead.city || '',
+          industry: lead.industry || '',
+          opportunityScore: lead.opportunityScore ?? undefined,
+          rating: lead.rating ?? undefined,
+          reviewsCount: lead.reviewsCount ?? undefined,
           status: lead.status,
           source: lead.source || '',
           notes: lead.notes || '',
@@ -126,6 +138,12 @@ export function LeadPopup({ lead, stages, open, onOpenChange, onLeadUpdated }: L
         linkedinUrl: values.linkedinUrl || undefined,
         estimatedValue: values.estimatedValue || undefined,
         nextFollowUp: values.nextFollowUp || undefined,
+        externalId: values.externalId || undefined,
+        city: values.city || undefined,
+        industry: values.industry || undefined,
+        opportunityScore: values.opportunityScore ?? undefined,
+        rating: values.rating ?? undefined,
+        reviewsCount: values.reviewsCount ?? undefined,
         source: values.source || undefined,
         notes: values.notes || undefined,
         pipelineId: values.pipelineId || undefined,
@@ -168,7 +186,7 @@ export function LeadPopup({ lead, stages, open, onOpenChange, onLeadUpdated }: L
                   <Input id="company" {...form.register('company')} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">Email (opcional)</Label>
                   <Input id="email" type="email" {...form.register('email')} />
                 </div>
                 <div className="space-y-2">
@@ -206,6 +224,26 @@ export function LeadPopup({ lead, stages, open, onOpenChange, onLeadUpdated }: L
                 <div className="space-y-2">
                   <Label htmlFor="nextFollowUp">Próximo seguimiento</Label>
                   <Input id="nextFollowUp" type="date" {...form.register('nextFollowUp')} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="city">Ciudad / Comuna</Label>
+                  <Input id="city" placeholder="Rosario, Palermo..." {...form.register('city')} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="industry">Rubro</Label>
+                  <Input id="industry" placeholder="Retail, Salud..." {...form.register('industry')} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="opportunityScore">Puntaje de oportunidad</Label>
+                  <Input id="opportunityScore" type="number" min="0" max="100" step="1" placeholder="0-100" {...form.register('opportunityScore')} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="rating">Rating</Label>
+                  <Input id="rating" type="number" min="0" max="5" step="0.1" placeholder="0-5" {...form.register('rating')} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="reviewsCount">Reseñas</Label>
+                  <Input id="reviewsCount" type="number" min="0" step="1" placeholder="Ej: 132" {...form.register('reviewsCount')} />
                 </div>
               </div>
 

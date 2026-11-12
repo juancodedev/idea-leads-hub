@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 interface EmailComposeDialogProps {
   leadId: string;
   leadName: string;
-  leadEmail: string;
+  leadEmail?: string;
   onSent?: () => void;
 }
 
@@ -20,6 +20,10 @@ export function EmailComposeDialog({ leadId, leadName, leadEmail, onSent }: Emai
   const [sending, setSending] = React.useState(false);
 
   const handleSend = async () => {
+    if (!leadEmail) {
+      toast.error('El lead no tiene email. Editá el lead y agregá uno.');
+      return;
+    }
     if (!subject.trim() || !body.trim()) {
       toast.error('El asunto y el contenido son obligatorios');
       return;
@@ -53,7 +57,7 @@ export function EmailComposeDialog({ leadId, leadName, leadEmail, onSent }: Emai
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="w-full gap-2">
+        <Button className="w-full gap-2" disabled={!leadEmail}>
           <Send className="h-4 w-4" />
           Enviar Email
         </Button>
@@ -65,7 +69,7 @@ export function EmailComposeDialog({ leadId, leadName, leadEmail, onSent }: Emai
 
         <div className="space-y-4">
           <div className="text-sm text-muted-foreground">
-            Para: <span className="font-medium text-foreground">{leadEmail}</span>
+            Para: <span className="font-medium text-foreground">{leadEmail ?? 'sin email'}</span>
           </div>
 
           <input
