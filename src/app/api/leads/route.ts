@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/infrastructure/database/server';
 import { apiHandler } from '@/lib/api/api-handler';
 import { withAuth } from '@/lib/api/with-auth';
 import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLeadRepository';
@@ -9,63 +8,76 @@ import { ApiCreateLeadSchema } from '@/core/domain/LeadSchema';
 /**
  * @openapi
  * /api/leads:
- *   post:
- *     summary: Crear un nuevo lead
- *     description: Permite cargar un nuevo lead en el sistema con validación estricta y autenticación.
+ *   get:
+ *     summary: Listar leads
+ *     description: Lista paginada de leads. Acepta sesión o API key del CRM.
  *     security:
- *       - bearerAuth: []
+ *       - supabaseAuth: []
+ *       - apiKeyAuth: []
+ *     parameters:
+ *       - name: q
+ *         in: query
+ *         schema: { type: string }
+ *         description: Busca por nombre, empresa, email o externalId.
+ *       - name: status
+ *         in: query
+ *         schema: { type: string }
+ *       - name: source
+ *         in: query
+ *         schema: { type: string }
+ *       - name: sort
+ *         in: query
+ *         schema:
+ *           type: string
+ *           enum: [name, company, email, status, createdAt, updatedAt, estimatedValue, opportunityScore, rating]
+ *       - name: order
+ *         in: query
+ *         schema: { type: string, enum: [asc, desc], default: desc }
+ *       - name: page
+ *         in: query
+ *         schema: { type: integer, default: 1 }
+ *       - name: limit
+ *         in: query
+ *         schema: { type: integer, default: 25 }
+ *     responses:
+ *       200:
+ *         description: Lista paginada de leads
+ *       401:
+ *         description: No autorizado
+ *   post:
+ *     summary: Crear o actualizar (upsert) un lead
+ *     description: >
+ *       Crea un lead con validación estricta. Si se envía `externalId` y ya existe
+ *       un lead del mismo usuario con ese identificador, se actualiza y responde 200;
+ *       si no existe, se crea y responde 201. Así un reintento o un backfill repetido
+ *       no duplica leads.
+ *     security:
+ *       - supabaseAuth: []
+ *       - apiKeyAuth: []
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - empresa
- *               - email
- *               - origen
- *             properties:
- *               empresa:
- *                 type: string
- *                 example: "Mi Empresa S.A."
- *               email:
- *                 type: string
- *                 format: email
- *                 example: "contacto@miempresa.com"
- *               origen:
- *                 type: string
- *                 example: "Campana Web 2024"
- *               nombre:
- *                 type: string
- *                 example: "Juan Pérez"
- *               telefono:
- *                 type: string
- *                 example: "+34 600000000"
- *               notas:
- *                 type: string
- *                 example: "Interesado en servicios de consultoría."
- *               status:
- *                 type: string
- *                 enum: [Nuevo, Contactado, Interesado, Propuesta, Ganado, Perdido]
- *                 default: Nuevo
+ *             $ref: '#/components/schemas/CreateLeadRequest'
  *     responses:
  *       201:
- *         description: Lead creado exitosamente
+ *         description: Lead creado
+ *       200:
+ *         description: Lead existente actualizado por externalId
  *       400:
- *         description: Error de validación o datos incorrectos
+ *         description: Error de validación
  *       401:
  *         description: No autorizado
- *       500:
- *         description: Error interno del servidor
  */
 
 export const runtime = 'nodejs';
 
 export const GET = apiHandler(async (request: NextRequest) => {
-  const { supabase } = await withAuth(request);
+  const { supabase, scopedUserId } = await withAuth(request, { allowApiKey: true });
   const { searchParams } = new URL(request.url);
 
-  const repo = new SupabaseLeadRepository(supabase);
+  const repo = new SupabaseLeadRepository(supabase, scopedUserId);
   const result = await repo.search({
     query: searchParams.get('q') ?? undefined,
     status: searchParams.get('status') ?? undefined,
@@ -86,19 +98,8 @@ export const GET = apiHandler(async (request: NextRequest) => {
 });
 
 export const POST = apiHandler(async (request: NextRequest) => {
-  const supabase = await createClient();
+  const { supabase, scopedUserId } = await withAuth(request, { allowApiKey: true });
 
-  // Check authentication
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return NextResponse.json(
-      { error: 'No autorizado. Se requiere una sesión válida.' },
-      { status: 401 }
-    );
-  }
-
-  // Parse and validate body
   const body = await request.json();
   const validation = ApiCreateLeadSchema.safeParse(body);
 
@@ -115,11 +116,10 @@ export const POST = apiHandler(async (request: NextRequest) => {
   const data = validation.data;
 
   // Dependency Injection (Hexagonal Architecture)
-  const repository = new SupabaseLeadRepository(supabase);
-  const useCase = new CreateLead(repository);
+  const repository = new SupabaseLeadRepository(supabase, scopedUserId);
 
-  // Map API fields to DTO (prefer English, fall back to Spanish for backward compat)
-  const lead = await useCase.execute({
+  // English is the canonical contract; Spanish aliases stay for backward compat.
+  const dto = {
     company: data.company || data.empresa!,
     email: data.email,
     source: data.source || data.origen!,
@@ -128,8 +128,31 @@ export const POST = apiHandler(async (request: NextRequest) => {
     address: data.address || data.direccion,
     website: data.website || data.sitio_web,
     notes: data.notes || data.notas,
-    status: data.status || 'Nuevo'
-  });
+    status: data.status || 'Nuevo',
+    instagramHandle: data.instagramHandle,
+    instagramScopedId: data.instagramScopedId,
+    jobTitle: data.jobTitle,
+    linkedinUrl: data.linkedinUrl,
+    estimatedValue: data.estimatedValue,
+    nextFollowUp: data.nextFollowUp,
+    externalId: data.externalId,
+    city: data.city,
+    industry: data.industry,
+    opportunityScore: data.opportunityScore,
+    rating: data.rating,
+    reviewsCount: data.reviewsCount,
+  };
+
+  if (dto.externalId) {
+    const { lead, created } = await repository.upsertByExternalId({
+      ...dto,
+      externalId: dto.externalId,
+    });
+    return NextResponse.json(lead, { status: created ? 201 : 200 });
+  }
+
+  const useCase = new CreateLead(repository);
+  const lead = await useCase.execute(dto);
 
   return NextResponse.json(lead, { status: 201 });
 });

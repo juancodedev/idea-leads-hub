@@ -79,7 +79,7 @@ export interface Database {
           user_id: string;
           name: string;
           company: string;
-          email: string;
+          email: string | null;
           phone: string | null;
           address: string | null;
           website: string | null;
@@ -95,6 +95,12 @@ export interface Database {
           estimated_value: number | null;
           next_follow_up: string | null;
           last_activity_at: string | null;
+          external_id: string | null;
+          city: string | null;
+          industry: string | null;
+          opportunity_score: number | null;
+          rating: number | null;
+          reviews_count: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -103,7 +109,7 @@ export interface Database {
           user_id: string;
           name: string;
           company: string;
-          email: string;
+          email?: string | null;
           phone?: string | null;
           address?: string | null;
           website?: string | null;
@@ -119,6 +125,12 @@ export interface Database {
           estimated_value?: number | null;
           next_follow_up?: string | null;
           last_activity_at?: string | null;
+          external_id?: string | null;
+          city?: string | null;
+          industry?: string | null;
+          opportunity_score?: number | null;
+          rating?: number | null;
+          reviews_count?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -127,7 +139,7 @@ export interface Database {
           user_id?: string;
           name?: string;
           company?: string;
-          email?: string;
+          email?: string | null;
           phone?: string | null;
           address?: string | null;
           website?: string | null;
@@ -143,6 +155,12 @@ export interface Database {
           estimated_value?: number | null;
           next_follow_up?: string | null;
           last_activity_at?: string | null;
+          external_id?: string | null;
+          city?: string | null;
+          industry?: string | null;
+          opportunity_score?: number | null;
+          rating?: number | null;
+          reviews_count?: number | null;
           created_at?: string;
           updated_at?: string;
         };

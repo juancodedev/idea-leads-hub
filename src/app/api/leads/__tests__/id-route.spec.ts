@@ -121,6 +121,89 @@ describe("PATCH /api/leads/[id] (English fields)", () => {
   });
 });
 
+describe("PATCH /api/leads/[id] — integration fields", () => {
+  beforeEach(() => {
+    mockGetById.mockResolvedValue(mockLead);
+    mockUpdate.mockClear();
+  });
+
+  it("updates the qualification fields", async () => {
+    mockUpdate.mockResolvedValue(mockLead);
+
+    const request = new NextRequest("http://localhost:3000/api/leads/lead-1", {
+      method: "PATCH",
+      body: JSON.stringify({
+        city: "Rosario",
+        industry: "Retail",
+        opportunityScore: 87,
+        rating: 4.5,
+        reviewsCount: 132,
+        externalId: "acme.com",
+      }),
+    });
+    const response = await PATCH(request, { params: { id: "lead-1" } });
+
+    expect(response.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalledWith({
+      id: "lead-1",
+      city: "Rosario",
+      industry: "Retail",
+      opportunityScore: 87,
+      rating: 4.5,
+      reviewsCount: 132,
+      externalId: "acme.com",
+    });
+  });
+
+  it("clears the email with an empty string", async () => {
+    mockUpdate.mockResolvedValue(mockLead);
+
+    const request = new NextRequest("http://localhost:3000/api/leads/lead-1", {
+      method: "PATCH",
+      body: JSON.stringify({ email: "" }),
+    });
+    const response = await PATCH(request, { params: { id: "lead-1" } });
+
+    expect(response.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalledWith({ id: "lead-1", email: "" });
+  });
+
+  it("rejects an invalid email", async () => {
+    const request = new NextRequest("http://localhost:3000/api/leads/lead-1", {
+      method: "PATCH",
+      body: JSON.stringify({ email: "not-an-email" }),
+    });
+    const response = await PATCH(request, { params: { id: "lead-1" } });
+
+    expect(response.status).toBe(400);
+  });
+
+  it("updates the fields the old PATCH schema silently dropped", async () => {
+    mockUpdate.mockResolvedValue(mockLead);
+
+    const request = new NextRequest("http://localhost:3000/api/leads/lead-1", {
+      method: "PATCH",
+      body: JSON.stringify({
+        jobTitle: "CTO",
+        linkedinUrl: "https://linkedin.com/in/cto",
+        estimatedValue: 25000,
+        nextFollowUp: "2026-08-15T10:00:00Z",
+      }),
+    });
+    const response = await PATCH(request, { params: { id: "lead-1" } });
+
+    expect(response.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        jobTitle: "CTO",
+        linkedinUrl: "https://linkedin.com/in/cto",
+        estimatedValue: 25000,
+        nextFollowUp: "2026-08-15T10:00:00Z",
+      })
+    );
+  });
+});
+
 describe("DELETE /api/leads/[id]", () => {
   beforeEach(() => {
     mockGetById.mockClear();

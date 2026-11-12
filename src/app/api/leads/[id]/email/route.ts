@@ -26,6 +26,12 @@ export const POST = apiHandler(async (request: NextRequest, context: { params: P
   if (!lead) throw new NotFoundError('Lead no encontrado');
 
   const emailTo = overrideTo ?? lead.email;
+  if (!emailTo) {
+    return NextResponse.json(
+      { error: 'El lead no tiene email. Agregá uno o indicá un destinatario.' },
+      { status: 400 }
+    );
+  }
 
   // Enviar email vía Resend
   const emailService = new EmailService();
