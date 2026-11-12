@@ -47,6 +47,81 @@ const openapi = {
         },
       },
     },
+    "/api/auth/api-keys": {
+      get: {
+        summary: "Listar las API keys del usuario",
+        description: "Devuelve las API keys propias (sin el valor en claro) para auditar cuáles están activas.",
+        tags: ["Auth"],
+        security: [{ supabaseAuth: [] }],
+        responses: {
+          200: {
+            description: "Lista de API keys",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    data: { type: "array", items: { $ref: "#/components/schemas/ApiKey" } },
+                  },
+                },
+              },
+            },
+          },
+          401: { description: "No autorizado" },
+          500: { description: "Error interno del servidor" },
+        },
+      },
+      post: {
+        summary: "Crear una API key para integraciones",
+        description:
+          "Genera una API key de máquina para que una integración (por ejemplo el Prospector) no tenga que guardar la contraseña del usuario. El valor en claro se devuelve una sola vez; en la base sólo queda el hash.",
+        tags: ["Auth"],
+        security: [{ supabaseAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/CreateApiKeyRequest" },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: "API key creada (el campo key no se puede recuperar después)",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiKeyCreated" },
+              },
+            },
+          },
+          400: { description: "Error de validación" },
+          401: { description: "No autorizado" },
+          500: { description: "Error interno del servidor" },
+        },
+      },
+    },
+    "/api/auth/api-keys/{id}": {
+      delete: {
+        summary: "Revocar una API key",
+        description: "Marca la API key como revocada. Las integraciones que la usen reciben 401.",
+        tags: ["Auth"],
+        security: [{ supabaseAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          204: { description: "API key revocada (sin contenido)" },
+          401: { description: "No autorizado" },
+          404: { description: "API key no encontrada" },
+          500: { description: "Error interno del servidor" },
+        },
+      },
+    },
     "/api/profile": {
       get: {
         summary: "Obtener perfil del usuario autenticado",
@@ -1135,9 +1210,9 @@ const openapi = {
     "/api/leads": {
       get: {
         summary: "Listar leads",
-        description: "Obtiene todos los leads con filtros opcionales por status y búsqueda por texto.",
+        description: "Lista paginada de leads. Acepta sesión de usuario o API key del CRM.",
         tags: ["Leads"],
-        security: [{ supabaseAuth: [] }],
+        security: [{ supabaseAuth: [] }, { apiKeyAuth: [] }],
         parameters: [
           {
             name: "status",
@@ -1147,21 +1222,62 @@ const openapi = {
             description: "Filtrar por estado",
           },
           {
+            name: "source",
+            in: "query",
+            required: false,
+            schema: { type: "string" },
+            description: "Filtrar por origen",
+          },
+          {
             name: "q",
             in: "query",
             required: false,
             schema: { type: "string" },
-            description: "Búsqueda por empresa, nombre, email, sitio web, cargo o teléfono",
+            description: "Búsqueda por nombre, empresa, email o externalId",
+          },
+          {
+            name: "sort",
+            in: "query",
+            required: false,
+            schema: {
+              type: "string",
+              enum: ["name", "company", "email", "status", "createdAt", "updatedAt", "estimatedValue", "opportunityScore", "rating"],
+            },
+            description: "Campo de ordenamiento",
+          },
+          {
+            name: "order",
+            in: "query",
+            required: false,
+            schema: { type: "string", enum: ["asc", "desc"], default: "desc" },
+          },
+          {
+            name: "page",
+            in: "query",
+            required: false,
+            schema: { type: "integer", default: 1 },
+          },
+          {
+            name: "limit",
+            in: "query",
+            required: false,
+            schema: { type: "integer", default: 25 },
           },
         ],
         responses: {
           200: {
-            description: "Lista de leads",
+            description: "Lista paginada de leads",
             content: {
               "application/json": {
                 schema: {
-                  type: "array",
-                  items: { $ref: "#/components/schemas/Lead" },
+                  type: "object",
+                  properties: {
+                    data: { type: "array", items: { $ref: "#/components/schemas/Lead" } },
+                    total: { type: "integer" },
+                    page: { type: "integer" },
+                    limit: { type: "integer" },
+                    totalPages: { type: "integer" },
+                  },
                 },
               },
             },
@@ -1171,10 +1287,11 @@ const openapi = {
         },
       },
       post: {
-        summary: "Crear un nuevo lead",
-        description: "Permite cargar un nuevo lead en el sistema con validación estricta y autenticación.",
+        summary: "Crear o actualizar (upsert) un lead",
+        description:
+          "Crea un lead. Si se envía `externalId` y ya existe un lead del mismo usuario con ese identificador, actualiza ese lead y responde 200; si no existe, lo crea y responde 201. Un reintento del envío o un backfill repetido nunca duplica leads. English camelCase es el contrato canónico; los campos en español (empresa, origen, nombre, teléfono, dirección, sitio_web, notas) se aceptan como alias deprecated.",
         tags: ["Leads"],
-        security: [{ supabaseAuth: [] }],
+        security: [{ supabaseAuth: [] }, { apiKeyAuth: [] }],
         requestBody: {
           required: true,
           content: {
@@ -1194,18 +1311,85 @@ const openapi = {
               },
             },
           },
+          200: {
+            description: "Lead existente actualizado por externalId (upsert)",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Lead" },
+              },
+            },
+          },
           400: { description: "Error de validación o datos incorrectos" },
           401: { description: "No autorizado" },
           500: { description: "Error interno del servidor" },
         },
       },
     },
+    "/api/leads/search": {
+      get: {
+        summary: "Búsqueda ligera de leads",
+        description:
+          "Devuelve id, nombre, empresa y estado de los leads que coinciden con `q` (nombre, empresa, email o externalId). Acepta sesión o API key del CRM.",
+        tags: ["Leads"],
+        security: [{ supabaseAuth: [] }, { apiKeyAuth: [] }],
+        parameters: [
+          {
+            name: "q",
+            in: "query",
+            required: true,
+            schema: { type: "string" },
+            description: "Texto a buscar (mínimo uno)",
+          },
+          {
+            name: "status",
+            in: "query",
+            required: false,
+            schema: { type: "string" },
+          },
+          {
+            name: "source",
+            in: "query",
+            required: false,
+            schema: { type: "string" },
+          },
+          {
+            name: "page",
+            in: "query",
+            required: false,
+            schema: { type: "integer", default: 1 },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Coincidencias",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      id: { type: "string", format: "uuid" },
+                      name: { type: "string" },
+                      company: { type: "string" },
+                      status: { type: "string" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          400: { description: "Falta el parámetro q" },
+          401: { description: "No autorizado" },
+        },
+      },
+    },
     "/api/leads/{id}": {
       get: {
         summary: "Obtener lead",
-        description: "Obtiene un lead por su ID.",
+        description: "Obtiene un lead por su ID. Acepta sesión o API key del CRM.",
         tags: ["Leads"],
-        security: [{ supabaseAuth: [] }],
+        security: [{ supabaseAuth: [] }, { apiKeyAuth: [] }],
         parameters: [
           {
             name: "id",
@@ -1230,9 +1414,9 @@ const openapi = {
       },
       patch: {
         summary: "Actualizar lead",
-        description: "Actualiza parcialmente un lead con campos en inglés.",
+        description: "Actualiza parcialmente un lead con campos en inglés (contrato canónico). Acepta sesión o API key del CRM. Un string vacío limpia el valor.",
         tags: ["Leads"],
-        security: [{ supabaseAuth: [] }],
+        security: [{ supabaseAuth: [] }, { apiKeyAuth: [] }],
         parameters: [
           {
             name: "id",
@@ -1751,6 +1935,13 @@ const openapi = {
         name: "Authorization",
         description: "Token de acceso (JWT) de Supabase Auth. Formato: Bearer <token>",
       },
+      apiKeyAuth: {
+        type: "apiKey",
+        in: "header",
+        name: "X-API-Key",
+        description:
+          "API key del CRM para integraciones (formato crm_...). También se acepta como Authorization: Bearer crm_.... Se crea en POST /api/auth/api-keys y se revoca en DELETE /api/auth/api-keys/{id}.",
+      },
     },
     parameters: {
       InboxKeyQuery: {
@@ -2194,41 +2385,48 @@ const openapi = {
       // ── Leads ─────────────────────────────────────────────
       CreateLeadRequest: {
         type: "object",
-        required: ["empresa", "email", "origen"],
+        description:
+          "Contrato canónico en inglés. company y source son obligatorios; email es opcional. Los campos en español son alias deprecated que se seguirán aceptando por compatibilidad. Si se envía externalId, el POST hace upsert (201 al crear, 200 al actualizar).",
         properties: {
-          empresa: {
+          company: {
             type: "string",
+            minLength: 1,
+            description: "Empresa (canónico)",
             example: "Mi Empresa S.A.",
+          },
+          source: {
+            type: "string",
+            minLength: 1,
+            description: "Origen del lead (canónico)",
+            example: "Campana Web 2024",
           },
           email: {
             type: "string",
             format: "email",
+            description: "Opcional: los leads que sólo tienen WhatsApp o Instagram no tienen email.",
             example: "contacto@miempresa.com",
           },
-          origen: {
+          name: {
             type: "string",
-            example: "Campana Web 2024",
-          },
-          nombre: {
-            type: "string",
+            description: "Nombre del contacto. Si falta, se usa la empresa.",
             example: "Juan Pérez",
           },
-          telefono: {
+          phone: {
             type: "string",
-            example: "+34 600000000",
+            example: "+54 9 341 555 5555",
           },
-          direccion: {
+          address: {
             type: "string",
             description: "Dirección del lead",
             example: "Av. Corrientes 1234, CABA",
           },
-          sitio_web: {
+          website: {
             type: "string",
             format: "uri",
             description: "Sitio web del lead",
             example: "https://miempresa.com",
           },
-          notas: {
+          notes: {
             type: "string",
             example: "Interesado en servicios de consultoría.",
           },
@@ -2236,6 +2434,44 @@ const openapi = {
             type: "string",
             example: "Nuevo",
             default: "Nuevo",
+          },
+          externalId: {
+            type: "string",
+            maxLength: 200,
+            description:
+              "Identificador propio del cliente (por ejemplo el dominio). Único por usuario; habilita el upsert idempotente.",
+            example: "miempresa.com",
+          },
+          city: {
+            type: "string",
+            description: "Ciudad o comuna",
+            example: "Rosario",
+          },
+          industry: {
+            type: "string",
+            description: "Rubro",
+            example: "Retail",
+          },
+          opportunityScore: {
+            type: "integer",
+            minimum: 0,
+            maximum: 100,
+            description: "Puntaje de oportunidad importado (0-100)",
+            example: 87,
+          },
+          rating: {
+            type: "number",
+            format: "float",
+            minimum: 0,
+            maximum: 5,
+            description: "Rating de reseñas (0-5)",
+            example: 4.5,
+          },
+          reviewsCount: {
+            type: "integer",
+            minimum: 0,
+            description: "Cantidad de reseñas",
+            example: 132,
           },
           instagramHandle: {
             type: "string",
@@ -2270,6 +2506,76 @@ const openapi = {
             description: "Próxima fecha de seguimiento",
             example: "2026-08-15T10:00:00Z",
           },
+          empresa: {
+            type: "string",
+            deprecated: true,
+            description: "Alias deprecated de company",
+            example: "Mi Empresa S.A.",
+          },
+          origen: {
+            type: "string",
+            deprecated: true,
+            description: "Alias deprecated de source",
+            example: "Campana Web 2024",
+          },
+          nombre: {
+            type: "string",
+            deprecated: true,
+            description: "Alias deprecated de name",
+          },
+          telefono: {
+            type: "string",
+            deprecated: true,
+            description: "Alias deprecated de phone",
+          },
+          direccion: {
+            type: "string",
+            deprecated: true,
+            description: "Alias deprecated de address",
+          },
+          sitio_web: {
+            type: "string",
+            format: "uri",
+            deprecated: true,
+            description: "Alias deprecated de website",
+          },
+          notas: {
+            type: "string",
+            deprecated: true,
+            description: "Alias deprecated de notes",
+          },
+        },
+      },
+      ApiKey: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          name: { type: "string", example: "Prospector" },
+          key_prefix: { type: "string", description: "Primeros caracteres, para reconocer la key", example: "crm_AbCdEfGh" },
+          last_used_at: { type: "string", format: "date-time", nullable: true },
+          revoked_at: { type: "string", format: "date-time", nullable: true },
+          created_at: { type: "string", format: "date-time" },
+        },
+      },
+      CreateApiKeyRequest: {
+        type: "object",
+        required: ["name"],
+        properties: {
+          name: { type: "string", minLength: 1, maxLength: 80, example: "Prospector" },
+        },
+      },
+      ApiKeyCreated: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          name: { type: "string", example: "Prospector" },
+          prefix: { type: "string", example: "crm_AbCdEfGh" },
+          key: {
+            type: "string",
+            description: "Valor en claro. Se muestra una sola vez; no se puede recuperar después.",
+            example: "crm_AbCdEfGh...",
+          },
+          createdAt: { type: "string", format: "date-time" },
         },
       },
       Lead: {
@@ -2278,7 +2584,7 @@ const openapi = {
           id: { type: "string", format: "uuid" },
           name: { type: "string" },
           company: { type: "string" },
-          email: { type: "string", format: "email" },
+          email: { type: "string", format: "email", nullable: true, description: "Opcional" },
           phone: { type: "string", nullable: true },
           address: { type: "string", nullable: true, description: "Dirección del lead" },
           website: { type: "string", format: "uri", nullable: true, description: "Sitio web del lead" },
@@ -2294,16 +2600,23 @@ const openapi = {
           linkedinUrl: { type: "string", format: "uri", nullable: true, description: "URL de LinkedIn" },
           estimatedValue: { type: "number", format: "float", nullable: true, description: "Valor estimado" },
           nextFollowUp: { type: "string", format: "date-time", nullable: true, description: "Próximo seguimiento" },
+          externalId: { type: "string", nullable: true, description: "Identificador externo (único por usuario)" },
+          city: { type: "string", nullable: true, description: "Ciudad o comuna" },
+          industry: { type: "string", nullable: true, description: "Rubro" },
+          opportunityScore: { type: "integer", minimum: 0, maximum: 100, nullable: true, description: "Puntaje de oportunidad importado" },
+          rating: { type: "number", format: "float", minimum: 0, maximum: 5, nullable: true, description: "Rating de reseñas" },
+          reviewsCount: { type: "integer", minimum: 0, nullable: true, description: "Cantidad de reseñas" },
           createdAt: { type: "string", format: "date-time" },
           updatedAt: { type: "string", format: "date-time" },
         },
       },
       UpdateLeadRequest: {
         type: "object",
+        description: "Todos los campos son opcionales. Un string vacío limpia el valor.",
         properties: {
           name: { type: "string", minLength: 1, description: "Nombre del contacto" },
           company: { type: "string", minLength: 1, description: "Empresa" },
-          email: { type: "string", format: "email", description: "Email" },
+          email: { type: "string", format: "email", nullable: true, description: "Email (opcional; '' o null lo limpia)" },
           phone: { type: "string", description: "Teléfono" },
           address: { type: "string", description: "Dirección del lead" },
           website: { type: "string", format: "uri", description: "Sitio web del lead" },
@@ -2316,8 +2629,14 @@ const openapi = {
           instagramScopedId: { type: "string", description: "ID numérico de Instagram del lead" },
           jobTitle: { type: "string", description: "Cargo del contacto" },
           linkedinUrl: { type: "string", format: "uri", description: "URL del perfil de LinkedIn" },
-          estimatedValue: { type: "number", format: "float", description: "Valor estimado de la oportunidad" },
-          nextFollowUp: { type: "string", format: "date-time", description: "Próxima fecha de seguimiento" },
+          estimatedValue: { type: "number", format: "float", nullable: true, description: "Valor estimado de la oportunidad" },
+          nextFollowUp: { type: "string", format: "date-time", nullable: true, description: "Próxima fecha de seguimiento" },
+          externalId: { type: "string", maxLength: 200, description: "Identificador externo (único por usuario)" },
+          city: { type: "string", description: "Ciudad o comuna" },
+          industry: { type: "string", description: "Rubro" },
+          opportunityScore: { type: "integer", minimum: 0, maximum: 100, nullable: true, description: "Puntaje de oportunidad" },
+          rating: { type: "number", format: "float", minimum: 0, maximum: 5, nullable: true, description: "Rating de reseñas" },
+          reviewsCount: { type: "integer", minimum: 0, nullable: true, description: "Cantidad de reseñas" },
         },
       },
       ChangeLeadStatusRequest: {

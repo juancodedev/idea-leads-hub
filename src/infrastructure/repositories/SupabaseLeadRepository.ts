@@ -35,18 +35,51 @@ const SORT_FIELD_MAP: Record<string, string> = {
   createdAt: 'created_at',
   updatedAt: 'updated_at',
   estimatedValue: 'estimated_value',
+  opportunityScore: 'opportunity_score',
+  rating: 'rating',
 };
 
+export interface UpsertLeadResult {
+  lead: Lead;
+  /** true when the lead was created by this call, false when it was updated. */
+  created: boolean;
+}
+
 export class SupabaseLeadRepository extends BaseRepository implements LeadRepository {
-  constructor(supabase: SupabaseClient<Database>) {
+  /**
+   * @param scopedUserId Set on machine (API key) paths, where the client is
+   * service-role and RLS does not scope queries. Every query is filtered by it.
+   * On session paths it stays undefined and RLS keeps scoping the user.
+   */
+  constructor(
+    supabase: SupabaseClient<Database>,
+    private readonly scopedUserId?: string
+  ) {
     super(supabase, 'leads');
   }
 
+  private get userId(): string | undefined {
+    return this.scopedUserId;
+  }
+
+  private async resolveUserId(): Promise<string> {
+    return this.scopedUserId ?? this.requireUser();
+  }
+
+  private scope<T>(query: T): T {
+    if (!this.userId) return query;
+    return (query as unknown as { eq: (column: string, value: string) => T }).eq(
+      'user_id',
+      this.userId
+    );
+  }
+
   async getAll(): Promise<Lead[]> {
-    const { data, error } = await this.supabase
-      .from('leads')
-      .select(LEAD_SELECT_WITH_JOINS)
-      .order('created_at', { ascending: false });
+    const { data, error } = await this.scope(
+      this.supabase
+        .from('leads')
+        .select(LEAD_SELECT_WITH_JOINS)
+    ).order('created_at', { ascending: false });
 
     if (error) this.handleError(error);
     const rows = (data ?? []) as unknown as LeadWithJoins[];
@@ -64,15 +97,17 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
       limit = 25,
     } = params || {};
 
-    let queryBuilder = this.supabase
-      .from('leads')
-      .select(LEAD_SELECT_WITH_JOINS, { count: 'exact' });
+    let queryBuilder = this.scope(
+      this.supabase
+        .from('leads')
+        .select(LEAD_SELECT_WITH_JOINS, { count: 'exact' })
+    );
 
-    // Text search across name, company, email
+    // Text search across name, company, email and the external id
     if (query && query.trim()) {
       const q = query.trim();
       queryBuilder = queryBuilder.or(
-        `name.ilike.%${q}%,company.ilike.%${q}%,email.ilike.%${q}%`
+        `name.ilike.%${q}%,company.ilike.%${q}%,email.ilike.%${q}%,external_id.ilike.%${q}%`
       );
     }
 
@@ -109,9 +144,11 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
   }
 
   async getById(id: string): Promise<Lead | null> {
-    const { data, error } = await this.supabase
-      .from('leads')
-      .select(LEAD_SELECT_WITH_JOINS)
+    const { data, error } = await this.scope(
+      this.supabase
+        .from('leads')
+        .select(LEAD_SELECT_WITH_JOINS)
+    )
       .eq('id', id)
       .maybeSingle();
 
@@ -120,15 +157,29 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
     return row ? this.mapToDomain(row, row.lead_tags, row.notes_data) : null;
   }
 
+  async getByExternalId(externalId: string): Promise<Lead | null> {
+    const { data, error } = await this.scope(
+      this.supabase
+        .from('leads')
+        .select(LEAD_SELECT_WITH_JOINS)
+    )
+      .eq('external_id', externalId)
+      .maybeSingle();
+
+    if (error) this.handleError(error);
+    const row = data as unknown as LeadWithJoins | null;
+    return row ? this.mapToDomain(row, row.lead_tags, row.notes_data) : null;
+  }
+
   async create(lead: CreateLeadDTO): Promise<Lead> {
-    const userId = await this.requireUser();
+    const userId = await this.resolveUserId();
 
     const { data, error } = await this.supabase
       .from('leads')
       .insert([{
         name: lead.name ?? '',
         company: lead.company,
-        email: lead.email,
+        email: lead.email || null,
         phone: lead.phone ?? null,
         address: lead.address ?? null,
         website: lead.website ?? null,
@@ -143,13 +194,47 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
         linkedin_url: lead.linkedinUrl ?? null,
         estimated_value: lead.estimatedValue ?? null,
         next_follow_up: lead.nextFollowUp ?? null,
-        user_id: userId
+        external_id: lead.externalId ?? null,
+        city: lead.city ?? null,
+        industry: lead.industry ?? null,
+        opportunity_score: lead.opportunityScore ?? null,
+        rating: lead.rating ?? null,
+        reviews_count: lead.reviewsCount ?? null,
+        user_id: userId,
       }] as never)
       .select()
       .single();
 
     if (error) this.handleError(error);
     return this.mapToDomain(data as unknown as LeadRow);
+  }
+
+  /**
+   * Create or update by `externalId` so retried integration sends and repeated
+   * backfills never duplicate a lead. Returns whether the row was created.
+   */
+  async upsertByExternalId(lead: CreateLeadDTO & { externalId: string }): Promise<UpsertLeadResult> {
+    const existing = await this.getByExternalId(lead.externalId);
+
+    if (existing) {
+      const updated = await this.update({ id: existing.id, ...lead });
+      return { lead: updated, created: false };
+    }
+
+    try {
+      const created = await this.create(lead);
+      return { lead: created, created: true };
+    } catch (error) {
+      // Concurrent first insert of the same external id: adopt the winner.
+      if (error instanceof ConflictError) {
+        const winner = await this.getByExternalId(lead.externalId);
+        if (winner) {
+          const updated = await this.update({ id: winner.id, ...lead });
+          return { lead: updated, created: false };
+        }
+      }
+      throw error;
+    }
   }
 
   async update(lead: UpdateLeadDTO): Promise<Lead> {
@@ -159,12 +244,12 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
     const dbUpdates: Record<string, unknown> = {};
     if (updates.name !== undefined) dbUpdates.name = updates.name;
     if (updates.company !== undefined) dbUpdates.company = updates.company || null;
-    if (updates.email !== undefined) dbUpdates.email = updates.email;
+    if (updates.email !== undefined) dbUpdates.email = updates.email || null;
     if (updates.phone !== undefined) dbUpdates.phone = updates.phone || null;
     if (updates.address !== undefined) dbUpdates.address = updates.address || null;
     if (updates.website !== undefined) dbUpdates.website = updates.website || null;
     if (updates.status !== undefined) dbUpdates.status = updates.status;
-    if (updates.source !== undefined) dbUpdates.source = updates.source;
+    if (updates.source !== undefined) dbUpdates.source = updates.source || null;
     if (updates.notes !== undefined) dbUpdates.notes = updates.notes || null;
     if (updates.pipelineId !== undefined) dbUpdates.pipeline_id = updates.pipelineId;
     if (updates.stageId !== undefined) dbUpdates.stage_id = updates.stageId;
@@ -173,13 +258,21 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
     if (updates.jobTitle !== undefined) dbUpdates.job_title = updates.jobTitle || null;
     if (updates.linkedinUrl !== undefined) dbUpdates.linkedin_url = updates.linkedinUrl || null;
     if (updates.estimatedValue !== undefined) dbUpdates.estimated_value = updates.estimatedValue;
-    if (updates.nextFollowUp !== undefined && updates.nextFollowUp !== '') dbUpdates.next_follow_up = updates.nextFollowUp;
+    if (updates.nextFollowUp !== undefined) dbUpdates.next_follow_up = updates.nextFollowUp || null;
+    if (updates.externalId !== undefined) dbUpdates.external_id = updates.externalId;
+    if (updates.city !== undefined) dbUpdates.city = updates.city || null;
+    if (updates.industry !== undefined) dbUpdates.industry = updates.industry || null;
+    if (updates.opportunityScore !== undefined) dbUpdates.opportunity_score = updates.opportunityScore;
+    if (updates.rating !== undefined) dbUpdates.rating = updates.rating;
+    if (updates.reviewsCount !== undefined) dbUpdates.reviews_count = updates.reviewsCount;
 
     dbUpdates.updated_at = new Date().toISOString();
 
-    const { data, error } = await this.supabase
-      .from('leads')
-      .update(dbUpdates as never)
+    const { data, error } = await this.scope(
+      this.supabase
+        .from('leads')
+        .update(dbUpdates as never)
+    )
       .eq('id', id)
       .select()
       .single();
@@ -189,12 +282,14 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
   }
 
   async updateStatus(id: string, status: Lead['status']): Promise<Lead> {
-    const { data, error } = await this.supabase
-      .from('leads')
-      .update({
-        status,
-        updated_at: new Date().toISOString()
-      } as never)
+    const { data, error } = await this.scope(
+      this.supabase
+        .from('leads')
+        .update({
+          status,
+          updated_at: new Date().toISOString()
+        } as never)
+    )
       .eq('id', id)
       .select()
       .single();
@@ -210,10 +305,11 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
   }
 
   async delete(id: string): Promise<void> {
-    const { error } = await this.supabase
-      .from('leads')
-      .delete()
-      .eq('id', id);
+    const { error } = await this.scope(
+      this.supabase
+        .from('leads')
+        .delete()
+    ).eq('id', id);
 
     // Instagram conversations reference the lead without ON DELETE, so a lead
     // with conversations cannot be deleted. Surface that as a 409 the UI can
@@ -233,7 +329,7 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
       id: row.id,
       name: row.name,
       company: row.company,
-      email: row.email,
+      email: row.email ?? undefined,
       phone: row.phone ?? undefined,
       address: row.address ?? undefined,
       website: row.website ?? undefined,
@@ -249,6 +345,12 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
       linkedinUrl: row.linkedin_url ?? undefined,
       estimatedValue: row.estimated_value ?? undefined,
       nextFollowUp: row.next_follow_up ?? undefined,
+      externalId: row.external_id ?? undefined,
+      city: row.city ?? undefined,
+      industry: row.industry ?? undefined,
+      opportunityScore: row.opportunity_score ?? undefined,
+      rating: row.rating ?? undefined,
+      reviewsCount: row.reviews_count ?? undefined,
       tags: entityTags ? entityTags.map(et => ({
         id: et.tags.id,
         name: et.tags.name,

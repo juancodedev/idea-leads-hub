@@ -85,5 +85,48 @@ describe("GET /api/docs/openapi.json", () => {
       "#/components/schemas/Message"
     );
   });
-});
 
+  it("should document API-key auth, lead upsert and the integration fields", async () => {
+    const request = new NextRequest("http://localhost:3000/api/docs/openapi.json");
+    const response = await GET(request);
+    const body = await response.json();
+
+    // Machine auth scheme.
+    expect(body.components.securitySchemes.apiKeyAuth).toBeDefined();
+    expect(body.components.securitySchemes.apiKeyAuth.name).toBe("X-API-Key");
+
+    // Leads read/write accept the API key; DELETE stays session-only.
+    expect(body.paths["/api/leads"].get.security).toContainEqual({ apiKeyAuth: [] });
+    expect(body.paths["/api/leads"].post.security).toContainEqual({ apiKeyAuth: [] });
+    expect(body.paths["/api/leads/{id}"].get.security).toContainEqual({ apiKeyAuth: [] });
+    expect(body.paths["/api/leads/{id}"].patch.security).toContainEqual({ apiKeyAuth: [] });
+    expect(JSON.stringify(body.paths["/api/leads/{id}"].delete.security)).not.toContain("apiKeyAuth");
+
+    // Upsert contract.
+    expect(body.paths["/api/leads"].post.responses[200]).toBeDefined();
+    expect(body.paths["/api/leads"].post.responses[201]).toBeDefined();
+
+    // Canonical English fields + deprecated Spanish aliases.
+    const createLead = body.components.schemas.CreateLeadRequest;
+    expect(createLead.properties.externalId).toBeDefined();
+    expect(createLead.properties.city).toBeDefined();
+    expect(createLead.properties.industry).toBeDefined();
+    expect(createLead.properties.opportunityScore).toBeDefined();
+    expect(createLead.properties.rating).toBeDefined();
+    expect(createLead.properties.reviewsCount).toBeDefined();
+    expect(createLead.required).toBeUndefined();
+    expect(createLead.properties.empresa.deprecated).toBe(true);
+    expect(createLead.properties.email.description).toContain("Opcional");
+
+    // Email is optional in the response and the new fields are returned.
+    const lead = body.components.schemas.Lead.properties;
+    expect(lead.email.nullable).toBe(true);
+    expect(lead.externalId).toBeDefined();
+    expect(lead.opportunityScore).toBeDefined();
+
+    // Key management surface.
+    expect(body.paths["/api/auth/api-keys"]).toBeDefined();
+    expect(body.paths["/api/auth/api-keys/{id}"]).toBeDefined();
+    expect(body.paths["/api/leads/search"]).toBeDefined();
+  });
+});

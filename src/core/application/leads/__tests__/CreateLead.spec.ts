@@ -15,6 +15,8 @@ describe('CreateLead Use Case', () => {
       update: jest.fn(),
       delete: jest.fn(),
       updateStatus: jest.fn(),
+      getByExternalId: jest.fn(),
+      upsertByExternalId: jest.fn(),
     };
     createLead = new CreateLead(mockLeadRepository);
   });

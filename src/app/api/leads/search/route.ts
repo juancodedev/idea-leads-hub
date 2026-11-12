@@ -12,7 +12,7 @@ const VALID_SORT_FIELDS = new Set([
 ]);
 
 export async function GET(request: NextRequest) {
-  const { supabase } = await withAuth(request);
+  const { supabase, scopedUserId } = await withAuth(request, { allowApiKey: true });
 
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q")?.trim() || "";
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Query parameter 'q' is required" }, { status: 400 });
   }
 
-  const repo = new SupabaseLeadRepository(supabase);
+  const repo = new SupabaseLeadRepository(supabase, scopedUserId);
   const allLeads = await repo.getAll();
 
   // Client-side filtering for simplicity (leads are cached)
@@ -35,7 +35,8 @@ export async function GET(request: NextRequest) {
     const matchesQuery =
       lead.name.toLowerCase().includes(qLower) ||
       lead.company.toLowerCase().includes(qLower) ||
-      lead.email.toLowerCase().includes(qLower);
+      (lead.email?.toLowerCase().includes(qLower) ?? false) ||
+      (lead.externalId?.toLowerCase().includes(qLower) ?? false);
 
     const matchesStatus = !status || status === "all" || lead.status === status;
     const matchesSource = !source || source === "all" || lead.source === source;

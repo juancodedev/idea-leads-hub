@@ -5,7 +5,7 @@ import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLe
 import { notFound } from 'next/navigation';
 import { Button } from '@/ui/components/button';
 import Link from 'next/link';
-import { Edit2, Phone, Mail, Building, Globe, MapPin, Calendar, ChevronLeft, Instagram, User, Linkedin, DollarSign } from 'lucide-react';
+import { Edit2, Phone, Mail, Building, Globe, MapPin, Calendar, ChevronLeft, Instagram, User, Linkedin, DollarSign, Star, Target, Fingerprint } from 'lucide-react';
 import { DashboardLayout } from '@/ui/layouts/DashboardLayout';
 import { LeadWorkspace } from '@/modules/leads/components/LeadWorkspace';
 import { ScoreBadge } from '@/modules/leads/components/ScoreBadge';
@@ -64,10 +64,12 @@ export default async function LeadDetailsPage({ params }: LeadDetailsPageProps) 
             <div className="rounded-xl border bg-card p-6 shadow-sm">
               <h3 className="font-semibold mb-4 text-sm uppercase text-muted-foreground tracking-wider">Contacto</h3>
               <div className="space-y-4">
-                <div className="flex items-center gap-3 overflow-hidden">
-                  <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span className="text-sm truncate">{lead.email}</span>
-                </div>
+                {lead.email && (
+                  <div className="flex items-center gap-3 overflow-hidden">
+                    <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="text-sm truncate">{lead.email}</span>
+                  </div>
+                )}
                 {lead.phone && (
                   <div className="flex items-center gap-3">
                     <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -110,6 +112,39 @@ export default async function LeadDetailsPage({ params }: LeadDetailsPageProps) 
                   <div className="flex items-center gap-3">
                     <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="text-sm">{lead.address}</span>
+                  </div>
+                )}
+                {lead.city && (
+                  <div className="flex items-center gap-3">
+                    <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="text-sm">{lead.city}</span>
+                  </div>
+                )}
+                {lead.industry && (
+                  <div className="flex items-center gap-3">
+                    <Building className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="text-sm">{lead.industry}</span>
+                  </div>
+                )}
+                {lead.opportunityScore != null && (
+                  <div className="flex items-center gap-3">
+                    <Target className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="text-sm">Oportunidad: {lead.opportunityScore}/100</span>
+                  </div>
+                )}
+                {(lead.rating != null || lead.reviewsCount != null) && (
+                  <div className="flex items-center gap-3">
+                    <Star className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="text-sm">
+                      {lead.rating != null ? `${lead.rating}/5` : 'Sin rating'}
+                      {lead.reviewsCount != null ? ` · ${lead.reviewsCount} reseñas` : ''}
+                    </span>
+                  </div>
+                )}
+                {lead.externalId && (
+                  <div className="flex items-center gap-3">
+                    <Fingerprint className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="text-sm truncate">ID externo: {lead.externalId}</span>
                   </div>
                 )}
                 {lead.jobTitle && (

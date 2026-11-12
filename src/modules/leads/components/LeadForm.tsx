@@ -75,6 +75,12 @@ export function LeadForm({ initialData }: LeadFormProps) {
       linkedinUrl: initialData?.linkedinUrl || '',
       estimatedValue: initialData?.estimatedValue || undefined,
       nextFollowUp: initialData?.nextFollowUp || '',
+      externalId: initialData?.externalId || '',
+      city: initialData?.city || '',
+      industry: initialData?.industry || '',
+      opportunityScore: initialData?.opportunityScore ?? undefined,
+      rating: initialData?.rating ?? undefined,
+      reviewsCount: initialData?.reviewsCount ?? undefined,
       status: initialData?.status || 'Nuevo',
       source: initialData?.source || '',
       notes: initialData?.notes || '',
@@ -150,7 +156,7 @@ export function LeadForm({ initialData }: LeadFormProps) {
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Email</FormLabel>
+                <FormLabel>Email (opcional)</FormLabel>
                 <FormControl>
                   <Input type="email" placeholder="juan@acme.com" {...field} />
                 </FormControl>
@@ -305,6 +311,84 @@ export function LeadForm({ initialData }: LeadFormProps) {
                 <FormLabel>Próximo seguimiento</FormLabel>
                 <FormControl>
                   <Input type="date" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="city"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Ciudad / Comuna</FormLabel>
+                <FormControl>
+                  <Input placeholder="Rosario, Palermo, etc." {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="industry"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Rubro</FormLabel>
+                <FormControl>
+                  <Input placeholder="Retail, Salud, Gastronomía..." {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="opportunityScore"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Puntaje de oportunidad (0-100)</FormLabel>
+                <FormControl>
+                  <Input type="number" min="0" max="100" step="1" placeholder="Ej: 87" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="rating"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Rating (0-5)</FormLabel>
+                <FormControl>
+                  <Input type="number" min="0" max="5" step="0.1" placeholder="Ej: 4.5" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="reviewsCount"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Reseñas</FormLabel>
+                <FormControl>
+                  <Input type="number" min="0" step="1" placeholder="Ej: 132" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="externalId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>ID externo</FormLabel>
+                <FormControl>
+                  <Input placeholder="Ej: acme.com" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
