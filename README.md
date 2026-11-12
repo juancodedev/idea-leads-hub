@@ -113,6 +113,34 @@ La especificación completa sigue el estándar **OpenAPI 3.0** y está disponibl
 | Método | Path | Auth | Descripción |
 |--------|------|------|-------------|
 | POST | `/api/auth/login` | ❌ | Obtener token JWT (email + password) |
+| GET | `/api/auth/api-keys` | Sesión | Listar las API keys propias (sin el valor en claro) |
+| POST | `/api/auth/api-keys` | Sesión | Crear una API key para integraciones (se muestra una sola vez) |
+| DELETE | `/api/auth/api-keys/:id` | Sesión | Revocar una API key |
+
+#### Integraciones (API keys)
+
+Una integración de máquina (por ejemplo el Prospector) no necesita guardar la
+contraseña de un usuario. Se crea una API key con la sesión del dueño y se envía
+como `X-API-Key: crm_...` o `Authorization: Bearer crm_...`.
+
+```bash
+# 1. Crear la key (con la sesión del usuario; el valor se muestra una sola vez)
+curl -X POST https://crm.juancode.dev/api/auth/api-keys \
+  -H "Cookie: <sesión de Supabase>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Prospector"}'
+
+# 2. Crear o actualizar un lead de forma idempotente
+curl -X POST https://crm.juancode.dev/api/leads \
+  -H "X-API-Key: crm_..." \
+  -H "Content-Type: application/json" \
+  -d '{"company":"Acme","source":"Prospector","externalId":"acme.com","city":"Rosario","industry":"Retail","opportunityScore":87,"rating":4.5,"reviewsCount":132}'
+# 201 si el externalId era nuevo, 200 si actualizó el existente
+```
+
+Las API keys habilitan `GET/POST /api/leads`, `GET/PATCH /api/leads/:id` y
+`GET /api/leads/search`. `DELETE /api/leads/:id` y los cambios de estado siguen
+requiriendo sesión de usuario.
 
 ### Profile
 
@@ -125,12 +153,13 @@ La especificación completa sigue el estándar **OpenAPI 3.0** y está disponibl
 
 | Método | Path | Descripción |
 |--------|------|-------------|
-| GET | `/api/leads` | Listar leads (filtros: `status`, `q`) |
-| POST | `/api/leads` | Crear lead (campos en español, backward compat) |
+| GET | `/api/leads` | Listar leads paginados (filtros: `status`, `source`, `q`; orden por `opportunityScore`, `rating`, etc.) |
+| POST | `/api/leads` | Crear lead; con `externalId` hace upsert (201 al crear, 200 al actualizar). English camelCase es el contrato canónico; los campos en español siguen aceptándose como alias deprecated |
 | GET | `/api/leads/:id` | Obtener lead |
-| PATCH | `/api/leads/:id` | Actualizar lead (campos en inglés) |
-| DELETE | `/api/leads/:id` | Eliminar lead |
-| PATCH | `/api/leads/:id/status` | Cambiar estado |
+| PATCH | `/api/leads/:id` | Actualizar lead (campos en inglés; `''` limpia el valor) |
+| DELETE | `/api/leads/:id` | Eliminar lead (solo sesión) |
+| PATCH | `/api/leads/:id/status` | Cambiar estado (solo sesión) |
+| GET | `/api/leads/search` | Búsqueda ligera por `q` (nombre, empresa, email o externalId) |
 
 ### Ideas
 
