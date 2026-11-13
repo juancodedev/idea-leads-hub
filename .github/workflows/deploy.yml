@@ -8,6 +8,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # Merging to main deploys straight to production, so the schema has to be
+      # ahead of the code. Fail before building anything if a migration in the
+      # repo has not been applied to the production database.
+      - name: Verify production migrations are applied
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: bash scripts/check-pending-migrations.sh
+
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
