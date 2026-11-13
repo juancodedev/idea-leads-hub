@@ -291,24 +291,33 @@ El deploy se activa automáticamente al hacer push a `main` (`.github/workflows/
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Clave publicable |
 | `CLOUDFLARE_API_TOKEN` | Token de API de Cloudflare |
 | `CLOUDFLARE_ACCOUNT_ID` | ID de cuenta Cloudflare |
-| `SUPABASE_DB_URL` | Connection string de producción (Session pooler, puerto 5432). Lo usa el chequeo de migraciones |
 
 ### 🗄️ Migraciones y deploy
 
-Mergear a `main` **deploya a producción**, así que el esquema tiene que estar aplicado
-antes. El primer paso del workflow es `scripts/check-pending-migrations.sh`: compara
-`supabase/migrations/*.sql` contra `supabase_migrations.schema_migrations` en la base de
-producción y **falla el deploy** si falta alguna.
+Mergear a `main` **deploya a producción**, así que el esquema tiene que estar aplicado antes.
+El primer paso del workflow es `scripts/check-schema-drift.mjs`: compara
+`src/infrastructure/database/database.types.ts` (el contrato contra el que está tipada toda
+la app) con el esquema que producción realmente sirve vía PostgREST, y **falla el deploy**
+listando las tablas y columnas que faltan.
 
 ```bash
-# Aplicar las pendientes
-supabase db push --db-url "$SUPABASE_DB_URL"
+# Verificar a mano contra producción (usa las mismas variables que el deploy)
+NEXT_PUBLIC_SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
+  node --no-warnings scripts/check-schema-drift.mjs
 
-# Si ya las aplicaste a mano desde el SQL Editor, registralas en el historial
-supabase migration repair --status applied 20261112000000 20261112000001 --db-url "$SUPABASE_DB_URL"
+# Verificar contra un spec guardado, sin red
+node --no-warnings scripts/check-schema-drift.mjs --spec ./spec.json
 ```
 
-El script necesita `psql` (viene preinstalado en los runners de GitHub).
+No necesita la password de la base: usa la service role key que ya existe y el
+spec OpenAPI del root de PostgREST. Para aplicar lo que falte:
+
+```bash
+supabase db push --db-url "$SUPABASE_DB_URL"
+```
+
+Si una migración se aplicó a mano desde el SQL Editor, registrala para que el
+historial no quede mintiendo: `supabase migration repair --status applied <version>`.
 
 **Las secrets de Meta** se configuran en el dashboard de Cloudflare Workers (secrets runtime, no van en build):
 

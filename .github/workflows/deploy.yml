@@ -10,12 +10,13 @@ jobs:
       - uses: actions/checkout@v4
 
       # Merging to main deploys straight to production, so the schema has to be
-      # ahead of the code. Fail before building anything if a migration in the
-      # repo has not been applied to the production database.
-      - name: Verify production migrations are applied
+      # ahead of the code. Fail before building anything when production does not
+      # serve a table or column that database.types.ts declares.
+      - name: Verify production schema matches the app contract
         env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-        run: bash scripts/check-pending-migrations.sh
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node --no-warnings scripts/check-schema-drift.mjs
 
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
