@@ -3,6 +3,14 @@ import { Note } from "./Note";
 
 export type LeadStatus = string;
 
+/**
+ * Status assigned when a client creates a lead without one.
+ *
+ * The full set of valid statuses is the user's pipeline stage names, published
+ * by `GET /api/leads/statuses`; this default only matches the seeded pipeline.
+ */
+export const DEFAULT_LEAD_STATUS = 'Nuevo';
+
 export interface Lead {
   id: string;
   name: string;

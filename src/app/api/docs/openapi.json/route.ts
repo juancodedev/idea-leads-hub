@@ -1509,6 +1509,28 @@ const openapi = {
         },
       },
     },
+    "/api/leads/statuses": {
+      get: {
+        summary: "Catálogo de estados válidos de un lead",
+        description:
+          "Publica los valores válidos de `status`. No son fijos: son las etapas del pipeline del usuario, así que el catálogo cambia si renombra, crea o borra etapas. `PATCH /api/leads/{id}/status` valida contra esta misma lista.\\n\\n" +
+          "**Mapa de estados del Prospector.** Las etapas por defecto del CRM son `Nuevo`, `Contactado`, `Interesado`, `Propuesta`, `Ganado`, `Perdido`. Mapeo recomendado: `Nuevo`→`Nuevo`, `Contactado`→`Contactado`, `Respondió`→`Interesado`, `Interesado`→`Interesado`, `Retomar`→`Contactado`, `Descartado`→`Perdido`, `Rebotó`→`Perdido`. Si querés 1:1, creá las etapas faltantes en el pipeline y este endpoint las devuelve solas.",
+        tags: ["Leads"],
+        security: [{ supabaseAuth: [] }, { apiKeyAuth: [] }],
+        responses: {
+          200: {
+            description: "Catálogo de estados del usuario",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/LeadStatusCatalog" },
+              },
+            },
+          },
+          401: { description: "No autorizado" },
+          500: { description: "Error interno del servidor" },
+        },
+      },
+    },
     "/api/leads/{id}/status": {
       patch: {
         summary: "Cambiar estado de lead",
@@ -2688,6 +2710,38 @@ const openapi = {
           reviewsCount: { type: "integer", minimum: 0, nullable: true, description: "Cantidad de reseñas" },
         },
       },
+      LeadStatusCatalog: {
+        type: "object",
+        properties: {
+          statuses: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string", example: "Interesado" },
+                stageId: { type: "string", format: "uuid" },
+                pipelineId: { type: "string", format: "uuid" },
+                pipelineName: { type: "string", example: "Pipeline de Ventas" },
+                position: { type: "integer", example: 3 },
+                color: { type: "string", example: "#f59e0b" },
+                isClosed: { type: "boolean" },
+                isWon: { type: "boolean" },
+              },
+            },
+          },
+          names: {
+            type: "array",
+            description: "Atajo plano del catálogo, en orden de etapa",
+            items: { type: "string" },
+            example: ["Nuevo", "Contactado", "Interesado", "Propuesta", "Ganado", "Perdido"],
+          },
+          default: {
+            type: "string",
+            description: "Estado que se aplica al crear un lead sin `status`",
+            example: "Nuevo",
+          },
+        },
+      },
       ChangeLeadStatusRequest: {
         type: "object",
         required: ["status"],
@@ -2695,7 +2749,7 @@ const openapi = {
           status: {
             type: "string",
             example: "Nuevo",
-            description: "Nuevo estado del lead",
+            description: "Nuevo estado del lead. Debe ser una de las etapas publicadas por `GET /api/leads/statuses`",
           },
         },
       },

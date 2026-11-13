@@ -179,10 +179,34 @@ cambió en el CRM. `null` o campo ausente = conservar; `""` = borrar.
 | fecha del correo | `completedAt` | ISO-8601, no es fecha de vencimiento |
 | id del paso de la secuencia | `externalId` | en nota o actividad, ej. `"acme.com#correo-1"` |
 
+**Estados.** `status` no es una lista fija: los valores válidos son las **etapas del
+pipeline del usuario**. `GET /api/leads/statuses` (con API key) devuelve el catálogo
+vigente y `PATCH /api/leads/:id/status` valida contra esa misma lista. Las etapas por
+defecto son `Nuevo`, `Contactado`, `Interesado`, `Propuesta`, `Ganado`, `Perdido`, y el
+mapeo recomendado desde el Prospector es:
+
+| Prospector | CRM |
+|------------|-----|
+| `Nuevo` | `Nuevo` |
+| `Contactado` | `Contactado` |
+| `Respondió` | `Interesado` |
+| `Interesado` | `Interesado` |
+| `Retomar` | `Contactado` |
+| `Descartado` | `Perdido` |
+| `Rebotó` | `Perdido` |
+
+Si querés 1:1 sin perder señal, creá las etapas faltantes (`Respondió`, `Retomar`,
+`Descartado`, `Rebotó`) en el pipeline: el catálogo las publica automáticamente y no
+hay que tocar código.
+
+Un `status` que no coincide con ninguna etapa se guarda tal cual, pero el lead queda
+**sin etapa** en el tablero. Por eso conviene mapear contra el catálogo antes de
+mandarlo.
+
 Las API keys habilitan `GET/POST /api/leads`, `GET/PATCH /api/leads/:id`,
-`GET /api/leads/search`, `POST /api/notes`, `POST /api/activities` y
-`PATCH /api/leads/:id/status`. `DELETE /api/leads/:id` sigue requiriendo sesión de
-usuario.
+`GET /api/leads/search`, `GET /api/leads/statuses`, `POST /api/notes`,
+`POST /api/activities` y `PATCH /api/leads/:id/status`. `DELETE /api/leads/:id` sigue
+requiriendo sesión de usuario.
 
 ### Profile
 
@@ -200,7 +224,8 @@ usuario.
 | GET | `/api/leads/:id` | Obtener lead |
 | PATCH | `/api/leads/:id` | Actualizar lead (campos en inglés; `''` limpia el valor) |
 | DELETE | `/api/leads/:id` | Eliminar lead (solo sesión) |
-| PATCH | `/api/leads/:id/status` | Cambiar estado (sesión o API key) |
+| GET | `/api/leads/statuses` | Catálogo de estados válidos = etapas del pipeline (sesión o API key) |
+| PATCH | `/api/leads/:id/status` | Cambiar estado; valida contra ese catálogo (sesión o API key) |
 | GET | `/api/leads/search` | Búsqueda ligera por `q` (nombre, empresa, email o externalId) |
 
 ### Ideas
