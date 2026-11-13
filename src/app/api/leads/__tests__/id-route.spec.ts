@@ -24,6 +24,16 @@ jest.mock("@/infrastructure/repositories/SupabaseLeadRepository", () => ({
   })),
 }));
 
+const mockGetStages = jest.fn();
+const mockGetAllPipelines = jest.fn();
+
+jest.mock("@/infrastructure/repositories/SupabasePipelineRepository", () => ({
+  SupabasePipelineRepository: jest.fn().mockImplementation(() => ({
+    getAll: mockGetAllPipelines,
+    getStages: mockGetStages,
+  })),
+}));
+
 import { NextRequest } from "next/server";
 import { GET, PATCH, DELETE } from "../[id]/route";
 
@@ -248,5 +258,60 @@ describe("DELETE /api/leads/[id]", () => {
     const response = await DELETE(request, { params: { id: "non-existent" } });
 
     expect(response.status).toBe(404);
+  });
+});
+
+describe("PATCH /api/leads/[id] — status must be in the catalog", () => {
+  const otherPipelineId = "7d9f0c52-4c3b-4f4e-9a52-2f7f3b0e8a11";
+
+  function patch(body: unknown) {
+    return PATCH(
+      new NextRequest("http://localhost:3000/api/leads/lead-1", {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+      { params: { id: "lead-1" } }
+    );
+  }
+
+  beforeEach(() => {
+    mockGetById.mockReset();
+    mockUpdate.mockReset();
+    mockGetStages.mockReset();
+    mockGetAllPipelines.mockReset();
+    mockGetById.mockResolvedValue({ ...mockLead, pipelineId: "pipeline-1" });
+    mockGetStages.mockImplementation(async (pipelineId: string) =>
+      pipelineId === otherPipelineId
+        ? [{ id: "s9", name: "Propuesta" }]
+        : [{ id: "s1", name: "Nuevo" }, { id: "s3", name: "Perdido" }]
+    );
+  });
+
+  it("rejects a status that is not in the lead's pipeline with 400 naming status", async () => {
+    const response = await patch({ status: "Rebotó" });
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.fields.status).toContain("Estado inválido");
+    expect(mockGetStages).toHaveBeenCalledWith("pipeline-1");
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("accepts a status from the lead's pipeline", async () => {
+    mockUpdate.mockResolvedValue({ ...mockLead, status: "Perdido" });
+
+    const response = await patch({ status: "Perdido" });
+
+    expect(response.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: "Perdido" }));
+  });
+
+  it("validates against the pipeline sent in the same request", async () => {
+    mockUpdate.mockResolvedValue({ ...mockLead, status: "Propuesta" });
+
+    const response = await patch({ pipelineId: otherPipelineId, status: "Propuesta" });
+
+    expect(response.status).toBe(200);
+    expect(mockGetStages).toHaveBeenCalledWith(otherPipelineId);
   });
 });

@@ -25,6 +25,15 @@ jest.mock('@/infrastructure/repositories/SupabaseLeadRepository', () => ({
   })),
 }));
 
+const mockGetAllPipelines = jest.fn();
+
+jest.mock('@/infrastructure/repositories/SupabasePipelineRepository', () => ({
+  SupabasePipelineRepository: jest.fn().mockImplementation(() => ({
+    getAll: mockGetAllPipelines,
+    getStages: jest.fn(),
+  })),
+}));
+
 import { NextRequest } from 'next/server';
 import { POST } from '../route';
 
@@ -179,5 +188,69 @@ describe('POST /api/leads — idempotent integration contract', () => {
 
     expect(response.status).toBe(400);
     expect(body.fields.company).toMatch(/company or empresa is required/);
+  });
+});
+
+describe('POST /api/leads — status must be in the catalog', () => {
+  beforeEach(() => {
+    mockCreate.mockReset();
+    mockUpsert.mockReset();
+    mockGetAllPipelines.mockReset();
+    mockGetAllPipelines.mockResolvedValue([
+      {
+        id: 'pipeline-1',
+        name: 'Ventas',
+        stages: [
+          { id: 's1', name: 'Nuevo', isDoNotContact: false },
+          { id: 's2', name: 'Contactado', isDoNotContact: false },
+          { id: 's3', name: 'Perdido', isDoNotContact: true },
+        ],
+      },
+    ]);
+  });
+
+  it('rejects a status that is not in the catalog with 400 naming status', async () => {
+    const response = await POST(post({ company: 'Acme Inc', source: 'Prospector', status: 'Rebotó' }));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.fields.status).toContain('Estado inválido');
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it('rejects an unknown status on the externalId upsert, so a re-send writes nothing', async () => {
+    const response = await POST(
+      post({ company: 'Acme Inc', source: 'Prospector', externalId: 'acme.com', status: 'Rebotó' })
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it('accepts a status from the catalog', async () => {
+    mockCreate.mockResolvedValue({ ...storedLead, status: 'Perdido' });
+
+    const response = await POST(post({ company: 'Acme Inc', source: 'Prospector', status: 'Perdido' }));
+
+    expect(response.status).toBe(201);
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ status: 'Perdido' }));
+  });
+
+  it('accepts any status when the user has no stages yet, since there is no catalog', async () => {
+    mockGetAllPipelines.mockResolvedValue([]);
+    mockCreate.mockResolvedValue({ ...storedLead, status: 'Rebotó' });
+
+    const response = await POST(post({ company: 'Acme Inc', source: 'Prospector', status: 'Rebotó' }));
+
+    expect(response.status).toBe(201);
+  });
+
+  it('does not read the catalog when status is not sent', async () => {
+    mockCreate.mockResolvedValue(storedLead);
+
+    const response = await POST(post({ company: 'Acme Inc', source: 'Prospector' }));
+
+    expect(response.status).toBe(201);
+    expect(mockGetAllPipelines).not.toHaveBeenCalled();
   });
 });

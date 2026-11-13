@@ -1356,7 +1356,7 @@ const openapi = {
             },
           },
           400: {
-            description: "Error de validación; `fields` trae un mensaje por campo",
+            description: "Error de validación; `fields` trae un mensaje por campo. Un `status` que no está en `GET /api/leads/statuses` responde 400 con `fields.status`",
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/ValidationError" },
@@ -1485,7 +1485,7 @@ const openapi = {
               },
             },
           },
-          400: { description: "Error de validación" },
+          400: { description: "Error de validación; un `status` que no es etapa del pipeline del lead (o del `pipelineId` enviado) responde 400 con `fields.status`" },
           401: { description: "No autorizado" },
           404: { description: "Lead no encontrado" },
           500: { description: "Error interno del servidor" },
@@ -1581,7 +1581,7 @@ const openapi = {
               },
             },
           },
-          400: { description: "Error de validación" },
+          400: { description: "Error de validación; un `status` que no es etapa del pipeline del lead responde 400 con `fields.status`" },
           401: { description: "No autorizado" },
           404: { description: "Lead no encontrado" },
           500: { description: "Error interno del servidor" },
@@ -2526,6 +2526,7 @@ const openapi = {
           status: {
             type: "string",
             example: "Nuevo",
+            description: "Debe estar en `GET /api/leads/statuses`; si no, 400 con `fields.status`",
             default: "Nuevo",
           },
           externalId: {
@@ -2725,7 +2726,7 @@ const openapi = {
           website: { type: "string", format: "uri", description: "Sitio web del lead" },
           source: { type: "string", description: "Origen" },
           notes: { type: "string", description: "Notas" },
-          status: { type: "string", description: "Estado del lead", example: "Nuevo" },
+          status: { type: "string", description: "Estado del lead. Debe ser una etapa del pipeline del lead; si no, 400 con `fields.status`", example: "Nuevo" },
           pipelineId: { type: "string", format: "uuid", nullable: true, description: "ID del pipeline" },
           stageId: { type: "string", format: "uuid", nullable: true, description: "ID de la etapa" },
           instagramHandle: { type: "string", description: "Handle de Instagram (ej. @usuario)" },

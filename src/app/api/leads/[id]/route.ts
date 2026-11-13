@@ -3,7 +3,9 @@ import { apiHandler } from '@/lib/api/api-handler';
 import { withAuth } from '@/lib/api/with-auth';
 import { NotFoundError } from '@/infrastructure/repositories/errors';
 import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLeadRepository';
+import { SupabasePipelineRepository } from '@/infrastructure/repositories/SupabasePipelineRepository';
 import { ApiUpdateLeadSchema } from '@/core/domain/LeadSchema';
+import { assertKnownStatus } from '@/core/application/leads/leadStatuses';
 
 export const runtime = 'nodejs';
 
@@ -29,6 +31,12 @@ export const PATCH = apiHandler(async (request: NextRequest, context: { params: 
   const repo = new SupabaseLeadRepository(supabase, scopedUserId);
   const existing = await repo.getById(id);
   if (!existing) throw new NotFoundError('Lead not found');
+
+  if (data.status) {
+    // A pipeline sent in the same request is where the lead ends up.
+    const pipelineRepo = new SupabasePipelineRepository(supabase, scopedUserId);
+    await assertKnownStatus(data.status, pipelineRepo, data.pipelineId ?? existing.pipelineId);
+  }
 
   // `null` means "not sent": only the fields the client actually wrote reach
   // the database, and `""` is what clears a stored value.
