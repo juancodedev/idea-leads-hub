@@ -3,6 +3,7 @@ import { NotFoundError, ConflictError, UnauthorizedError, DatabaseError } from '
 import { ZodError } from 'zod';
 import { checkRateLimit } from './rate-limit';
 import { handlePreflight, withCors } from './cors';
+import { fieldErrors } from './validation';
 import { logger } from '@/lib/logger';
 
 type ApiHandler = (request: NextRequest, context?: any) => Promise<Response>;
@@ -49,7 +50,10 @@ export function apiHandler(handler: ApiHandler, options?: { rateLimit?: { max: n
       if (error instanceof UnauthorizedError) response = NextResponse.json({ error: error.message }, { status: 401 });
       else if (error instanceof NotFoundError) response = NextResponse.json({ error: error.message }, { status: 404 });
       else if (error instanceof ConflictError) response = NextResponse.json({ error: error.message }, { status: 409 });
-      else if (error instanceof ZodError) response = NextResponse.json({ error: 'Error de validación', details: error.format() }, { status: 400 });
+      else if (error instanceof ZodError) response = NextResponse.json(
+        { error: 'Error de validación', fields: fieldErrors(error), details: error.format() },
+        { status: 400 }
+      );
       else if (error instanceof SyntaxError) response = NextResponse.json({ error: 'JSON inválido' }, { status: 400 });
       else if (error instanceof DatabaseError) response = NextResponse.json({ error: error.message }, { status: 500 });
       else {
