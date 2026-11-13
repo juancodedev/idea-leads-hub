@@ -221,6 +221,7 @@ export interface Database {
           completed_at: string | null;
           read_at: string | null;
           attachments: any[];
+          external_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -238,6 +239,7 @@ export interface Database {
           completed_at?: string | null;
           read_at?: string | null;
           attachments?: any[];
+          external_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -255,6 +257,7 @@ export interface Database {
           completed_at?: string | null;
           read_at?: string | null;
           attachments?: any[];
+          external_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -436,6 +439,7 @@ export interface Database {
           lead_id: string | null;
           idea_id: string | null;
           content: string;
+          external_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -445,6 +449,7 @@ export interface Database {
           lead_id?: string | null;
           idea_id?: string | null;
           content: string;
+          external_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -454,6 +459,7 @@ export interface Database {
           lead_id?: string | null;
           idea_id?: string | null;
           content?: string;
+          external_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };

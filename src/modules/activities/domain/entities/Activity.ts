@@ -25,10 +25,14 @@ export interface Activity {
   createdAt: Date;
   updatedAt: Date;
   attachments?: ActivityAttachment[];
+  /** Client-owned identifier, unique per user. Enables idempotent upserts. */
+  externalId?: string;
 }
 
 export type CreateActivityDTO = Omit<Activity, 'id' | 'createdAt' | 'updatedAt' | 'completed' | 'completedAt' | 'readAt' | 'status' | 'userId'> & {
   completed?: boolean;
   status?: ActivityStatus;
+  /** When the activity happened (a sent email), not when it is due. */
+  completedAt?: Date;
 };
-export type UpdateActivityDTO = Omit<Partial<CreateActivityDTO>, 'completed'> & { id: string; completedAt?: Date };
+export type UpdateActivityDTO = Omit<Partial<CreateActivityDTO>, 'completed'> & { id: string };

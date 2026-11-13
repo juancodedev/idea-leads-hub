@@ -10,6 +10,8 @@ const CreateNoteSchema = z.object({
   content: z.string().min(1, 'El contenido es obligatorio'),
   entityId: z.string().uuid(),
   entityType: z.enum(['lead', 'idea']),
+  /** Client-owned id, unique per user. Makes a re-send idempotent. */
+  externalId: z.string().trim().min(1, 'externalId cannot be empty').max(200).nullish(),
 });
 
 export const GET = apiHandler(async (request: NextRequest) => {
@@ -31,10 +33,19 @@ export const GET = apiHandler(async (request: NextRequest) => {
 });
 
 export const POST = apiHandler(async (request: NextRequest) => {
-  const { supabase } = await withAuth(request);
+  const { supabase, scopedUserId } = await withAuth(request, { allowApiKey: true });
   const body = await request.json();
   const data = CreateNoteSchema.parse(body);
-  const repo = new SupabaseNoteRepository(supabase);
-  const note = await repo.create(data);
+
+  const repo = new SupabaseNoteRepository(supabase, scopedUserId);
+
+  const externalId = data.externalId ?? undefined;
+
+  if (externalId) {
+    const { note, created } = await repo.upsertByExternalId({ ...data, externalId });
+    return NextResponse.json(note, { status: created ? 201 : 200 });
+  }
+
+  const note = await repo.create({ ...data, externalId });
   return NextResponse.json(note, { status: 201 });
 });

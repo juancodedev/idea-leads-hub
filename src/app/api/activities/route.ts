@@ -6,6 +6,7 @@ import { SupabaseActivityRepository } from '@/modules/activities/infrastructure/
 import { GetActivities } from '@/core/application/activities/GetActivities';
 import { CreateActivity } from '@/modules/activities/application/use-cases/CreateActivity';
 import { ActivityType } from '@/modules/activities/domain/enums/ActivityType';
+import { ActivityStatus } from '@/modules/activities/domain/enums/ActivityStatus';
 
 export const runtime = 'nodejs';
 
@@ -14,8 +15,13 @@ const CreateActivitySchema = z.object({
   type: z.nativeEnum(ActivityType),
   description: z.string().optional(),
   dueDate: z.string().datetime().transform((s) => new Date(s)).optional(),
+  /** When it happened (a sent email), not when it is due. */
+  completedAt: z.string().datetime().transform((s) => new Date(s)).optional(),
+  status: z.nativeEnum(ActivityStatus).optional(),
   leadId: z.string().uuid().optional(),
   ideaId: z.string().uuid().optional(),
+  /** Client-owned id, unique per user. Makes a re-send idempotent. */
+  externalId: z.string().trim().min(1, 'externalId cannot be empty').max(200).nullish(),
   attachments: z
     .array(
       z.object({
@@ -81,12 +87,20 @@ export const GET = apiHandler(async (request: NextRequest) => {
 });
 
 export const POST = apiHandler(async (request: NextRequest) => {
-  const { supabase } = await withAuth(request);
+  const { supabase, scopedUserId } = await withAuth(request, { allowApiKey: true });
   const body = await request.json();
   const data = CreateActivitySchema.parse(body);
 
-  const repo = new SupabaseActivityRepository(supabase);
+  const repo = new SupabaseActivityRepository(supabase, scopedUserId);
+
+  const externalId = data.externalId ?? undefined;
+
+  if (externalId) {
+    const { activity, created } = await repo.upsertByExternalId({ ...data, externalId });
+    return NextResponse.json(activity, { status: created ? 201 : 200 });
+  }
+
   const useCase = new CreateActivity(repo);
-  const activity = await useCase.execute(data);
+  const activity = await useCase.execute({ ...data, externalId });
   return NextResponse.json(activity, { status: 201 });
 });
