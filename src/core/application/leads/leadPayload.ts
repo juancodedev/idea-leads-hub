@@ -1,3 +1,4 @@
+import { DEFAULT_LEAD_STATUS } from '@/core/domain/Lead';
 import type { CreateLeadDTO, UpdateLeadDTO } from '@/core/domain/Lead';
 import type { ApiCreateLeadValues } from '@/core/domain/LeadSchema';
 
@@ -72,7 +73,7 @@ export function buildLeadCreateDTO(data: ApiCreateLeadValues): CreateLeadDTO {
   return {
     company: company!,
     name: text(values.name) ?? company,
-    status: text(values.status) ?? 'Nuevo',
+    status: text(values.status) ?? DEFAULT_LEAD_STATUS,
     email: text(values.email),
     phone: text(values.phone),
     address: text(values.address),
