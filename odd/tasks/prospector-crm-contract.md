@@ -31,6 +31,19 @@ Test runner: `jest` via `pnpm test`. Lint: `eslint .`, types: `tsc --noEmit`.
   `Nuevo`, `Contactado`, `Respondió`, `Interesado`, `Retomar`, `Descartado`,
   `Rebotó`; the CRM's default stages are `Nuevo`, `Contactado`, `Interesado`,
   `Propuesta`, `Ganado`, `Perdido`, and the mapping is documented for the client.
+- **S4c (`updatedSince`).** `GET /api/leads?updatedSince=<iso>` returns only leads
+  whose `updated_at` is at or after the instant, ordered by `updatedAt` ascending by
+  default so a poller pages without gaps. This is the enabler for the reverse sync:
+  the integration detects a lead the user marked as do-not-contact and stops its
+  sequence. A malformed value answers 400 with `fields.updatedSince`.
+- **S4d (Phase A, two-way sync).** "Despliega solo la Fase A (catálogo, statusChangedAt,
+  serverTime, sin rechazo)." The catalog is a bare array of `{ value, label,
+  doNotContact }`; stages carry `is_do_not_contact`; `updatedSince` filters on
+  `status_changed_at`, which only a status change moves; `GET /api/leads` returns
+  `serverTime` as the next cursor. Unknown statuses are still stored, not rejected.
+- **S4e (Phase B, off until the Prospector confirms).** "el rechazo debe ir en los tres
+  puntos que escriben status (POST /api/leads, PATCH /api/leads/{id} y PATCH /status),
+  con la misma validación compartida." Ships in its own commit.
 - **Out of scope:** item 8 (CRM → Prospector do-not-contact sync) is explicitly
   labelled "Phase 2" in the request and is not implemented here.
 
@@ -46,6 +59,9 @@ Test runner: `jest` via `pnpm test`. Lint: `eslint .`, types: `tsc --noEmit`.
 | T6 | PR and deploy verification | S5 | inline | pending |
 | T7 | Regression fix: restore the GET tests the new activities spec overwrote | — | inline | done |
 | T8 | Status catalog endpoint + mapping table (PR #93) | S4b | inline | done |
+| T9 | `updatedSince` filter on `GET /api/leads` (same PR) | S4c | inline | done |
+| T10 | Phase A: catalog shape, `is_do_not_contact`, `status_changed_at`, `serverTime` | S4d | inline | done |
+| T11 | Phase B: shared status validation on the three write paths | S4e | inline | blocked (waiting for the Prospector deploy) |
 
 ## Log
 
@@ -71,8 +87,22 @@ Test runner: `jest` via `pnpm test`. Lint: `eslint .`, types: `tsc --noEmit`.
   kept the new POST cases in the same spec (T7).
 - **L7:** Item 4 first arrived truncated ("the CRM uses other names, say which ones
   and Prospector maps to them"), so it was answered with the field name map only.
+- **L9 (verbatim request):** "Un catálogo de estados. Hoy el estado es texto libre, así
+  que uso Contactado, Respondió, Interesado, Retomar, Descartado y Rebotó. Si en tu CRM
+  se llaman distinto, dime y los ajusto." and "updatedSince en GET /api/leads. Es lo
+  que permitiría la vuelta: si en el CRM marcas a alguien como 'no contactar', el
+  Prospector corta sus seguimientos."
+- **L10:** Phase 2 stays out of scope as a full feature: this round ships the transport
+  (`updatedSince`) and documents that a `No contactar` pipeline stage gives the
+  distinction without a new column, since `Perdido` conflates discarded and bounced.
 - **L8:** The full text of item 4 arrived later and asked for a status catalog. The
   valid values are the pipeline stage names, so `GET /api/leads/statuses` publishes
   them and `PATCH /api/leads/{id}/status` already validated against the same list.
   A `status` that matches no stage is stored but leaves `stage_id` NULL, so the
   mapping is documented: the client must map before sending.
+- **L11 (verbatim request):** "Deja la Fase B apagada. Despliega solo la Fase A (catálogo,
+  statusChangedAt, serverTime, sin rechazo). [...] 4. Recién ahí activas la Fase B, en su
+  propio commit." and "¿Qué values vas a publicar y cuáles llevan doNotContact?"
+- **L12:** The OpenCode session stopped at the free usage limit mid-edit, leaving a
+  double-escaped string in the OpenAPI route. Fixed; `tsc --noEmit` clean; `jest` 117
+  suites / 869 tests pass. The migration was not run against a database in this session.

@@ -1226,7 +1226,9 @@ const openapi = {
     "/api/leads": {
       get: {
         summary: "Listar leads",
-        description: "Lista paginada de leads. Acepta sesión de usuario o API key del CRM.",
+        description:
+          "Lista paginada de leads. Acepta sesión de usuario o API key del CRM.\\n\\n" +
+          "**Sincronización inversa:** con `updatedSince` devuelve solo los leads modificados desde ese instante, lo que permite que una integración detecte cambios hechos en el CRM (por ejemplo marcar a alguien como no contactar) y corte sus seguimientos. El orden por defecto pasa a `updatedAt` ascendente para paginar sin huecos; usá `limit` + `page` y quedate con el `updatedAt` más alto como próximo cursor.",
         tags: ["Leads"],
         security: [{ supabaseAuth: [] }, { apiKeyAuth: [] }],
         parameters: [
@@ -1252,6 +1254,14 @@ const openapi = {
             description: "Búsqueda por nombre, empresa, email o externalId",
           },
           {
+            name: "updatedSince",
+            in: "query",
+            required: false,
+            schema: { type: "string", format: "date-time", example: "2026-11-12T00:00:00Z" },
+            description:
+              "Solo leads cuyo estado cambió en o después de este instante ISO-8601 (con offset). No usa updatedAt: un push de datos de contacto no cuenta como cambio hecho en el CRM. Un valor inválido responde 400 con `fields.updatedSince`",
+          },
+          {
             name: "sort",
             in: "query",
             required: false,
@@ -1259,13 +1269,14 @@ const openapi = {
               type: "string",
               enum: ["name", "company", "email", "status", "createdAt", "updatedAt", "estimatedValue", "opportunityScore", "rating"],
             },
-            description: "Campo de ordenamiento",
+            description: "Campo de ordenamiento. Con `updatedSince` el default es `updatedAt`",
           },
           {
             name: "order",
             in: "query",
             required: false,
             schema: { type: "string", enum: ["asc", "desc"], default: "desc" },
+            description: "Con `updatedSince` el default es `asc`",
           },
           {
             name: "page",
@@ -1288,6 +1299,11 @@ const openapi = {
                 schema: {
                   type: "object",
                   properties: {
+                    serverTime: {
+                      type: "string",
+                      format: "date-time",
+                      description: "Instante del servidor al responder. Usalo como próximo `updatedSince` en vez del reloj del cliente",
+                    },
                     data: { type: "array", items: { $ref: "#/components/schemas/Lead" } },
                     total: { type: "integer" },
                     page: { type: "integer" },
@@ -1513,7 +1529,7 @@ const openapi = {
       get: {
         summary: "Catálogo de estados válidos de un lead",
         description:
-          "Publica los valores válidos de `status`. No son fijos: son las etapas del pipeline del usuario, así que el catálogo cambia si renombra, crea o borra etapas. `PATCH /api/leads/{id}/status` valida contra esta misma lista.\\n\\n" +
+          "Publica los valores válidos de `status`. No son fijos: son las etapas del pipeline del usuario, así que el catálogo cambia si renombra, crea o borra etapas. `value` es lo que va en `lead.status`; `doNotContact: true` marca los estados que significan \"no escribirle más a este lead\", y la integración corta su secuencia ahí.\n\n" +
           "**Mapa de estados del Prospector.** Las etapas por defecto del CRM son `Nuevo`, `Contactado`, `Interesado`, `Propuesta`, `Ganado`, `Perdido`. Mapeo recomendado: `Nuevo`→`Nuevo`, `Contactado`→`Contactado`, `Respondió`→`Interesado`, `Interesado`→`Interesado`, `Retomar`→`Contactado`, `Descartado`→`Perdido`, `Rebotó`→`Perdido`. Si querés 1:1, creá las etapas faltantes en el pipeline y este endpoint las devuelve solas.",
         tags: ["Leads"],
         security: [{ supabaseAuth: [] }, { apiKeyAuth: [] }],
@@ -1522,7 +1538,10 @@ const openapi = {
             description: "Catálogo de estados del usuario",
             content: {
               "application/json": {
-                schema: { $ref: "#/components/schemas/LeadStatusCatalog" },
+                schema: {
+                  type: "array",
+                  items: { $ref: "#/components/schemas/LeadStatusOption" },
+                },
               },
             },
           },
@@ -2400,6 +2419,10 @@ const openapi = {
           color: { type: "string" },
           isClosed: { type: "boolean" },
           isWon: { type: "boolean" },
+          isDoNotContact: {
+            type: "boolean",
+            description: "true = llegar a esta etapa significa no escribirle más al lead",
+          },
           createdAt: { type: "string", format: "date-time" },
         },
       },
@@ -2412,6 +2435,10 @@ const openapi = {
           color: { type: "string", description: "Color (hex)" },
           isClosed: { type: "boolean", description: "Indica si la etapa es de cierre" },
           isWon: { type: "boolean", description: "Indica si la etapa es de ganado" },
+          isDoNotContact: {
+            type: "boolean",
+            description: "Marca la etapa como \"no contactar\"; el catálogo la publica con doNotContact: true",
+          },
         },
       },
       UpdateStageRequest: {
@@ -2677,6 +2704,11 @@ const openapi = {
           opportunityScore: { type: "integer", minimum: 0, maximum: 100, nullable: true, description: "Puntaje de oportunidad importado" },
           rating: { type: "number", format: "float", minimum: 0, maximum: 5, nullable: true, description: "Rating de reseñas" },
           reviewsCount: { type: "integer", minimum: 0, nullable: true, description: "Cantidad de reseñas" },
+          statusChangedAt: {
+            type: "string",
+            format: "date-time",
+            description: "Cuándo cambió el estado por última vez. Es el campo de la sincronización inversa",
+          },
           createdAt: { type: "string", format: "date-time" },
           updatedAt: { type: "string", format: "date-time" },
         },
@@ -2710,35 +2742,16 @@ const openapi = {
           reviewsCount: { type: "integer", minimum: 0, nullable: true, description: "Cantidad de reseñas" },
         },
       },
-      LeadStatusCatalog: {
+      LeadStatusOption: {
         type: "object",
+        description: "Un estado válido del catálogo",
         properties: {
-          statuses: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                name: { type: "string", example: "Interesado" },
-                stageId: { type: "string", format: "uuid" },
-                pipelineId: { type: "string", format: "uuid" },
-                pipelineName: { type: "string", example: "Pipeline de Ventas" },
-                position: { type: "integer", example: 3 },
-                color: { type: "string", example: "#f59e0b" },
-                isClosed: { type: "boolean" },
-                isWon: { type: "boolean" },
-              },
-            },
-          },
-          names: {
-            type: "array",
-            description: "Atajo plano del catálogo, en orden de etapa",
-            items: { type: "string" },
-            example: ["Nuevo", "Contactado", "Interesado", "Propuesta", "Ganado", "Perdido"],
-          },
-          default: {
-            type: "string",
-            description: "Estado que se aplica al crear un lead sin `status`",
-            example: "Nuevo",
+          value: { type: "string", example: "Interesado", description: "Valor que va en lead.status" },
+          label: { type: "string", example: "Interesado", description: "Etiqueta para mostrar" },
+          doNotContact: {
+            type: "boolean",
+            example: false,
+            description: "true = no escribirle más a este lead; la integración corta su secuencia",
           },
         },
       },

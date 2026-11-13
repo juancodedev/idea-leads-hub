@@ -101,6 +101,7 @@ export interface Database {
           opportunity_score: number | null;
           rating: number | null;
           reviews_count: number | null;
+          status_changed_at: string;
           created_at: string;
           updated_at: string;
         };
@@ -131,6 +132,7 @@ export interface Database {
           opportunity_score?: number | null;
           rating?: number | null;
           reviews_count?: number | null;
+          status_changed_at?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -161,6 +163,7 @@ export interface Database {
           opportunity_score?: number | null;
           rating?: number | null;
           reviews_count?: number | null;
+          status_changed_at?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -407,6 +410,7 @@ export interface Database {
           color: string;
           is_closed: boolean;
           is_won: boolean;
+          is_do_not_contact: boolean;
           created_at: string;
         };
         Insert: {
@@ -418,6 +422,7 @@ export interface Database {
           color?: string;
           is_closed?: boolean;
           is_won?: boolean;
+          is_do_not_contact?: boolean;
           created_at?: string;
         };
         Update: {
@@ -429,6 +434,7 @@ export interface Database {
           color?: string;
           is_closed?: boolean;
           is_won?: boolean;
+          is_do_not_contact?: boolean;
           created_at?: string;
         };
       };

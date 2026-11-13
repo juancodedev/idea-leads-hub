@@ -34,6 +34,8 @@ export interface Lead {
   nextFollowUp?: string;
   /** Client-owned identifier (e.g. the prospect domain); unique per user. */
   externalId?: string;
+  /** When the status last changed. Drives the integration's reverse sync. */
+  statusChangedAt?: string;
   city?: string;
   industry?: string;
   /** Imported prioritization score, 0-100. */

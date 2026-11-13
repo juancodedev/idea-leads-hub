@@ -23,45 +23,29 @@ import { NextRequest } from 'next/server';
 import { withAuth } from '@/lib/api/with-auth';
 import { GET } from '../route';
 
+const stage = (name: string, position: number, doNotContact = false) => ({
+  id: `stage-${position}`,
+  pipelineId: 'pipeline-1',
+  userId: 'user-1',
+  name,
+  position,
+  color: '#3b82f6',
+  isClosed: false,
+  isWon: false,
+  isDoNotContact: doNotContact,
+  createdAt: '2024-01-01T00:00:00.000Z',
+});
+
 const pipeline = {
   id: 'pipeline-1',
   name: 'Pipeline de Ventas',
   userId: 'user-1',
   createdAt: '2024-01-01T00:00:00.000Z',
   stages: [
-    {
-      id: 'stage-1',
-      pipelineId: 'pipeline-1',
-      userId: 'user-1',
-      name: 'Nuevo',
-      position: 1,
-      color: '#3b82f6',
-      isClosed: false,
-      isWon: false,
-      createdAt: '2024-01-01T00:00:00.000Z',
-    },
-    {
-      id: 'stage-3',
-      pipelineId: 'pipeline-1',
-      userId: 'user-1',
-      name: 'Interesado',
-      position: 3,
-      color: '#f59e0b',
-      isClosed: false,
-      isWon: false,
-      createdAt: '2024-01-01T00:00:00.000Z',
-    },
-    {
-      id: 'stage-4',
-      pipelineId: 'pipeline-1',
-      userId: 'user-1',
-      name: 'Perdido',
-      position: 6,
-      color: '#ef4444',
-      isClosed: true,
-      isWon: false,
-      createdAt: '2024-01-01T00:00:00.000Z',
-    },
+    stage('Nuevo', 1),
+    stage('Contactado', 2),
+    stage('Interesado', 3),
+    stage('Perdido', 6, true),
   ],
 };
 
@@ -80,25 +64,44 @@ describe('GET /api/leads/statuses', () => {
     });
   });
 
-  it('publishes the pipeline stages as the valid status catalog', async () => {
+  it('publishes the contract shape the integration consumes', async () => {
     mockGetAll.mockResolvedValue([pipeline]);
 
     const response = await GET(get());
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.names).toEqual(['Nuevo', 'Interesado', 'Perdido']);
-    expect(body.statuses[0]).toEqual({
-      name: 'Nuevo',
-      stageId: 'stage-1',
-      pipelineId: 'pipeline-1',
-      pipelineName: 'Pipeline de Ventas',
-      position: 1,
-      color: '#3b82f6',
-      isClosed: false,
-      isWon: false,
-    });
-    expect(body.default).toBe('Nuevo');
+    expect(body).toEqual([
+      { value: 'Nuevo', label: 'Nuevo', doNotContact: false },
+      { value: 'Contactado', label: 'Contactado', doNotContact: false },
+      { value: 'Interesado', label: 'Interesado', doNotContact: false },
+      { value: 'Perdido', label: 'Perdido', doNotContact: true },
+    ]);
+  });
+
+  it('flags the statuses that mean "stop writing to this lead"', async () => {
+    mockGetAll.mockResolvedValue([pipeline]);
+
+    const body = await (await GET(get())).json();
+
+    expect(body.filter((s: { doNotContact: boolean }) => s.doNotContact)).toEqual([
+      { value: 'Perdido', label: 'Perdido', doNotContact: true },
+    ]);
+  });
+
+  it('collapses a stage name repeated across pipelines, flagged if any is', async () => {
+    const second = {
+      ...pipeline,
+      id: 'pipeline-2',
+      stages: [stage('Nuevo', 1, true)],
+    };
+    mockGetAll.mockResolvedValue([pipeline, second]);
+
+    const body = await (await GET(get())).json();
+
+    expect(body.filter((s: { value: string }) => s.value === 'Nuevo')).toEqual([
+      { value: 'Nuevo', label: 'Nuevo', doNotContact: true },
+    ]);
   });
 
   it('opts in to API keys and scopes the repository to the key owner', async () => {
@@ -119,12 +122,8 @@ describe('GET /api/leads/statuses', () => {
   it('answers an empty catalog when the user has no pipeline yet', async () => {
     mockGetAll.mockResolvedValue([]);
 
-    const response = await GET(get());
-    const body = await response.json();
+    const body = await (await GET(get())).json();
 
-    expect(response.status).toBe(200);
-    expect(body.statuses).toEqual([]);
-    expect(body.names).toEqual([]);
-    expect(body.default).toBe('Nuevo');
+    expect(body).toEqual([]);
   });
 });
