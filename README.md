@@ -210,9 +210,15 @@ Si querés 1:1 sin perder señal, creá las etapas faltantes (`Respondió`, `Ret
 `Descartado`, `Rebotó`) en el pipeline: el catálogo las publica automáticamente y no
 hay que tocar código.
 
-Un `status` que no coincide con ninguna etapa se guarda tal cual, pero el lead queda
-**sin etapa** en el tablero. Por eso conviene mapear contra el catálogo antes de
-mandarlo.
+Un `status` que no está en el catálogo responde **400** con `fields.status`, y no se
+escribe nada. Lo validan los tres puntos que escriben `status`:
+
+- `POST /api/leads` (incluido el upsert por `externalId`): vale todo el catálogo.
+- `PATCH /api/leads/:id` y `PATCH /api/leads/:id/status`: si el lead tiene pipeline,
+  valen las etapas de ese pipeline (o las del `pipelineId` que mandes en el mismo
+  PATCH); si no, vale todo el catálogo.
+
+Un usuario sin etapas acepta cualquier valor. Mapeá contra el catálogo antes de mandar.
 
 Las API keys habilitan `GET/POST /api/leads`, `GET/PATCH /api/leads/:id`,
 `GET /api/leads/search`, `GET /api/leads/statuses`, `POST /api/notes`,

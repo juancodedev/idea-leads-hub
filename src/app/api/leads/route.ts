@@ -7,6 +7,8 @@ import { CreateLead } from '@/core/application/leads/CreateLead';
 import { buildLeadCreateDTO, buildLeadPatch } from '@/core/application/leads/leadPayload';
 import { ApiCreateLeadSchema } from '@/core/domain/LeadSchema';
 import { fieldErrors } from '@/lib/api/validation';
+import { SupabasePipelineRepository } from '@/infrastructure/repositories/SupabasePipelineRepository';
+import { assertKnownStatus } from '@/core/application/leads/leadStatuses';
 
 /** `updatedSince` accepts an ISO-8601 instant with a Z or a numeric offset. */
 const IsoInstant = z.string().datetime({ offset: true });
@@ -138,6 +140,11 @@ export const POST = apiHandler(async (request: NextRequest) => {
   }
 
   const data = validation.data;
+
+  if (data.status) {
+    // No pipeline in the payload: the whole catalog is valid.
+    await assertKnownStatus(data.status, new SupabasePipelineRepository(supabase, scopedUserId));
+  }
 
   // Dependency Injection (Hexagonal Architecture)
   const repository = new SupabaseLeadRepository(supabase, scopedUserId);

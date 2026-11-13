@@ -1,4 +1,5 @@
-import type { Pipeline } from '@/core/domain/Pipeline';
+import { ZodError } from 'zod';
+import type { Pipeline, PipelineStage } from '@/core/domain/Pipeline';
 
 /** One valid lead status, as the integration consumes it. */
 export interface LeadStatusOption {
@@ -37,4 +38,43 @@ export function buildStatusCatalog(pipelines: Pipeline[]): LeadStatusOption[] {
   }
 
   return [...byValue.values()];
+}
+
+/** The pipeline reads the status check needs. */
+export interface StatusCatalogSource {
+  getAll(): Promise<Pipeline[]>;
+  getStages(pipelineId: string): Promise<PipelineStage[]>;
+}
+
+/**
+ * Rejects a `status` that is not a stage name, so every endpoint that writes
+ * `status` enforces the same rule.
+ *
+ * With a pipeline, only that pipeline's stages are valid; without one, the
+ * whole catalog (what `GET /api/leads/statuses` publishes) is. A user with no
+ * stages at all has no catalog to enforce, so anything is accepted.
+ *
+ * Throws a ZodError on `status`, which the API answers as 400 with
+ * `fields.status`.
+ */
+export async function assertKnownStatus(
+  status: string,
+  source: StatusCatalogSource,
+  pipelineId?: string | null
+): Promise<void> {
+  const validNames = pipelineId
+    ? (await source.getStages(pipelineId)).map((stage) => stage.name)
+    : buildStatusCatalog(await source.getAll()).map((option) => option.value);
+
+  if (validNames.length === 0 || validNames.includes(status)) return;
+
+  throw new ZodError([
+    {
+      code: 'invalid_enum_value',
+      path: ['status'],
+      message: `Estado inválido. Los valores válidos son: ${validNames.join(', ')}`,
+      received: status,
+      options: validNames,
+    },
+  ]);
 }

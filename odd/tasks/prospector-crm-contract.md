@@ -61,7 +61,7 @@ Test runner: `jest` via `pnpm test`. Lint: `eslint .`, types: `tsc --noEmit`.
 | T8 | Status catalog endpoint + mapping table (PR #93) | S4b | inline | done |
 | T9 | `updatedSince` filter on `GET /api/leads` (same PR) | S4c | inline | done |
 | T10 | Phase A: catalog shape, `is_do_not_contact`, `status_changed_at`, `serverTime` | S4d | inline | done |
-| T11 | Phase B: shared status validation on the three write paths | S4e | inline | blocked (waiting for the Prospector deploy) |
+| T11 | Phase B: shared status validation on the three write paths | S4e | inline | done |
 
 ## Log
 
@@ -106,3 +106,12 @@ Test runner: `jest` via `pnpm test`. Lint: `eslint .`, types: `tsc --noEmit`.
 - **L12:** The OpenCode session stopped at the free usage limit mid-edit, leaving a
   double-escaped string in the OpenAPI route. Fixed; `tsc --noEmit` clean; `jest` 117
   suites / 869 tests pass. The migration was not run against a database in this session.
+- **L13:** Phase A merged as #94; the first deploy failed the schema-drift gate because it
+  ran 9 s after the merge, before the migration. Re-run passed; production serves the
+  new contract.
+- **L14 (verbatim request):** "el Prospector ya está desplegado, activá la Fase B".
+  `assertKnownStatus` in `leadStatuses.ts` is the shared check, extracted from the
+  existing `PATCH /status` logic: the lead's pipeline when known (or the `pipelineId`
+  in the same PATCH), else the whole catalog; no stages means no catalog to enforce.
+  RED observed for the 4 rejection cases before the change; `tsc` clean, `jest` 117
+  suites / 877 tests pass. The web UI does not call these routes.
