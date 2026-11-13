@@ -50,17 +50,23 @@ Test runner: `pnpm test` (jest), plus `pnpm lint` and `tsc --noEmit`.
 
 ## Checks
 
-- `jest` 84 suites / 498 tests pass.
+- `jest` 84 suites / 498 tests pass at the time of these commits; the suite has
+  since grown to 112 suites / 825 tests.
 - `tsc --noEmit --incremental false` clean.
 - `eslint` on the touched folders: 0 errors (one pre-existing
   `react-hooks/exhaustive-deps` warning in `LeadPopup.tsx`).
-- Pending, needs a database: apply `20261112000000_api_keys.sql` and
-  `20261112000001_leads_integration_fields.sql` (local reset or
-  `supabase db push`) and exercise the upsert against real Postgres, including
-  the partial unique index and the score/rating check constraints.
-- The broken `pnpm-lock.yaml` (two YAML documents) blocks `pnpm install
-  --frozen-lockfile`; tests ran with a local install and the lockfile was left
-  untouched.
+- Migrations applied to production (`xsqyftoblnsjkavhldcm`) from the SQL Editor
+  and verified: 6 new columns, the partial unique index, the 3 check constraints,
+  `api_keys` and `email` nullable.
+- Deploy gate added afterwards: `.github/workflows/deploy.yml` runs
+  `scripts/check-schema-drift.mjs`, which compares `database.types.ts` against the
+  PostgREST spec production serves, so this failure mode cannot ship again.
+- `pnpm-lock.yaml` is **not** broken: the two YAML documents are pnpm 12's own
+  format. `pnpm install --frozen-lockfile` with 12.16.1 leaves it byte-identical.
+  The `ERR_PNPM_BROKEN_LOCKFILE` came from a pnpm 9.15.9 on the PATH; `engines.pnpm`
+  now requires `>=12` and `.npmrc` sets `engine-strict`.
+- Still unverified end to end: the upsert against real Postgres (create then
+  update on the same `externalId`).
 
 ## Log
 
@@ -100,5 +106,6 @@ Test runner: `pnpm test` (jest), plus `pnpm lint` and `tsc --noEmit`.
   status endpoint keeps session-only auth because it triggers Instagram DMs and
   pipeline-wide reads that are not scoped for a service-role client. The imported
   score is `opportunityScore`, separate from the client-side computed `ScoreBadge`.
-- **L7 (verification):** 498 tests pass, `tsc --noEmit` clean, eslint 0 errors.
-  The migrations were not applied to any database in this session.
+- **L7 (verification):** 498 tests passed at that point; `tsc --noEmit` clean,
+  eslint 0 errors. The migrations were applied to production afterwards and the
+  deploy gate now enforces this class of drift.
