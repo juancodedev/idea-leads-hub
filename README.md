@@ -291,6 +291,24 @@ El deploy se activa automáticamente al hacer push a `main` (`.github/workflows/
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Clave publicable |
 | `CLOUDFLARE_API_TOKEN` | Token de API de Cloudflare |
 | `CLOUDFLARE_ACCOUNT_ID` | ID de cuenta Cloudflare |
+| `SUPABASE_DB_URL` | Connection string de producción (Session pooler, puerto 5432). Lo usa el chequeo de migraciones |
+
+### 🗄️ Migraciones y deploy
+
+Mergear a `main` **deploya a producción**, así que el esquema tiene que estar aplicado
+antes. El primer paso del workflow es `scripts/check-pending-migrations.sh`: compara
+`supabase/migrations/*.sql` contra `supabase_migrations.schema_migrations` en la base de
+producción y **falla el deploy** si falta alguna.
+
+```bash
+# Aplicar las pendientes
+supabase db push --db-url "$SUPABASE_DB_URL"
+
+# Si ya las aplicaste a mano desde el SQL Editor, registralas en el historial
+supabase migration repair --status applied 20261112000000 20261112000001 --db-url "$SUPABASE_DB_URL"
+```
+
+El script necesita `psql` (viene preinstalado en los runners de GitHub).
 
 **Las secrets de Meta** se configuran en el dashboard de Cloudflare Workers (secrets runtime, no van en build):
 
