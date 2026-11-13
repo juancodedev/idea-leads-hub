@@ -26,6 +26,11 @@ Test runner: `jest` via `pnpm test`. Lint: `eslint .`, types: `tsc --noEmit`.
   `opportunityScore`, `estimatedValue`: `"4.9"` → `4.9`.
 - **S8.** `/api/docs` and README document the contract, including the name mapping the
   client needs for item 4.
+- **S4b (item 4, full text arrived later).** Publish the valid `status` values: the
+  user's pipeline stage names, via `GET /api/leads/statuses`. Prospector sends
+  `Nuevo`, `Contactado`, `Respondió`, `Interesado`, `Retomar`, `Descartado`,
+  `Rebotó`; the CRM's default stages are `Nuevo`, `Contactado`, `Interesado`,
+  `Propuesta`, `Ganado`, `Perdido`, and the mapping is documented for the client.
 - **Out of scope:** item 8 (CRM → Prospector do-not-contact sync) is explicitly
   labelled "Phase 2" in the request and is not implemented here.
 
@@ -40,6 +45,7 @@ Test runner: `jest` via `pnpm test`. Lint: `eslint .`, types: `tsc --noEmit`.
 | T5 | OpenAPI + README, including the field-name map | S8 | inline | done |
 | T6 | PR and deploy verification | S5 | inline | pending |
 | T7 | Regression fix: restore the GET tests the new activities spec overwrote | — | inline | done |
+| T8 | Status catalog endpoint + mapping table (PR #93) | S4b | inline | done |
 
 ## Log
 
@@ -63,6 +69,10 @@ Test runner: `jest` via `pnpm test`. Lint: `eslint .`, types: `tsc --noEmit`.
 - **L6:** The first version of `src/app/api/activities/__tests__/route.spec.ts`
   replaced the file instead of extending it, dropping 2 GET tests. Restored them and
   kept the new POST cases in the same spec (T7).
-- **L7:** Note on item 4: the request arrived truncated ("the CRM uses other names,
-  say which ones and Prospector maps to them"). Resolved as documentation, not new
-  columns: the name map is in `README.md` and `/api/docs`.
+- **L7:** Item 4 first arrived truncated ("the CRM uses other names, say which ones
+  and Prospector maps to them"), so it was answered with the field name map only.
+- **L8:** The full text of item 4 arrived later and asked for a status catalog. The
+  valid values are the pipeline stage names, so `GET /api/leads/statuses` publishes
+  them and `PATCH /api/leads/{id}/status` already validated against the same list.
+  A `status` that matches no stage is stored but leaves `stage_id` NULL, so the
+  mapping is documented: the client must map before sending.
