@@ -341,10 +341,10 @@ const openapi = {
         },
       },
       post: {
-        summary: "Crear nota",
-        description: "Crea una nueva nota asociada a un lead o idea.",
+        summary: "Crear o actualizar (upsert) una nota",
+        description: "Crea una nota asociada a un lead o idea. Con `externalId`, si ya existe una nota del mismo usuario con ese id la actualiza y responde 200; si no, la crea y responde 201. Acepta API key.",
         tags: ["Notes"],
-        security: [{ supabaseAuth: [] }],
+        security: [{ supabaseAuth: [] }, { apiKeyAuth: [] }],
         requestBody: {
           required: true,
           content: {
@@ -356,6 +356,14 @@ const openapi = {
         responses: {
           201: {
             description: "Nota creada",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Note" },
+              },
+            },
+          },
+          200: {
+            description: "Nota existente actualizada por externalId (upsert)",
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/Note" },
@@ -655,10 +663,10 @@ const openapi = {
         },
       },
       post: {
-        summary: "Crear actividad",
-        description: "Crea una nueva actividad (llamada, reunión, tarea, etc.).",
+        summary: "Crear o actualizar (upsert) una actividad",
+        description: "Crea una actividad (llamada, reunión, email enviado, tarea…). Con `externalId`, si ya existe una actividad del mismo usuario con ese id la actualiza y responde 200; si no, la crea y responde 201. Acepta API key.",
         tags: ["Activities"],
-        security: [{ supabaseAuth: [] }],
+        security: [{ supabaseAuth: [] }, { apiKeyAuth: [] }],
         requestBody: {
           required: true,
           content: {
@@ -670,6 +678,14 @@ const openapi = {
         responses: {
           201: {
             description: "Actividad creada",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Activity" },
+              },
+            },
+          },
+          200: {
+            description: "Actividad existente actualizada por externalId (upsert)",
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/Activity" },
@@ -1289,7 +1305,11 @@ const openapi = {
       post: {
         summary: "Crear o actualizar (upsert) un lead",
         description:
-          "Crea un lead. Si se envía `externalId` y ya existe un lead del mismo usuario con ese identificador, actualiza ese lead y responde 200; si no existe, lo crea y responde 201. Un reintento del envío o un backfill repetido nunca duplica leads. English camelCase es el contrato canónico; los campos en español (empresa, origen, nombre, teléfono, dirección, sitio_web, notas) se aceptan como alias deprecated.",
+          "Crea un lead. Si se envía `externalId` y ya existe un lead del mismo usuario con ese identificador, actualiza ese lead y responde 200; si no existe, lo crea y responde 201. Un reintento del envío o un backfill repetido nunca duplica leads.\n\n"
+          + "**Actualización parcial:** en el upsert solo se escriben los campos que enviaste. Los defaults (`status: \"Nuevo\"`, `name` = compañía) se aplican únicamente al crear. `null` o campo ausente = conservar el valor guardado; `\"\"` = borrarlo. Así un `POST` de actualización nunca pisa el estado que el usuario cambió en el CRM.\n\n"
+          + "**Números tolerantes:** `rating`, `reviewsCount`, `opportunityScore` y `estimatedValue` aceptan número o string numérico (`\"4.9\"`).\n\n"
+          + "**Errores:** un 400 devuelve `{ error, fields }`, con un mensaje por campo (`{\"rating\": \"Expected number\"}`).\n\n"
+          + "English camelCase es el contrato canónico; los campos en español (empresa, origen, nombre, teléfono, dirección, sitio_web, notas) se aceptan como alias deprecated.",
         tags: ["Leads"],
         security: [{ supabaseAuth: [] }, { apiKeyAuth: [] }],
         requestBody: {
@@ -1304,7 +1324,7 @@ const openapi = {
         },
         responses: {
           201: {
-            description: "Lead creado exitosamente",
+            description: "Lead creado exitosamente. Siempre incluye `id`",
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/Lead" },
@@ -1312,14 +1332,21 @@ const openapi = {
             },
           },
           200: {
-            description: "Lead existente actualizado por externalId (upsert)",
+            description: "Lead existente actualizado por externalId (upsert). Siempre incluye `id`",
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/Lead" },
               },
             },
           },
-          400: { description: "Error de validación o datos incorrectos" },
+          400: {
+            description: "Error de validación; `fields` trae un mensaje por campo",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ValidationError" },
+              },
+            },
+          },
           401: { description: "No autorizado" },
           500: { description: "Error interno del servidor" },
         },
@@ -1485,9 +1512,9 @@ const openapi = {
     "/api/leads/{id}/status": {
       patch: {
         summary: "Cambiar estado de lead",
-        description: "Cambia el estado de un lead.",
+        description: "Cambia el estado de un lead. Acepta API key, para que la integración marque \"Interesado\", \"Retomar\" o \"Descartado\" cuando el usuario responde.",
         tags: ["Leads"],
-        security: [{ supabaseAuth: [] }],
+        security: [{ supabaseAuth: [] }, { apiKeyAuth: [] }],
         parameters: [
           {
             name: "id",
@@ -2130,6 +2157,7 @@ const openapi = {
           entityId: { type: "string", format: "uuid" },
           entityType: { type: "string", enum: ["lead", "idea"] },
           content: { type: "string" },
+          externalId: { type: "string", maxLength: 200, description: "Identificador del cliente (ej. \"cafe-lindo.cl#investigacion\"). Único por usuario: permite upsert" },
           createdAt: { type: "string", format: "date-time" },
           updatedAt: { type: "string", format: "date-time" },
         },
@@ -2141,6 +2169,7 @@ const openapi = {
           content: { type: "string", minLength: 1, description: "Contenido de la nota" },
           entityId: { type: "string", format: "uuid", description: "ID de la entidad (lead o idea)" },
           entityType: { type: "string", enum: ["lead", "idea"], description: "Tipo de entidad" },
+          externalId: { type: "string", maxLength: 200, nullable: true, description: "Identificador del cliente. Único por usuario: reenviarlo actualiza en vez de duplicar" },
         },
       },
       UpdateNoteRequest: {
@@ -2245,6 +2274,7 @@ const openapi = {
           },
           status: { $ref: "#/components/schemas/ActivityStatus" },
           readAt: { type: "string", format: "date-time", nullable: true },
+          externalId: { type: "string", maxLength: 200, description: "Identificador del cliente (ej. \"cafe-lindo.cl#correo-1\"). Único por usuario: permite upsert" },
         },
       },
       ActivityStatus: {
@@ -2272,7 +2302,9 @@ const openapi = {
           dueDate: { type: "string", format: "date-time", description: "Fecha de vencimiento" },
           leadId: { type: "string", format: "uuid", description: "ID del lead asociado" },
           ideaId: { type: "string", format: "uuid", description: "ID de la idea asociada" },
-          status: { $ref: "#/components/schemas/ActivityStatus", description: "Estado inicial (default PENDING)" },
+          status: { $ref: "#/components/schemas/ActivityStatus", description: "Estado inicial (default PENDING). Usar COMPLETED para un email ya enviado" },
+          completedAt: { type: "string", format: "date-time", description: "Cuándo ocurrió (fecha del email enviado), no cuándo vence" },
+          externalId: { type: "string", maxLength: 200, nullable: true, description: "Identificador del cliente. Único por usuario: reenviarlo actualiza en vez de duplicar" },
           attachments: {
             type: "array",
             items: { $ref: "#/components/schemas/ActivityAttachment" },
@@ -2383,10 +2415,22 @@ const openapi = {
       },
 
       // ── Leads ─────────────────────────────────────────────
+      ValidationError: {
+        type: "object",
+        description: "Error de validación con un mensaje por campo, para mostrarlo en la UI del cliente",
+        properties: {
+          error: { type: "string", example: "Error de validación" },
+          fields: {
+            type: "object",
+            additionalProperties: { type: "string" },
+            example: { rating: "Expected number" },
+          },
+        },
+      },
       CreateLeadRequest: {
         type: "object",
         description:
-          "Contrato canónico en inglés. company y source son obligatorios; email es opcional. Los campos en español son alias deprecated que se seguirán aceptando por compatibilidad. Si se envía externalId, el POST hace upsert (201 al crear, 200 al actualizar).",
+          "Contrato canónico en inglés. company y source son obligatorios; email es opcional. Los campos en español son alias deprecated que se seguirán aceptando por compatibilidad. Si se envía externalId, el POST hace upsert (201 al crear, 200 al actualizar) y en la actualización solo se escriben los campos enviados: `null` o ausente = conservar, `\"\"` = borrar. Los campos numéricos aceptan también string numérico.",
         properties: {
           company: {
             type: "string",
@@ -2456,7 +2500,8 @@ const openapi = {
             type: "integer",
             minimum: 0,
             maximum: 100,
-            description: "Puntaje de oportunidad importado (0-100)",
+            nullable: true,
+            description: "Puntaje de oportunidad importado (0-100). Acepta `\"87\"`",
             example: 87,
           },
           rating: {
@@ -2464,15 +2509,18 @@ const openapi = {
             format: "float",
             minimum: 0,
             maximum: 5,
-            description: "Rating de reseñas (0-5)",
+            nullable: true,
+            description: "Rating de reseñas (0-5). Acepta `\"4.9\"`",
             example: 4.5,
           },
           reviewsCount: {
             type: "integer",
             minimum: 0,
-            description: "Cantidad de reseñas",
+            nullable: true,
+            description: "Cantidad de reseñas. Acepta `\"132\"`",
             example: 132,
           },
+
           instagramHandle: {
             type: "string",
             description: "Handle de Instagram (ej. @usuario)",
@@ -2497,7 +2545,8 @@ const openapi = {
           estimatedValue: {
             type: "number",
             format: "float",
-            description: "Valor estimado de la oportunidad (para priorización)",
+            nullable: true,
+            description: "Valor estimado de la oportunidad (para priorización). Acepta `\"25000\"`",
             example: 25000.00,
           },
           nextFollowUp: {

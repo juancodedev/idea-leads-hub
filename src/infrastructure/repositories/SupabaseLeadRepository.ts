@@ -53,25 +53,17 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
    */
   constructor(
     supabase: SupabaseClient<Database>,
-    private readonly scopedUserId?: string
+    scopedUserId?: string
   ) {
-    super(supabase, 'leads');
+    super(supabase, 'leads', scopedUserId);
   }
 
   private get userId(): string | undefined {
     return this.scopedUserId;
   }
 
-  private async resolveUserId(): Promise<string> {
-    return this.scopedUserId ?? this.requireUser();
-  }
-
   private scope<T>(query: T): T {
-    if (!this.userId) return query;
-    return (query as unknown as { eq: (column: string, value: string) => T }).eq(
-      'user_id',
-      this.userId
-    );
+    return this.scopeToUser(query);
   }
 
   async getAll(): Promise<Lead[]> {
@@ -211,25 +203,33 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
 
   /**
    * Create or update by `externalId` so retried integration sends and repeated
-   * backfills never duplicate a lead. Returns whether the row was created.
+   * backfills never duplicate a lead.
+   *
+   * `createLead` is only used when the row does not exist, so defaults such as
+   * `status: 'Nuevo'` cannot overwrite a value the user set in the CRM. An
+   * existing lead receives only `patch` — the fields the client actually sent.
    */
-  async upsertByExternalId(lead: CreateLeadDTO & { externalId: string }): Promise<UpsertLeadResult> {
-    const existing = await this.getByExternalId(lead.externalId);
+  async upsertByExternalId(
+    externalId: string,
+    createLead: CreateLeadDTO,
+    patch: Omit<UpdateLeadDTO, 'id'>
+  ): Promise<UpsertLeadResult> {
+    const existing = await this.getByExternalId(externalId);
 
     if (existing) {
-      const updated = await this.update({ id: existing.id, ...lead });
+      const updated = await this.update({ id: existing.id, ...patch });
       return { lead: updated, created: false };
     }
 
     try {
-      const created = await this.create(lead);
+      const created = await this.create({ ...createLead, externalId });
       return { lead: created, created: true };
     } catch (error) {
       // Concurrent first insert of the same external id: adopt the winner.
       if (error instanceof ConflictError) {
-        const winner = await this.getByExternalId(lead.externalId);
+        const winner = await this.getByExternalId(externalId);
         if (winner) {
-          const updated = await this.update({ id: winner.id, ...lead });
+          const updated = await this.update({ id: winner.id, ...patch });
           return { lead: updated, created: false };
         }
       }

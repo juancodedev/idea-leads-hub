@@ -30,7 +30,11 @@ export interface LeadRepository {
   getById(id: string): Promise<Lead | null>;
   getByExternalId(externalId: string): Promise<Lead | null>;
   create(lead: CreateLeadDTO): Promise<Lead>;
-  upsertByExternalId(lead: CreateLeadDTO & { externalId: string }): Promise<UpsertLeadResult>;
+  upsertByExternalId(
+    externalId: string,
+    createLead: CreateLeadDTO,
+    patch: Omit<UpdateLeadDTO, 'id'>
+  ): Promise<UpsertLeadResult>;
   update(lead: UpdateLeadDTO): Promise<Lead>;
   delete(id: string): Promise<void>;
   updateStatus(id: string, status: Lead['status']): Promise<Lead>;

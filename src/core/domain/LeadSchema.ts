@@ -48,83 +48,116 @@ export const LeadSchema = z.object({
 });
 
 /**
+ * API numeric field. Accepts a number or a numeric string (`"4.9"` → `4.9`,
+ * for clients that serialize everything as text), plus the two sentinels the
+ * upsert contract defines: `null` = keep the stored value, `""` = clear it.
+ */
+export type ApiNumber = number | '' | null | undefined;
+
+const apiNumber = (schema: z.ZodNumber): z.ZodType<ApiNumber> =>
+  z.preprocess(
+    (val) => (typeof val === 'string' && val.trim() !== '' ? Number(val) : val),
+    z.any().superRefine((val, ctx) => {
+      if (val === undefined || val === null || val === '') return;
+      if (typeof val !== 'number' || Number.isNaN(val)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Expected number' });
+        return;
+      }
+      const parsed = schema.safeParse(val);
+      if (!parsed.success) {
+        for (const issue of parsed.error.issues) ctx.addIssue(issue);
+      }
+    })
+  ) as z.ZodType<ApiNumber>;
+
+/** Optional email that also accepts `""` to clear the stored value. */
+const apiEmail = () => z.union([z.string().email('Invalid email'), z.literal('')]).nullish();
+
+/** Optional URL that also accepts `""` to clear the stored value. */
+const apiUrl = (message: string) =>
+  z.union([z.string().url(message), z.literal('')]).nullish();
+
+/**
  * ApiCreateLeadSchema — API validation.
  *
  * English camelCase is the canonical contract. The five legacy Spanish create
  * fields are still accepted for backward compatibility with existing clients
  * and are documented as deprecated in /api/docs; new clients must not use them.
+ *
+ * Every optional field is `nullish`: a client may send `null` for data it does
+ * not know yet, and the route treats it as "not sent" instead of a 400.
  */
 export const ApiCreateLeadSchema = z.object({
   // English fields (canonical)
-  company: z.string().min(1, 'Company is required').optional(),
-  email: z.string().email('Invalid email').optional(),
-  source: z.string().min(1, 'Source is required').optional(),
-  name: z.string().optional(),
-  phone: z.string().optional(),
-  address: z.string().optional(),
-  website: z.string().url('Invalid URL').optional(),
-  notes: z.string().optional(),
-  status: LeadStatusEnum.optional(),
+  company: z.string().min(1, 'Company is required').nullish(),
+  email: apiEmail(),
+  source: z.string().min(1, 'Source is required').nullish(),
+  name: z.string().nullish(),
+  phone: z.string().nullish(),
+  address: z.string().nullish(),
+  website: apiUrl('Invalid URL'),
+  notes: z.string().nullish(),
+  status: LeadStatusEnum.nullish(),
 
-  instagramHandle: z.string().optional(),
-  instagramScopedId: z.string().optional(),
-  jobTitle: z.string().optional(),
-  linkedinUrl: z.string().optional(),
-  estimatedValue: z.number().optional(),
-  nextFollowUp: z.string().optional(),
+  instagramHandle: z.string().nullish(),
+  instagramScopedId: z.string().nullish(),
+  jobTitle: z.string().nullish(),
+  linkedinUrl: apiUrl('Invalid URL'),
+  estimatedValue: apiNumber(z.number()),
+  nextFollowUp: z.string().nullish(),
 
   /** Client-owned id (e.g. the prospect domain). Enables upsert. */
-  externalId: z.string().trim().min(1, 'externalId cannot be empty').max(200).optional(),
-  city: z.string().optional(),
-  industry: z.string().optional(),
-  opportunityScore: optionalScore.optional(),
-  rating: optionalRating.optional(),
-  reviewsCount: optionalCount.optional(),
+  externalId: z.string().trim().min(1, 'externalId cannot be empty').max(200).nullish(),
+  city: z.string().nullish(),
+  industry: z.string().nullish(),
+  opportunityScore: apiNumber(optionalScore),
+  rating: apiNumber(optionalRating),
+  reviewsCount: apiNumber(optionalCount),
 
   // Spanish fields (deprecated — kept for backward compat)
-  empresa: z.string().min(1, 'La empresa es obligatoria').optional(),
-  origen: z.string().min(1, 'El origen es obligatorio').optional(),
-  nombre: z.string().optional(),
-  telefono: z.string().optional(),
-  direccion: z.string().optional(),
-  sitio_web: z.string().url('URL inválida').optional(),
-  notas: z.string().optional(),
+  empresa: z.string().min(1, 'La empresa es obligatoria').nullish(),
+  origen: z.string().min(1, 'El origen es obligatorio').nullish(),
+  nombre: z.string().nullish(),
+  telefono: z.string().nullish(),
+  direccion: z.string().nullish(),
+  sitio_web: apiUrl('URL inválida'),
+  notas: z.string().nullish(),
 }).strict().refine(
   (data) => data.company || data.empresa,
-  { message: 'company or empresa is required' }
+  { message: 'company or empresa is required', path: ['company'] }
 ).refine(
   (data) => data.source || data.origen,
-  { message: 'source or origen is required' }
+  { message: 'source or origen is required', path: ['source'] }
 );
 
 /**
  * ApiUpdateLeadSchema — PATCH /api/leads/{id} (English fields only).
- * An empty string clears the stored value.
+ * An empty string clears the stored value; `null` is treated as "not sent".
  */
 export const ApiUpdateLeadSchema = z.object({
   name: z.string().min(1).optional(),
   company: z.string().min(1).optional(),
-  email: z.string().email('Invalid email').optional().or(z.literal('')),
-  phone: z.string().optional(),
-  address: z.string().optional(),
-  website: z.string().url('Invalid URL').optional().or(z.literal('')),
-  source: z.string().optional(),
-  notes: z.string().optional(),
-  status: z.string().optional(),
-  pipelineId: z.string().uuid().optional().nullable(),
-  stageId: z.string().uuid().optional().nullable(),
-  instagramHandle: z.string().optional(),
-  instagramScopedId: z.string().optional(),
-  jobTitle: z.string().optional(),
-  linkedinUrl: z.string().url('Invalid URL').optional().or(z.literal('')),
-  estimatedValue: z.number().optional().nullable(),
-  nextFollowUp: z.string().optional().nullable(),
+  email: apiEmail(),
+  phone: z.string().nullish(),
+  address: z.string().nullish(),
+  website: apiUrl('Invalid URL'),
+  source: z.string().nullish(),
+  notes: z.string().nullish(),
+  status: z.string().nullish(),
+  pipelineId: z.string().uuid().nullish(),
+  stageId: z.string().uuid().nullish(),
+  instagramHandle: z.string().nullish(),
+  instagramScopedId: z.string().nullish(),
+  jobTitle: z.string().nullish(),
+  linkedinUrl: apiUrl('Invalid URL'),
+  estimatedValue: apiNumber(z.number()).nullable(),
+  nextFollowUp: z.string().nullish(),
   externalId: z.string().trim().min(1).max(200).optional(),
-  city: z.string().optional(),
-  industry: z.string().optional(),
-  opportunityScore: optionalScore.optional().nullable(),
-  rating: optionalRating.optional().nullable(),
-  reviewsCount: optionalCount.optional().nullable(),
+  city: z.string().nullish(),
+  industry: z.string().nullish(),
+  opportunityScore: apiNumber(optionalScore).nullable(),
+  rating: apiNumber(optionalRating).nullable(),
+  reviewsCount: apiNumber(optionalCount).nullable(),
 });
 
 export type LeadFormValues = z.infer<typeof LeadSchema>;

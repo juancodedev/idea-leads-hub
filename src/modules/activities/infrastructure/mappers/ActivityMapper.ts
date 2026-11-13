@@ -26,6 +26,7 @@ export class ActivityMapper {
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
       attachments: (row.attachments || []) as ActivityAttachment[],
+      externalId: row.external_id ?? undefined,
     };
   }
 
@@ -48,7 +49,8 @@ export class ActivityMapper {
     if (activity.completedAt !== undefined) persistence.completed_at = activity.completedAt?.toISOString();
     if (activity.readAt !== undefined) persistence.read_at = activity.readAt?.toISOString() ?? null;
     if (activity.attachments !== undefined) persistence.attachments = activity.attachments;
-    
+    if (activity.externalId !== undefined) persistence.external_id = activity.externalId;
+
     return persistence;
   }
 }

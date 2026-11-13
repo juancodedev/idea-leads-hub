@@ -30,7 +30,13 @@ export const PATCH = apiHandler(async (request: NextRequest, context: { params: 
   const existing = await repo.getById(id);
   if (!existing) throw new NotFoundError('Lead not found');
 
-  const lead = await repo.update({ id, ...data });
+  // `null` means "not sent": only the fields the client actually wrote reach
+  // the database, and `""` is what clears a stored value.
+  const patch = Object.fromEntries(
+    Object.entries(data).filter(([, value]) => value !== null)
+  );
+
+  const lead = await repo.update({ id, ...patch });
   return NextResponse.json(lead, { status: 200 });
 });
 

@@ -12,10 +12,33 @@ export interface FindAllOptions {
 }
 
 export class BaseRepository {
+  /**
+   * @param scopedUserId Set on machine (API key) paths, where the client is
+   * service-role and RLS does not scope queries. Repositories that accept it
+   * must filter every query by it.
+   */
   constructor(
     protected readonly supabase: SupabaseClient<Database>,
     protected readonly tableName: string,
+    protected readonly scopedUserId?: string,
   ) {}
+
+  /**
+   * The user that owns the current request: the API key owner on machine
+   * paths, the session user otherwise (RLS scopes those queries).
+   */
+  protected async resolveUserId(): Promise<string> {
+    return this.scopedUserId ?? this.requireUser();
+  }
+
+  /** Filter a query by the scoped user. A no-op on session (RLS) paths. */
+  protected scopeToUser<T>(query: T): T {
+    if (!this.scopedUserId) return query;
+    return (query as unknown as { eq: (column: string, value: string) => T }).eq(
+      'user_id',
+      this.scopedUserId
+    );
+  }
 
   /**
    * Require authenticated user. Returns userId or throws UnauthorizedError.

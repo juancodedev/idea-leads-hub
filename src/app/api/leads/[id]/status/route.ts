@@ -17,16 +17,16 @@ const ChangeStatusSchema = z.object({
 
 export const PATCH = apiHandler(async (request: NextRequest, context: { params: Promise<{ id: string }> }) => {
   const { id } = await context.params;
-  const { supabase } = await withAuth(request);
+  const { supabase, user, scopedUserId } = await withAuth(request, { allowApiKey: true });
   const body = await request.json();
   const { status } = ChangeStatusSchema.parse(body);
 
-  const repo = new SupabaseLeadRepository(supabase);
+  const repo = new SupabaseLeadRepository(supabase, scopedUserId);
   const existing = await repo.getById(id);
   if (!existing) throw new NotFoundError('Lead not found');
 
   // ── Validate status against pipeline stage names ──────────────
-  const pipelineRepo = new SupabasePipelineRepository(supabase);
+  const pipelineRepo = new SupabasePipelineRepository(supabase, scopedUserId);
   let validStageNames: string[] = [];
 
   if (existing.pipelineId) {
@@ -56,7 +56,7 @@ export const PATCH = apiHandler(async (request: NextRequest, context: { params: 
       entityId: id,
       action: 'UPDATE',
       changes: { status: { old: existing.status, new: status } },
-    });
+    }, scopedUserId ?? user.id);
   } catch (err) {
     console.error('Audit log failed:', err);
   }
@@ -78,18 +78,14 @@ export const PATCH = apiHandler(async (request: NextRequest, context: { params: 
 
 async function createAuditLogFromApi(
   supabase: any,
-  log: { entityType: string; entityId: string; action: string; changes: Record<string, any> }
+  log: { entityType: string; entityId: string; action: string; changes: Record<string, any> },
+  actorUserId: string
 ) {
-  if (!supabase?.auth) return;
-
-  const { data: userData } = await supabase.auth.getUser();
-  if (!userData?.user) return;
-
   await supabase.from('audit_logs').insert({
     entity_type: log.entityType,
     entity_id: log.entityId,
     action: log.action,
     changes: log.changes,
-    user_id: userData.user.id,
+    user_id: actorUserId,
   });
 }

@@ -71,7 +71,9 @@ describe('POST /api/leads — idempotent integration contract', () => {
 
     expect(response.status).toBe(201);
     expect(mockUpsert).toHaveBeenCalledWith(
-      expect.objectContaining({ externalId: 'acme.com', company: 'Acme Inc' })
+      'acme.com',
+      expect.objectContaining({ externalId: 'acme.com', company: 'Acme Inc' }),
+      expect.objectContaining({ company: 'Acme Inc' })
     );
     expect(mockCreate).not.toHaveBeenCalled();
   });
@@ -84,6 +86,20 @@ describe('POST /api/leads — idempotent integration contract', () => {
     );
 
     expect(response.status).toBe(200);
+  });
+
+  it('always returns the lead id on 200 and 201', async () => {
+    mockUpsert.mockResolvedValueOnce({ lead: storedLead, created: true });
+    const createdResponse = await POST(
+      post({ company: 'Acme Inc', source: 'Prospector', externalId: 'acme.com' })
+    );
+    expect((await createdResponse.json()).id).toBe('lead-1');
+
+    mockUpsert.mockResolvedValueOnce({ lead: storedLead, created: false });
+    const updatedResponse = await POST(
+      post({ company: 'Acme Inc', source: 'Prospector', externalId: 'acme.com' })
+    );
+    expect((await updatedResponse.json()).id).toBe('lead-1');
   });
 
   it('accepts a lead without email (WhatsApp-only prospects)', async () => {
@@ -146,5 +162,22 @@ describe('POST /api/leads — idempotent integration contract', () => {
     const response = await POST(post({ company: 'Acme Inc', source: 'Web', rating: 6 }));
 
     expect(response.status).toBe(400);
+  });
+
+  it('answers 400 with a field-keyed message the UI can show', async () => {
+    const response = await POST(post({ company: 'Acme Inc', source: 'Web', rating: 'not-a-number' }));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Error de validación');
+    expect(body.fields).toEqual({ rating: 'Expected number' });
+  });
+
+  it('names the missing field when company is absent', async () => {
+    const response = await POST(post({ source: 'Prospector' }));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.fields.company).toMatch(/company or empresa is required/);
   });
 });

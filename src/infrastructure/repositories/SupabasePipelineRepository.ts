@@ -13,15 +13,20 @@ interface PipelineWithStages extends PipelineRow {
 }
 
 export class SupabasePipelineRepository extends BaseRepository implements PipelineRepository {
-  constructor(supabase: SupabaseClient<Database>) {
-    super(supabase, 'pipelines');
+  /**
+   * @param scopedUserId Set on machine (API key) paths, where the client is
+   * service-role and RLS does not scope queries.
+   */
+  constructor(supabase: SupabaseClient<Database>, scopedUserId?: string) {
+    super(supabase, 'pipelines', scopedUserId);
   }
 
   async getAll(): Promise<Pipeline[]> {
-    const { data, error } = await this.supabase
-      .from('pipelines')
-      .select('*, pipeline_stages(*)')
-      .order('created_at', { ascending: true });
+    const { data, error } = await this.scopeToUser(
+      this.supabase
+        .from('pipelines')
+        .select('*, pipeline_stages(*)')
+    ).order('created_at', { ascending: true });
 
     if (error) this.handleError(error);
     const rows = (data ?? []) as unknown as PipelineWithStages[];
@@ -29,9 +34,11 @@ export class SupabasePipelineRepository extends BaseRepository implements Pipeli
   }
 
   async getById(id: string): Promise<Pipeline | null> {
-    const { data, error } = await this.supabase
-      .from('pipelines')
-      .select('*, pipeline_stages(*)')
+    const { data, error } = await this.scopeToUser(
+      this.supabase
+        .from('pipelines')
+        .select('*, pipeline_stages(*)')
+    )
       .eq('id', id)
       .maybeSingle();
 
@@ -79,11 +86,12 @@ export class SupabasePipelineRepository extends BaseRepository implements Pipeli
   }
 
   async getStages(pipelineId: string): Promise<PipelineStage[]> {
-    const { data, error } = await this.supabase
-      .from('pipeline_stages')
-      .select('*')
-      .eq('pipeline_id', pipelineId)
-      .order('position', { ascending: true });
+    const { data, error } = await this.scopeToUser(
+      this.supabase
+        .from('pipeline_stages')
+        .select('*')
+        .eq('pipeline_id', pipelineId)
+    ).order('position', { ascending: true });
 
     if (error) this.handleError(error);
     return (data ?? []).map(this.mapStageToDomain);
