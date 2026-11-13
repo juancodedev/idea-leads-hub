@@ -112,6 +112,56 @@ describe("GET /api/leads", () => {
     expect(body.data[0].status).toBe("Nuevo");
   });
 
+  it("passes updatedSince to search() so a poller sees only changes", async () => {
+    mockSearch.mockResolvedValue({
+      data: [mockLead],
+      total: 1,
+      page: 1,
+      totalPages: 1,
+      limit: 25,
+    });
+
+    const request = new NextRequest(
+      new URL("http://localhost:3000/api/leads?source=Prospector&updatedSince=2026-11-12T00:00:00Z")
+    );
+    await GET(request);
+
+    expect(mockSearch).toHaveBeenCalledWith(
+      expect.objectContaining({ source: 'Prospector', updatedSince: '2026-11-12T00:00:00Z' })
+    );
+  });
+
+  it("passes order through so the caller can page forward", async () => {
+    mockSearch.mockResolvedValue({
+      data: [],
+      total: 0,
+      page: 1,
+      totalPages: 0,
+      limit: 25,
+    });
+
+    const request = new NextRequest(
+      new URL("http://localhost:3000/api/leads?updatedSince=2026-11-12T00:00:00Z&order=asc&sort=updatedAt")
+    );
+    await GET(request);
+
+    expect(mockSearch).toHaveBeenCalledWith(
+      expect.objectContaining({ updatedSince: '2026-11-12T00:00:00Z', order: 'asc', sort: 'updatedAt' })
+    );
+  });
+
+  it("answers 400 naming updatedSince when it is not an ISO-8601 instant", async () => {
+    const request = new NextRequest(
+      new URL("http://localhost:3000/api/leads?updatedSince=ayer")
+    );
+    const response = await GET(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.fields).toEqual({ updatedSince: 'Expected ISO-8601 date' });
+    expect(mockSearch).not.toHaveBeenCalled();
+  });
+
   it("should pass search query q to search()", async () => {
     mockSearch.mockResolvedValue({
       data: [mockLead],

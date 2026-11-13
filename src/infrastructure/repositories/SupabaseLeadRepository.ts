@@ -83,10 +83,11 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
       query,
       status,
       source,
-      sort = 'created_at',
-      order = 'desc',
+      sort,
+      order,
       page = 1,
       limit = 25,
+      updatedSince,
     } = params || {};
 
     let queryBuilder = this.scope(
@@ -113,13 +114,21 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
       queryBuilder = queryBuilder.eq('source', source);
     }
 
+    // Changes since an instant: the poller reads forward, so the default order
+    // flips to updated_at ascending to page without gaps.
+    if (updatedSince) {
+      queryBuilder = queryBuilder.gte('updated_at', updatedSince);
+    }
+
     // Map sort field to DB column
-    const sortField = SORT_FIELD_MAP[sort] || 'created_at';
+    const sortKey = sort ?? (updatedSince ? 'updatedAt' : 'createdAt');
+    const sortField = SORT_FIELD_MAP[sortKey] || 'created_at';
+    const ascending = order ? order === 'asc' : Boolean(updatedSince);
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
     const { data, error, count } = await queryBuilder
-      .order(sortField, { ascending: order === 'asc' })
+      .order(sortField, { ascending })
       .range(from, to);
 
     if (error) this.handleError(error);

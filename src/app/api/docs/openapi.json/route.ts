@@ -1226,7 +1226,9 @@ const openapi = {
     "/api/leads": {
       get: {
         summary: "Listar leads",
-        description: "Lista paginada de leads. Acepta sesión de usuario o API key del CRM.",
+        description:
+          "Lista paginada de leads. Acepta sesión de usuario o API key del CRM.\\n\\n" +
+          "**Sincronización inversa:** con `updatedSince` devuelve solo los leads modificados desde ese instante, lo que permite que una integración detecte cambios hechos en el CRM (por ejemplo marcar a alguien como no contactar) y corte sus seguimientos. El orden por defecto pasa a `updatedAt` ascendente para paginar sin huecos; usá `limit` + `page` y quedate con el `updatedAt` más alto como próximo cursor.",
         tags: ["Leads"],
         security: [{ supabaseAuth: [] }, { apiKeyAuth: [] }],
         parameters: [
@@ -1252,6 +1254,14 @@ const openapi = {
             description: "Búsqueda por nombre, empresa, email o externalId",
           },
           {
+            name: "updatedSince",
+            in: "query",
+            required: false,
+            schema: { type: "string", format: "date-time", example: "2026-11-12T00:00:00Z" },
+            description:
+              "Solo leads cuyo updatedAt es mayor o igual a este instante ISO-8601. Un valor inválido responde 400 con `fields.updatedSince`",
+          },
+          {
             name: "sort",
             in: "query",
             required: false,
@@ -1259,13 +1269,14 @@ const openapi = {
               type: "string",
               enum: ["name", "company", "email", "status", "createdAt", "updatedAt", "estimatedValue", "opportunityScore", "rating"],
             },
-            description: "Campo de ordenamiento",
+            description: "Campo de ordenamiento. Con `updatedSince` el default es `updatedAt`",
           },
           {
             name: "order",
             in: "query",
             required: false,
             schema: { type: "string", enum: ["asc", "desc"], default: "desc" },
+            description: "Con `updatedSince` el default es `asc`",
           },
           {
             name: "page",

@@ -208,6 +208,28 @@ Las API keys habilitan `GET/POST /api/leads`, `GET/PATCH /api/leads/:id`,
 `POST /api/activities` y `PATCH /api/leads/:id/status`. `DELETE /api/leads/:id` sigue
 requiriendo sesión de usuario.
 
+#### Sincronización inversa (`updatedSince`)
+
+`GET /api/leads?updatedSince=<iso>` devuelve solo los leads modificados desde ese
+instante, que es lo que permite la vuelta CRM → integración (por ejemplo, cortar los
+seguimientos cuando el usuario marca a alguien como no contactar).
+
+```bash
+curl "https://crm.juancode.dev/api/leads?source=Prospector&updatedSince=2026-11-12T00:00:00Z&limit=100" \
+  -H "X-API-Key: crm_..."
+```
+
+- El orden por defecto pasa a `updatedAt` **ascendente**: paginá con `limit` + `page` y
+  quedate con el `updatedAt` más alto como próximo cursor (`updatedSince`), así no se
+  pierde ningún cambio entre una consulta y la siguiente.
+- `updatedSince` inválido responde 400 con `fields.updatedSince`.
+- Cada lead trae `id`, `externalId`, `status` y `updatedAt`, que es lo mínimo para
+  decidir si se corta la secuencia.
+
+Para distinguir "no contactar" de un cierre normal, creá una etapa
+`No contactar` en el pipeline: el catálogo de `/api/leads/statuses` la publica y el
+poll la devuelve como `status`.
+
 ### Profile
 
 | Método | Path | Descripción |
@@ -219,7 +241,7 @@ requiriendo sesión de usuario.
 
 | Método | Path | Descripción |
 |--------|------|-------------|
-| GET | `/api/leads` | Listar leads paginados (filtros: `status`, `source`, `q`; orden por `opportunityScore`, `rating`, etc.) |
+| GET | `/api/leads` | Listar leads paginados (filtros: `status`, `source`, `q`, `updatedSince`; orden por `opportunityScore`, `rating`, etc.) |
 | POST | `/api/leads` | Crear lead; con `externalId` hace upsert (201 al crear, 200 al actualizar) y actualiza solo los campos enviados. English camelCase es el contrato canónico; los campos en español siguen aceptándose como alias deprecated |
 | GET | `/api/leads/:id` | Obtener lead |
 | PATCH | `/api/leads/:id` | Actualizar lead (campos en inglés; `''` limpia el valor) |

@@ -8,6 +8,11 @@ export interface LeadSearchParams {
   order?: 'asc' | 'desc';
   page?: number;
   limit?: number;
+  /**
+   * Only leads whose `updated_at` is at or after this ISO-8601 instant. Used by
+   * integrations that poll the CRM for changes (status, do-not-contact).
+   */
+  updatedSince?: string;
 }
 
 export interface PaginatedResult<T> {

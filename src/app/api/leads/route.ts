@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { apiHandler } from '@/lib/api/api-handler';
 import { withAuth } from '@/lib/api/with-auth';
 import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLeadRepository';
@@ -6,6 +7,9 @@ import { CreateLead } from '@/core/application/leads/CreateLead';
 import { buildLeadCreateDTO, buildLeadPatch } from '@/core/application/leads/leadPayload';
 import { ApiCreateLeadSchema } from '@/core/domain/LeadSchema';
 import { fieldErrors } from '@/lib/api/validation';
+
+/** `updatedSince` accepts an ISO-8601 instant with a Z or a numeric offset. */
+const IsoInstant = z.string().datetime({ offset: true });
 
 /**
  * @openapi
@@ -79,13 +83,26 @@ export const GET = apiHandler(async (request: NextRequest) => {
   const { supabase, scopedUserId } = await withAuth(request, { allowApiKey: true });
   const { searchParams } = new URL(request.url);
 
+  const updatedSinceParam = searchParams.get('updatedSince');
+  if (updatedSinceParam !== null) {
+    const parsed = IsoInstant.safeParse(updatedSinceParam);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Error de validación', fields: { updatedSince: 'Expected ISO-8601 date' } },
+        { status: 400 }
+      );
+    }
+  }
+
+  const orderParam = searchParams.get('order');
   const repo = new SupabaseLeadRepository(supabase, scopedUserId);
   const result = await repo.search({
     query: searchParams.get('q') ?? undefined,
     status: searchParams.get('status') ?? undefined,
     source: searchParams.get('source') ?? undefined,
     sort: searchParams.get('sort') ?? undefined,
-    order: (searchParams.get('order') === 'asc' ? 'asc' : 'desc') as 'asc' | 'desc',
+    order: orderParam === 'asc' ? 'asc' : orderParam === 'desc' ? 'desc' : undefined,
+    updatedSince: updatedSinceParam ?? undefined,
     page: parseInt(searchParams.get('page') || '1', 10) || 1,
     limit: parseInt(searchParams.get('limit') || '25', 10) || 25,
   });
