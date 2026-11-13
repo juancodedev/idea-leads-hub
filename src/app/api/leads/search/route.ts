@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiHandler } from "@/lib/api/api-handler";
 import { withAuth } from "@/lib/api/with-auth";
 import { SupabaseLeadRepository } from "@/infrastructure/repositories/SupabaseLeadRepository";
 
@@ -11,7 +12,7 @@ const VALID_SORT_FIELDS = new Set([
   "createdAt", "name", "company", "email", "status",
 ]);
 
-export async function GET(request: NextRequest) {
+export const GET = apiHandler(async (request: NextRequest) => {
   const { supabase, scopedUserId } = await withAuth(request, { allowApiKey: true });
 
   const { searchParams } = new URL(request.url);
@@ -69,4 +70,4 @@ export async function GET(request: NextRequest) {
   }));
 
   return NextResponse.json(results);
-}
+});
