@@ -181,9 +181,20 @@ cambió en el CRM. `null` o campo ausente = conservar; `""` = borrar.
 
 **Estados.** `status` no es una lista fija: los valores válidos son las **etapas del
 pipeline del usuario**. `GET /api/leads/statuses` (con API key) devuelve el catálogo
-vigente y `PATCH /api/leads/:id/status` valida contra esa misma lista. Las etapas por
-defecto son `Nuevo`, `Contactado`, `Interesado`, `Propuesta`, `Ganado`, `Perdido`, y el
-mapeo recomendado desde el Prospector es:
+vigente como un array de `{ value, label, doNotContact }`: `value` es lo que va en
+`lead.status` y `doNotContact: true` marca los estados que significan "no escribirle
+más a este lead" (se configura por etapa con `isDoNotContact`). Las etapas por
+defecto son `Nuevo`, `Contactado`, `Interesado`, `Propuesta`, `Ganado`, `Perdido`
+(`Perdido` sale con `doNotContact: true`):
+
+```json
+[
+  { "value": "Nuevo", "label": "Nuevo", "doNotContact": false },
+  { "value": "Perdido", "label": "Perdido", "doNotContact": true }
+]
+```
+
+Mapeo recomendado desde el Prospector:
 
 | Prospector | CRM |
 |------------|-----|
@@ -210,25 +221,29 @@ requiriendo sesión de usuario.
 
 #### Sincronización inversa (`updatedSince`)
 
-`GET /api/leads?updatedSince=<iso>` devuelve solo los leads modificados desde ese
-instante, que es lo que permite la vuelta CRM → integración (por ejemplo, cortar los
-seguimientos cuando el usuario marca a alguien como no contactar).
+`GET /api/leads?updatedSince=<iso>` devuelve solo los leads cuyo **estado cambió**
+desde ese instante (`statusChangedAt`), que es lo que permite la vuelta CRM →
+integración (por ejemplo, cortar los seguimientos cuando el usuario marca a alguien
+como no contactar). Un push de datos de contacto no mueve `statusChangedAt`, así que
+no vuelve como un cambio hecho en el CRM.
 
 ```bash
 curl "https://crm.juancode.dev/api/leads?source=Prospector&updatedSince=2026-11-12T00:00:00Z&limit=100" \
   -H "X-API-Key: crm_..."
 ```
 
-- El orden por defecto pasa a `updatedAt` **ascendente**: paginá con `limit` + `page` y
-  quedate con el `updatedAt` más alto como próximo cursor (`updatedSince`), así no se
-  pierde ningún cambio entre una consulta y la siguiente.
+- El orden por defecto pasa a `statusChangedAt` **ascendente**: paginá con `limit` +
+  `page`.
+- La respuesta trae `serverTime`: guardalo de la primera página y usalo como próximo
+  `updatedSince`, en vez del reloj del cliente, así no se pierde ningún cambio entre
+  una consulta y la siguiente.
 - `updatedSince` inválido responde 400 con `fields.updatedSince`.
-- Cada lead trae `id`, `externalId`, `status` y `updatedAt`, que es lo mínimo para
-  decidir si se corta la secuencia.
+- Cada lead trae `id`, `externalId`, `status` y `statusChangedAt`; cruzá `status` con
+  el catálogo para saber si es `doNotContact` y cortar la secuencia.
 
-Para distinguir "no contactar" de un cierre normal, creá una etapa
-`No contactar` en el pipeline: el catálogo de `/api/leads/statuses` la publica y el
-poll la devuelve como `status`.
+Para distinguir "no contactar" de un cierre normal, creá una etapa `No contactar` y
+marcala con `isDoNotContact: true`: el catálogo la publica con `doNotContact: true` y
+el poll la devuelve como `status`.
 
 ### Profile
 

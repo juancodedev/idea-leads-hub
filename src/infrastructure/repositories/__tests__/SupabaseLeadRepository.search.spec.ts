@@ -65,14 +65,16 @@ function repoWith(query: FakeQuery): SupabaseLeadRepository {
 }
 
 describe('SupabaseLeadRepository.search — updatedSince', () => {
-  it('filters by updated_at at or after the given instant', async () => {
+  it('filters by status_changed_at, not updated_at', async () => {
     const query = new FakeQuery();
     await repoWith(query).search({ updatedSince: '2026-11-12T00:00:00Z' });
 
     expect(query.calls).toContainEqual({
       method: 'gte',
-      args: ['updated_at', '2026-11-12T00:00:00Z'],
+      args: ['status_changed_at', '2026-11-12T00:00:00Z'],
     });
+    // A Prospector push of contact data must not count as a CRM change.
+    expect(query.calls.some((c) => c.method === 'gte' && c.args[0] === 'updated_at')).toBe(false);
   });
 
   it('reads forward by default, so a cursor pages without gaps', async () => {
@@ -81,7 +83,7 @@ describe('SupabaseLeadRepository.search — updatedSince', () => {
 
     expect(query.calls).toContainEqual({
       method: 'order',
-      args: ['updated_at', { ascending: true }],
+      args: ['status_changed_at', { ascending: true }],
     });
   });
 
@@ -122,7 +124,7 @@ describe('SupabaseLeadRepository.search — updatedSince', () => {
     expect(query.calls).toContainEqual({ method: 'eq', args: ['source', 'Prospector'] });
     expect(query.calls).toContainEqual({
       method: 'gte',
-      args: ['updated_at', '2026-11-12T00:00:00Z'],
+      args: ['status_changed_at', '2026-11-12T00:00:00Z'],
     });
   });
 });

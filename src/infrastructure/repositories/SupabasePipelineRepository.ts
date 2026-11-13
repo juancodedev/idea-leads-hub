@@ -109,6 +109,7 @@ export class SupabasePipelineRepository extends BaseRepository implements Pipeli
         color: stage.color,
         is_closed: stage.isClosed,
         is_won: stage.isWon,
+        is_do_not_contact: stage.isDoNotContact ?? false,
         user_id: userId
       }] as never)
       .select()
@@ -125,6 +126,7 @@ export class SupabasePipelineRepository extends BaseRepository implements Pipeli
     if (stage.color) dbUpdates.color = stage.color;
     if (stage.isClosed !== undefined) dbUpdates.is_closed = stage.isClosed;
     if (stage.isWon !== undefined) dbUpdates.is_won = stage.isWon;
+    if (stage.isDoNotContact !== undefined) dbUpdates.is_do_not_contact = stage.isDoNotContact;
 
     const { data, error } = await this.supabase
       .from('pipeline_stages')
@@ -175,6 +177,7 @@ export class SupabasePipelineRepository extends BaseRepository implements Pipeli
       color: row.color,
       isClosed: row.is_closed,
       isWon: row.is_won,
+      isDoNotContact: row.is_do_not_contact,
       createdAt: row.created_at,
     };
   }

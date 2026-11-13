@@ -131,6 +131,27 @@ describe("GET /api/leads", () => {
     );
   });
 
+  it("returns serverTime captured before the query, so the cursor never gaps", async () => {
+    mockSearch.mockResolvedValue({
+      data: [],
+      total: 0,
+      page: 1,
+      totalPages: 0,
+      limit: 25,
+    });
+
+    const before = Date.now();
+    const response = await GET(
+      new NextRequest(new URL("http://localhost:3000/api/leads?updatedSince=2026-11-12T00:00:00Z"))
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(typeof body.serverTime).toBe("string");
+    expect(new Date(body.serverTime).getTime()).toBeGreaterThanOrEqual(before);
+    expect(new Date(body.serverTime).getTime()).toBeLessThanOrEqual(Date.now());
+  });
+
   it("passes order through so the caller can page forward", async () => {
     mockSearch.mockResolvedValue({
       data: [],

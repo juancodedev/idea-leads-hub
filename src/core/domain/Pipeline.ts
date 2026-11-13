@@ -16,6 +16,8 @@ export interface PipelineStage {
   color: string;
   isClosed: boolean;
   isWon: boolean;
+  /** True when reaching this status means "stop writing to this lead". */
+  isDoNotContact?: boolean;
   createdAt: string;
 }
 
@@ -31,4 +33,6 @@ export interface CreatePipelineStageDTO {
   color?: string;
   isClosed?: boolean;
   isWon?: boolean;
+  /** True when reaching this status means "stop writing to this lead". */
+  isDoNotContact?: boolean;
 }

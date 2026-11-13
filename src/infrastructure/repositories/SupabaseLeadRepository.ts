@@ -34,6 +34,7 @@ const SORT_FIELD_MAP: Record<string, string> = {
   status: 'status',
   createdAt: 'created_at',
   updatedAt: 'updated_at',
+  statusChangedAt: 'status_changed_at',
   estimatedValue: 'estimated_value',
   opportunityScore: 'opportunity_score',
   rating: 'rating',
@@ -114,14 +115,15 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
       queryBuilder = queryBuilder.eq('source', source);
     }
 
-    // Changes since an instant: the poller reads forward, so the default order
-    // flips to updated_at ascending to page without gaps.
+    // Changes since an instant: only a status change counts, so a Prospector
+    // push of contact data does not look like a change made in the CRM. The
+    // poller reads forward, so the default order flips to ascending.
     if (updatedSince) {
-      queryBuilder = queryBuilder.gte('updated_at', updatedSince);
+      queryBuilder = queryBuilder.gte('status_changed_at', updatedSince);
     }
 
     // Map sort field to DB column
-    const sortKey = sort ?? (updatedSince ? 'updatedAt' : 'createdAt');
+    const sortKey = sort ?? (updatedSince ? 'statusChangedAt' : 'createdAt');
     const sortField = SORT_FIELD_MAP[sortKey] || 'created_at';
     const ascending = order ? order === 'asc' : Boolean(updatedSince);
     const from = (page - 1) * limit;
@@ -355,6 +357,7 @@ export class SupabaseLeadRepository extends BaseRepository implements LeadReposi
       estimatedValue: row.estimated_value ?? undefined,
       nextFollowUp: row.next_follow_up ?? undefined,
       externalId: row.external_id ?? undefined,
+      statusChangedAt: row.status_changed_at ?? undefined,
       city: row.city ?? undefined,
       industry: row.industry ?? undefined,
       opportunityScore: row.opportunity_score ?? undefined,

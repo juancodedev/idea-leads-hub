@@ -95,6 +95,9 @@ export const GET = apiHandler(async (request: NextRequest) => {
   }
 
   const orderParam = searchParams.get('order');
+  // Captured before the query so anything that changes during it is still newer
+  // than the cursor the client will use next.
+  const serverTime = new Date().toISOString();
   const repo = new SupabaseLeadRepository(supabase, scopedUserId);
   const result = await repo.search({
     query: searchParams.get('q') ?? undefined,
@@ -113,6 +116,8 @@ export const GET = apiHandler(async (request: NextRequest) => {
     page: result.page,
     totalPages: result.totalPages,
     limit: result.limit,
+    /** Use as the next `updatedSince` instead of the client's own clock. */
+    serverTime,
   }, { status: 200 });
 });
 

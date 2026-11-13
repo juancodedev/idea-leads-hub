@@ -12,6 +12,8 @@ const UpdateStageSchema = z.object({
   color: z.string().optional(),
   isClosed: z.boolean().optional(),
   isWon: z.boolean().optional(),
+  /** Reaching this stage means "stop writing to this lead". */
+  isDoNotContact: z.boolean().optional(),
 });
 
 export const PATCH = apiHandler(async (request: NextRequest, context: { params: Promise<{ id: string; stageId: string }> }) => {

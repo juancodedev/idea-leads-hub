@@ -36,6 +36,14 @@ Test runner: `jest` via `pnpm test`. Lint: `eslint .`, types: `tsc --noEmit`.
   default so a poller pages without gaps. This is the enabler for the reverse sync:
   the integration detects a lead the user marked as do-not-contact and stops its
   sequence. A malformed value answers 400 with `fields.updatedSince`.
+- **S4d (Phase A, two-way sync).** "Despliega solo la Fase A (catálogo, statusChangedAt,
+  serverTime, sin rechazo)." The catalog is a bare array of `{ value, label,
+  doNotContact }`; stages carry `is_do_not_contact`; `updatedSince` filters on
+  `status_changed_at`, which only a status change moves; `GET /api/leads` returns
+  `serverTime` as the next cursor. Unknown statuses are still stored, not rejected.
+- **S4e (Phase B, off until the Prospector confirms).** "el rechazo debe ir en los tres
+  puntos que escriben status (POST /api/leads, PATCH /api/leads/{id} y PATCH /status),
+  con la misma validación compartida." Ships in its own commit.
 - **Out of scope:** item 8 (CRM → Prospector do-not-contact sync) is explicitly
   labelled "Phase 2" in the request and is not implemented here.
 
@@ -52,6 +60,8 @@ Test runner: `jest` via `pnpm test`. Lint: `eslint .`, types: `tsc --noEmit`.
 | T7 | Regression fix: restore the GET tests the new activities spec overwrote | — | inline | done |
 | T8 | Status catalog endpoint + mapping table (PR #93) | S4b | inline | done |
 | T9 | `updatedSince` filter on `GET /api/leads` (same PR) | S4c | inline | done |
+| T10 | Phase A: catalog shape, `is_do_not_contact`, `status_changed_at`, `serverTime` | S4d | inline | done |
+| T11 | Phase B: shared status validation on the three write paths | S4e | inline | blocked (waiting for the Prospector deploy) |
 
 ## Log
 
@@ -90,3 +100,9 @@ Test runner: `jest` via `pnpm test`. Lint: `eslint .`, types: `tsc --noEmit`.
   them and `PATCH /api/leads/{id}/status` already validated against the same list.
   A `status` that matches no stage is stored but leaves `stage_id` NULL, so the
   mapping is documented: the client must map before sending.
+- **L11 (verbatim request):** "Deja la Fase B apagada. Despliega solo la Fase A (catálogo,
+  statusChangedAt, serverTime, sin rechazo). [...] 4. Recién ahí activas la Fase B, en su
+  propio commit." and "¿Qué values vas a publicar y cuáles llevan doNotContact?"
+- **L12:** The OpenCode session stopped at the free usage limit mid-edit, leaving a
+  double-escaped string in the OpenAPI route. Fixed; `tsc --noEmit` clean; `jest` 117
+  suites / 869 tests pass. The migration was not run against a database in this session.
