@@ -3,7 +3,9 @@ import { apiHandler } from '@/lib/api/api-handler';
 import { withAuth } from '@/lib/api/with-auth';
 import { SupabaseLeadRepository } from '@/infrastructure/repositories/SupabaseLeadRepository';
 import { CreateLead } from '@/core/application/leads/CreateLead';
+import { buildLeadCreateDTO, buildLeadPatch } from '@/core/application/leads/leadPayload';
 import { ApiCreateLeadSchema } from '@/core/domain/LeadSchema';
+import { fieldErrors } from '@/lib/api/validation';
 
 /**
  * @openapi
@@ -107,7 +109,7 @@ export const POST = apiHandler(async (request: NextRequest) => {
     return NextResponse.json(
       {
         error: 'Error de validación',
-        details: validation.error.format()
+        fields: fieldErrors(validation.error),
       },
       { status: 400 }
     );
@@ -118,41 +120,20 @@ export const POST = apiHandler(async (request: NextRequest) => {
   // Dependency Injection (Hexagonal Architecture)
   const repository = new SupabaseLeadRepository(supabase, scopedUserId);
 
-  // English is the canonical contract; Spanish aliases stay for backward compat.
-  const dto = {
-    company: data.company || data.empresa!,
-    email: data.email,
-    source: data.source || data.origen!,
-    name: data.name || data.nombre || data.company || data.empresa!,
-    phone: data.phone || data.telefono,
-    address: data.address || data.direccion,
-    website: data.website || data.sitio_web,
-    notes: data.notes || data.notas,
-    status: data.status || 'Nuevo',
-    instagramHandle: data.instagramHandle,
-    instagramScopedId: data.instagramScopedId,
-    jobTitle: data.jobTitle,
-    linkedinUrl: data.linkedinUrl,
-    estimatedValue: data.estimatedValue,
-    nextFollowUp: data.nextFollowUp,
-    externalId: data.externalId,
-    city: data.city,
-    industry: data.industry,
-    opportunityScore: data.opportunityScore,
-    rating: data.rating,
-    reviewsCount: data.reviewsCount,
-  };
-
-  if (dto.externalId) {
-    const { lead, created } = await repository.upsertByExternalId({
-      ...dto,
-      externalId: dto.externalId,
-    });
+  if (data.externalId) {
+    // Defaults (status 'Nuevo', name = company) are applied only when the lead
+    // is actually created. On update, only the fields the client sent are
+    // written, so a re-send cannot reset what the user changed in the CRM.
+    const { lead, created } = await repository.upsertByExternalId(
+      data.externalId,
+      buildLeadCreateDTO(data),
+      buildLeadPatch(data)
+    );
     return NextResponse.json(lead, { status: created ? 201 : 200 });
   }
 
   const useCase = new CreateLead(repository);
-  const lead = await useCase.execute(dto);
+  const lead = await useCase.execute(buildLeadCreateDTO(data));
 
   return NextResponse.json(lead, { status: 201 });
 });
