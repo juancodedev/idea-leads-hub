@@ -136,11 +136,53 @@ curl -X POST https://crm.juancode.dev/api/leads \
   -H "Content-Type: application/json" \
   -d '{"company":"Acme","source":"Prospector","externalId":"acme.com","city":"Rosario","industry":"Retail","opportunityScore":87,"rating":4.5,"reviewsCount":132}'
 # 201 si el externalId era nuevo, 200 si actualizó el existente
+
+# 3. Registrar el correo enviado como actividad (idempotente)
+curl -X POST https://crm.juancode.dev/api/activities \
+  -H "X-API-Key: crm_..." \
+  -H "Content-Type: application/json" \
+  -d '{"externalId":"acme.com#correo-1","type":"EMAIL","title":"Correo 1","status":"COMPLETED","completedAt":"2026-11-12T15:04:00Z","leadId":"<uuid>"}'
+
+# 4. Guardar la investigación como nota (idempotente, no pisa `notes` del lead)
+curl -X POST https://crm.juancode.dev/api/notes \
+  -H "X-API-Key: crm_..." \
+  -H "Content-Type: application/json" \
+  -d '{"externalId":"acme.com#investigacion","entityType":"lead","entityId":"<uuid>","content":"..."}'
+
+# 5. Marcar el estado cuando el usuario responde
+curl -X PATCH https://crm.juancode.dev/api/leads/<uuid>/status \
+  -H "X-API-Key: crm_..." \
+  -H "Content-Type: application/json" \
+  -d '{"status":"Interesado"}'
 ```
 
-Las API keys habilitan `GET/POST /api/leads`, `GET/PATCH /api/leads/:id` y
-`GET /api/leads/search`. `DELETE /api/leads/:id` y los cambios de estado siguen
-requiriendo sesión de usuario.
+**Contrato del upsert.** En la actualización por `externalId` solo se escriben los
+campos que enviaste. Los defaults (`status: "Nuevo"`, `name` = compañía) se aplican
+solo al crear, así que un `POST` de actualización nunca pisa el estado que el usuario
+cambió en el CRM. `null` o campo ausente = conservar; `""` = borrar.
+
+**Mapeo de nombres** (lo que manda el Prospector → lo que guarda el CRM):
+
+| Prospector | CRM | Notas |
+|------------|-----|-------|
+| dominio del negocio | `externalId` | clave del upsert del lead |
+| nombre / razón social | `company` | obligatorio |
+| contacto | `name` | si falta, se usa `company` |
+| sitio web | `website` | URL completa |
+| comuna / ciudad | `city` | |
+| rubro / categoría | `industry` | |
+| puntaje | `opportunityScore` | entero 0-100 |
+| reseñas / rating | `rating` | 0-5, acepta `"4.9"` |
+| cantidad de reseñas | `reviewsCount` | entero ≥ 0 |
+| asunto del correo | `title` | en la actividad |
+| cuerpo / link del correo | `description` | en la actividad |
+| fecha del correo | `completedAt` | ISO-8601, no es fecha de vencimiento |
+| id del paso de la secuencia | `externalId` | en nota o actividad, ej. `"acme.com#correo-1"` |
+
+Las API keys habilitan `GET/POST /api/leads`, `GET/PATCH /api/leads/:id`,
+`GET /api/leads/search`, `POST /api/notes`, `POST /api/activities` y
+`PATCH /api/leads/:id/status`. `DELETE /api/leads/:id` sigue requiriendo sesión de
+usuario.
 
 ### Profile
 
@@ -154,11 +196,11 @@ requiriendo sesión de usuario.
 | Método | Path | Descripción |
 |--------|------|-------------|
 | GET | `/api/leads` | Listar leads paginados (filtros: `status`, `source`, `q`; orden por `opportunityScore`, `rating`, etc.) |
-| POST | `/api/leads` | Crear lead; con `externalId` hace upsert (201 al crear, 200 al actualizar). English camelCase es el contrato canónico; los campos en español siguen aceptándose como alias deprecated |
+| POST | `/api/leads` | Crear lead; con `externalId` hace upsert (201 al crear, 200 al actualizar) y actualiza solo los campos enviados. English camelCase es el contrato canónico; los campos en español siguen aceptándose como alias deprecated |
 | GET | `/api/leads/:id` | Obtener lead |
 | PATCH | `/api/leads/:id` | Actualizar lead (campos en inglés; `''` limpia el valor) |
 | DELETE | `/api/leads/:id` | Eliminar lead (solo sesión) |
-| PATCH | `/api/leads/:id/status` | Cambiar estado (solo sesión) |
+| PATCH | `/api/leads/:id/status` | Cambiar estado (sesión o API key) |
 | GET | `/api/leads/search` | Búsqueda ligera por `q` (nombre, empresa, email o externalId) |
 
 ### Ideas
@@ -177,7 +219,7 @@ requiriendo sesión de usuario.
 | Método | Path | Descripción |
 |--------|------|-------------|
 | GET | `/api/activities` | Listar actividades (filtros: `leadId`, `ideaId`) |
-| POST | `/api/activities` | Crear actividad |
+| POST | `/api/activities` | Crear actividad; con `externalId` hace upsert (201/200) |
 | GET | `/api/activities/:id` | Obtener actividad |
 | PATCH | `/api/activities/:id` | Actualizar actividad |
 | DELETE | `/api/activities/:id` | Eliminar actividad |
@@ -213,7 +255,7 @@ requiriendo sesión de usuario.
 | Método | Path | Descripción |
 |--------|------|-------------|
 | GET | `/api/notes` | Listar notas por entidad (`entityId` + `entityType`) |
-| POST | `/api/notes` | Crear nota |
+| POST | `/api/notes` | Crear nota; con `externalId` hace upsert (201/200) |
 | PATCH | `/api/notes/:id` | Actualizar nota |
 | DELETE | `/api/notes/:id` | Eliminar nota |
 

@@ -1,0 +1,68 @@
+# Prospector ↔ CRM integration contract
+
+Branch `feat/prospector-crm-contract`. Delivery: work-unit commits, one PR.
+Test runner: `jest` via `pnpm test`. Lint: `eslint .`, types: `tsc --noEmit`.
+
+## Specs
+
+- **S1 (blocker).** `POST /api/leads` with `externalId` must not overwrite fields the
+  client did not send. Defaults (`status: "Nuevo"`, `name` = `company`) apply only on
+  create. Verification quoted from the request: "create with status "Interesado",
+  upsert again without status, then expect "Interesado"."
+- **S2.** On the upsert update path: absent or `null` = keep, `""` = clear. PATCH
+  `/api/leads/{id}` keeps its current `""` = clear behavior.
+- **S3.** API keys must be accepted on `POST /api/notes`, `POST /api/activities` and
+  `PATCH /api/leads/{id}/status`. Because those requests run on the service-role
+  client, every query and every referenced parent entity is scoped to the key owner.
+- **S4.** Optional `externalId`, unique per user, on notes and activities, with the
+  same upsert behavior as leads: 201 create, 200 update. Example ids from the request:
+  `"cafe-lindo.cl#correo-1"`, `"cafe-lindo.cl#investigacion"`.
+- **S5.** 200 and 201 from `POST /api/leads` always include `id`, and `/api/*` must
+  never answer with a redirect (the client does not follow them, so the key would be
+  dropped).
+- **S6.** Validation failures answer
+  `{"error": "...", "fields": {"rating": "Expected number"}}`.
+- **S7 (optional).** Numeric strings are accepted for `rating`, `reviewsCount`,
+  `opportunityScore`, `estimatedValue`: `"4.9"` → `4.9`.
+- **S8.** `/api/docs` and README document the contract, including the name mapping the
+  client needs for item 4.
+- **Out of scope:** item 8 (CRM → Prospector do-not-contact sync) is explicitly
+  labelled "Phase 2" in the request and is not implemented here.
+
+## Tasks
+
+| ID | Task | Specs | Route | Status |
+|----|------|-------|-------|--------|
+| T1 | Upsert partial update + null tolerance + name/status defaults only on create | S1, S2, S7 | inline | done |
+| T2 | API key on notes, activities, status; scope every machine query | S3 | inline | done |
+| T3 | `externalId` on notes and activities: migration, types, repos, routes | S4 | inline | done |
+| T4 | 400 `fields` shape and tolerant numeric parsing | S6, S7 | inline | done |
+| T5 | OpenAPI + README, including the field-name map | S8 | inline | done |
+| T6 | PR and deploy verification | S5 | inline | pending |
+| T7 | Regression fix: restore the GET tests the new activities spec overwrote | — | inline | done |
+
+## Log
+
+- **L1 (verbatim request):** "CRM changes so Prospector and the CRM work together.
+  Prospector pushes a lead with: POST /api/leads, header X-API-Key, externalId =
+  business domain." Followed by items 1–8 (item 4 arrived truncated; item 8 is
+  Phase 2).
+- **L2:** Item 1 reproduced in code: `src/app/api/leads/route.ts` built one DTO with
+  `status: data.status || 'Nuevo'` and `name: data.name || data.company`, and
+  `upsertByExternalId` fed that DTO to `update()`, so every re-send reset the status.
+- **L3:** `null` was also a hard 400 for every optional string, so a client sending
+  JSON nulls for unknown fields could not integrate at all. Fixed with `.nullish()`
+  and by treating `null` as "not sent".
+- **L4:** `BaseRepository` now owns `resolveUserId()`/`scopeToUser()`; the lead, note,
+  activity and pipeline repositories take the optional `scopedUserId` and filter
+  every machine-path query by it.
+- **L5 (verification):** `tsc --noEmit` clean; `jest` 115 suites / 848 tests pass;
+  `eslint .` 0 errors, 12 pre-existing warnings. The regression test quoted in S1
+  lives in `leadPayload.spec.ts` ("create with status Interesado, re-send without
+  status keeps Interesado").
+- **L6:** The first version of `src/app/api/activities/__tests__/route.spec.ts`
+  replaced the file instead of extending it, dropping 2 GET tests. Restored them and
+  kept the new POST cases in the same spec (T7).
+- **L7:** Note on item 4: the request arrived truncated ("the CRM uses other names,
+  say which ones and Prospector maps to them"). Resolved as documentation, not new
+  columns: the name map is in `README.md` and `/api/docs`.
